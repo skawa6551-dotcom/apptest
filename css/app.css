@@ -1,0 +1,347 @@
+/* ============================================================
+   app.css
+   アプリ全体の共通スタイル：CSSリセット、テーマ変数（:root / [data-theme]）、
+   Safe Area対応、共通ボタン、タイポグラフィ、共通アニメーションを担当する。
+   電卓画面固有のスタイルは calculator.css、設定画面固有のスタイルは
+   settings.css に置く。
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   CSS変数：構造・モーション（テーマに依存しない）
+   ------------------------------------------------------------ */
+:root {
+  /* 余白スケール */
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs: 0.75rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
+  --space-xl: 3rem;
+
+  /* 角丸 */
+  --radius-sm: 0.75rem;
+  --radius-md: 1.25rem;
+  --radius-lg: 1.75rem;
+  --radius-full: 999px;
+
+  /* タイポグラフィ */
+  --font-family-base: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.75rem;
+  --font-size-display: clamp(2.5rem, 12vw, 4.5rem);
+
+  /* モーション（prefers-reduced-motionで一括上書きされる） */
+  --duration-fast: 100ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --easing-standard: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* 質感（ガラス/ネオモーフィズム） */
+  --blur-glass: 1.25rem;
+  --shadow-neumorphic-out: 0.375rem 0.375rem 0.875rem rgba(0, 0, 0, 0.45), -0.375rem -0.375rem 0.875rem rgba(255, 255, 255, 0.03);
+  --shadow-neumorphic-in: inset 0.1875rem 0.1875rem 0.5rem rgba(0, 0, 0, 0.5), inset -0.1875rem -0.1875rem 0.5rem rgba(255, 255, 255, 0.03);
+  --shadow-elevated: 0 1.25rem 2.8rem rgba(0, 0, 0, 0.45);
+
+  /* レイヤー */
+  --z-header: 10;
+  --z-overlay: 100;
+  --z-lock: 200;
+
+  /* Safe Area（ノッチ・Dynamic Island対応） */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* エラー表示色（テーマに関わらず固定） */
+  --color-error: #ff6b6b;
+}
+
+/* ------------------------------------------------------------
+   CSS変数：色（テーマ依存）
+   :root の値が既定（ダークテーマと同値）。data-theme属性で上書きする。
+   ------------------------------------------------------------ */
+:root,
+[data-theme="dark"] {
+  --color-bg: #0b0b0f;
+  --color-surface: rgba(255, 255, 255, 0.06);
+  --color-surface-strong: rgba(255, 255, 255, 0.1);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-text-primary: #f5f5f7;
+  --color-text-secondary: #8e8e93;
+  --color-accent: #c9a96a;
+  --color-accent-contrast: #0b0b0f;
+}
+
+[data-theme="midnight"] {
+  --color-bg: #070b14;
+  --color-surface: rgba(255, 255, 255, 0.05);
+  --color-surface-strong: rgba(255, 255, 255, 0.09);
+  --color-border: rgba(255, 255, 255, 0.07);
+  --color-text-primary: #eaf0fa;
+  --color-text-secondary: #7c8aa3;
+  --color-accent: #5b8def;
+  --color-accent-contrast: #070b14;
+}
+
+[data-theme="blue"] {
+  --color-bg: #0a1420;
+  --color-surface: rgba(255, 255, 255, 0.06);
+  --color-surface-strong: rgba(255, 255, 255, 0.1);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-text-primary: #eaf4ff;
+  --color-text-secondary: #7fa7c9;
+  --color-accent: #3aa0ff;
+  --color-accent-contrast: #0a1420;
+}
+
+[data-theme="purple"] {
+  --color-bg: #120b1a;
+  --color-surface: rgba(255, 255, 255, 0.06);
+  --color-surface-strong: rgba(255, 255, 255, 0.1);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-text-primary: #f1e9fa;
+  --color-text-secondary: #9a85b3;
+  --color-accent: #a876e0;
+  --color-accent-contrast: #120b1a;
+}
+
+[data-theme="gold"] {
+  --color-bg: #14100a;
+  --color-surface: rgba(255, 255, 255, 0.07);
+  --color-surface-strong: rgba(255, 255, 255, 0.11);
+  --color-border: rgba(255, 255, 255, 0.09);
+  --color-text-primary: #fbf3e3;
+  --color-text-secondary: #b8a488;
+  --color-accent: #e3b04b;
+  --color-accent-contrast: #14100a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+  }
+}
+
+/* ------------------------------------------------------------
+   CSSリセット
+   ------------------------------------------------------------ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  height: 100dvh;
+  overscroll-behavior: none;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-md);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+  transition: background-color var(--duration-slow) var(--easing-standard),
+    color var(--duration-slow) var(--easing-standard);
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+  font-weight: 600;
+}
+
+ul,
+ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+button {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform var(--duration-fast) var(--easing-standard);
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+input {
+  font: inherit;
+  color: inherit;
+}
+
+/* ------------------------------------------------------------
+   共通：フォーカス・タップ時の視覚フィードバック
+   ------------------------------------------------------------ */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.pressed {
+  transform: scale(0.94);
+}
+
+/* ------------------------------------------------------------
+   アプリ全体のレイアウト
+   ------------------------------------------------------------ */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  padding-left: max(var(--space-sm), var(--safe-left));
+  padding-right: max(var(--space-sm), var(--safe-right));
+  padding-bottom: var(--safe-bottom);
+}
+
+.safe-area-top {
+  flex-shrink: 0;
+  height: var(--safe-top);
+}
+
+/* ------------------------------------------------------------
+   ヘッダー
+   ------------------------------------------------------------ */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding-block: var(--space-sm);
+  z-index: var(--z-header);
+}
+
+.app-title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--color-text-secondary);
+}
+
+/* ------------------------------------------------------------
+   共通：アイコンボタン（ガラス質感の丸ボタン）
+   ------------------------------------------------------------ */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  backdrop-filter: blur(var(--blur-glass));
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  transition: transform var(--duration-fast) var(--easing-standard),
+    background-color var(--duration-base) var(--easing-standard);
+}
+
+.icon-btn:active,
+.icon-btn.pressed {
+  transform: scale(0.9);
+}
+
+/* ------------------------------------------------------------
+   共通：オーバーレイ背景（設定画面／ロック画面で共有）
+   ------------------------------------------------------------ */
+.settings-overlay,
+.lock-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(calc(var(--blur-glass) / 2));
+  -webkit-backdrop-filter: blur(calc(var(--blur-glass) / 2));
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--duration-base) var(--easing-standard),
+    visibility 0s linear var(--duration-base);
+}
+
+.settings-overlay.is-open,
+.lock-overlay.is-open {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.lock-overlay {
+  z-index: var(--z-lock);
+  align-items: center;
+  padding-inline: var(--space-md);
+}
+
+/* ------------------------------------------------------------
+   ロック画面（生体認証）本体
+   ------------------------------------------------------------ */
+.lock-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  width: min(100%, 22rem);
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-strong);
+  backdrop-filter: blur(var(--blur-glass));
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  box-shadow: var(--shadow-elevated);
+  text-align: center;
+}
+
+.lock-icon {
+  color: var(--color-accent);
+}
+
+.lock-text {
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+}
+
+.lock-retry-btn {
+  padding: var(--space-2xs) var(--space-md);
+  border-radius: var(--radius-full);
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-weight: 700;
+}
+
+.lock-retry-btn:active,
+.lock-retry-btn.pressed {
+  transform: scale(0.95);
+}
