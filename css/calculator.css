@@ -1,0 +1,254 @@
+/* ============================================================
+   calculator.css
+   電卓画面（履歴・表示部・キーパッド）専用のスタイル。
+   色・余白・角丸・影・モーション等の値はすべて app.css で定義された
+   CSS変数を参照し、このファイルでは新しい変数を作らない。
+   app.cssの共通スタイル（リセット・ヘッダー・オーバーレイ等）には触れない。
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   履歴パネル
+   画面上部、ガラス質感の細長いエリア。新しい計算ほど上に並ぶ想定。
+   ------------------------------------------------------------ */
+.history-panel {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 22vh;
+  margin-bottom: var(--space-2xs);
+  overflow: hidden;
+}
+
+.history-list {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: var(--space-3xs);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.history-list::-webkit-scrollbar {
+  display: none;
+}
+
+.history-item {
+  padding-block: var(--space-3xs);
+  text-align: right;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid var(--color-border);
+  word-break: break-word;
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+/* ------------------------------------------------------------
+   計算結果表示エリア
+   ------------------------------------------------------------ */
+.display-panel {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: var(--space-3xs);
+  padding-block: var(--space-md);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.expression-display {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow-x: auto;
+  max-width: 100%;
+  min-height: 1.5em;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.expression-display::-webkit-scrollbar {
+  display: none;
+}
+
+.result-display {
+  font-size: var(--font-size-display);
+  font-weight: 300;
+  line-height: 1.05;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  transition: color var(--duration-base) var(--easing-standard),
+    font-size var(--duration-base) var(--easing-standard);
+}
+
+.result-display::-webkit-scrollbar {
+  display: none;
+}
+
+.result-display.result-display--long {
+  font-size: clamp(1.75rem, 8vw, 3.25rem);
+}
+
+.result-display.is-error {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-error);
+}
+
+/* ------------------------------------------------------------
+   キーパッド全体のレイアウト
+   ------------------------------------------------------------ */
+.keypad {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+  padding-bottom: var(--space-sm);
+}
+
+.keypad-row {
+  display: flex;
+  gap: var(--space-2xs);
+}
+
+/* ------------------------------------------------------------
+   キー共通スタイル（丸ボタン）
+   ------------------------------------------------------------ */
+.key {
+  flex: 1 1 0;
+  aspect-ratio: 1 / 1;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xl);
+  font-weight: 500;
+  user-select: none;
+  -webkit-user-select: none;
+  will-change: transform;
+  transition: transform var(--duration-fast) var(--easing-standard),
+    box-shadow var(--duration-fast) var(--easing-standard),
+    filter var(--duration-fast) var(--easing-standard);
+}
+
+.key:active,
+.key.pressed {
+  transform: scale(0.94);
+  filter: brightness(0.92);
+}
+
+/* ------------------------------------------------------------
+   数字キー：ガラス＋ネオモーフィズム
+   ------------------------------------------------------------ */
+.key-num {
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  backdrop-filter: blur(var(--blur-glass));
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  box-shadow: var(--shadow-neumorphic-out);
+}
+
+.key-num:active,
+.key-num.pressed {
+  box-shadow: var(--shadow-neumorphic-in);
+}
+
+.key-zero {
+  flex: 2 1 0;
+  aspect-ratio: unset;
+  justify-content: flex-start;
+  padding-left: var(--space-lg);
+}
+
+/* ------------------------------------------------------------
+   機能キー（AC / ± / %）
+   ------------------------------------------------------------ */
+.key-func {
+  background-color: var(--color-surface-strong);
+  color: var(--color-text-primary);
+  backdrop-filter: blur(var(--blur-glass));
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.key-func:active,
+.key-func.pressed {
+  background-color: var(--color-surface);
+}
+
+/* ------------------------------------------------------------
+   演算子キー（÷ × − ＋）
+   ------------------------------------------------------------ */
+.key-operator {
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+  box-shadow: var(--shadow-elevated);
+  transform: translateZ(0);
+}
+
+.key-operator:active,
+.key-operator.pressed {
+  filter: brightness(0.88);
+  box-shadow: none;
+}
+
+/* ------------------------------------------------------------
+   イコールキー
+   ------------------------------------------------------------ */
+.key-equal {
+  flex: 2 1 0;
+  aspect-ratio: unset;
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-weight: 700;
+  box-shadow: var(--shadow-elevated);
+  transform: translateZ(0);
+}
+
+.key-equal:active,
+.key-equal.pressed {
+  filter: brightness(0.88);
+  box-shadow: none;
+}
+
+/* ------------------------------------------------------------
+   狭い画面（320px幅）向けの微調整
+   ------------------------------------------------------------ */
+@media (max-width: 360px) {
+  .key {
+    font-size: var(--font-size-lg);
+  }
+
+  .key-func {
+    font-size: var(--font-size-md);
+  }
+}
+
+/* ------------------------------------------------------------
+   広い画面（430px以上）向けの微調整
+   ------------------------------------------------------------ */
+@media (min-width: 430px) {
+  .key {
+    min-height: 64px;
+    font-size: calc(var(--font-size-xl) * 1.1);
+  }
+
+  .key-func {
+    font-size: calc(var(--font-size-lg) * 1.05);
+  }
+}
