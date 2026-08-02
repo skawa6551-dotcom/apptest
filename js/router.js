@@ -33,12 +33,39 @@ function showCalculator() {
 }
 
 /**
- * AutoLockのタイムアウト時の挙動（＝lockNow()）を登録する。
- * app.jsのinit()から一度だけ呼ぶ想定。
+ * ルーティングまわりの初期化を一括で行う。app.jsのinit()から一度だけ呼ぶ想定。
+ * ・Workspace/Records画面のDOM構築
+ * ・AutoLockタイムアウト時のハンドラ登録
+ * ・タップ／キー入力／テキスト入力など操作全般でAutoLockタイマーを
+ *   リセットするためのグローバルリスナー登録
+ * ・初期画面はCalculator（コンストラクタでの初期値のまま）
+ * を、この関数1つにまとめる。
  */
-export function initAutoLock() {
+export function init() {
+  Workspace.create();
+  Records.create();
+  initAutoLock();
+  registerActivityListeners();
+}
+
+/**
+ * AutoLockのタイムアウト時の挙動（＝lockNow()）を登録する。
+ */
+function initAutoLock() {
   AutoLock.setHandler(() => {
     lockNow();
+  });
+}
+
+/**
+ * タップ・キー入力・テキスト入力など、ユーザー操作全般を検知して
+ * notifyActivity()を呼ぶグローバルリスナーを登録する。
+ * notifyActivity()自体がCalculator画面では何もしないため、
+ * Calculator画面にいる間もリスナーを付けっぱなしで問題ない。
+ */
+function registerActivityListeners() {
+  ['pointerdown', 'keydown', 'input', 'touchstart'].forEach((eventName) => {
+    document.addEventListener(eventName, notifyActivity, { passive: true });
   });
 }
 
@@ -130,7 +157,7 @@ export function notifyActivity() {
 }
 
 const Router = {
-  initAutoLock,
+  init,
   openWorkspace,
   closeWorkspace,
   openRecords,
@@ -140,6 +167,7 @@ const Router = {
   disableViewMode,
   getCurrentScreen,
   notifyActivity,
+  Screen: SCREENS,
 };
 
 export default Router;
