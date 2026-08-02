@@ -430,6 +430,18 @@ function handleClearHistory() {
   }
 }
 
+/**
+ * 履歴パネルの開閉を切り替える。設定/ロック画面と同様、
+ * これは一時的な表示状態のためrender()を経由せず直接DOMを操作する。
+ */
+function toggleHistoryPanel() {
+  const panel = document.getElementById('historyPanel');
+  const button = document.getElementById('historyToggleBtn');
+  const isExpanded = panel.classList.toggle('is-expanded');
+  button.setAttribute('aria-expanded', String(isExpanded));
+  button.setAttribute('aria-label', isExpanded ? '履歴を隠す' : '履歴を表示');
+}
+
 // ------------------------------------------------------------
 // テーマ変更
 // ------------------------------------------------------------
@@ -476,6 +488,7 @@ const ACTION_HANDLERS = Object.freeze({
   'clear-history': handleClearHistory,
   'select-theme': handleSelectTheme,
   'retry-auth': handleRetryAuth,
+  'toggle-history': toggleHistoryPanel,
 });
 
 // ------------------------------------------------------------
