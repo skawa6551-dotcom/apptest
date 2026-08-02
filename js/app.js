@@ -612,11 +612,16 @@ function handleClearHistory() {
 /**
  * 履歴パネルの開閉を切り替える。設定/ロック画面と同様、
  * これは一時的な表示状態のためrender()を経由せず直接DOMを操作する。
+ * CSSのmax-height/opacityによるアニメーションだけに頼らず、
+ * 閉じている間はhidden属性も付与することで、スクリーンリーダー等の
+ * 支援技術から見ても確実に「存在しない」扱いにする
+ * （display:none相当をCSSだけに依存させない）。
  */
 function toggleHistoryPanel() {
   const panel = document.getElementById('historyPanel');
   const button = document.getElementById('historyToggleBtn');
   const isExpanded = panel.classList.toggle('is-expanded');
+  panel.hidden = !isExpanded;
   button.setAttribute('aria-expanded', String(isExpanded));
   button.setAttribute('aria-label', isExpanded ? '履歴を隠す' : '履歴を表示');
 }
