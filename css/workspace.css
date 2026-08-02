@@ -12,6 +12,20 @@
 
 }
 
+button{
+
+    font:inherit;
+
+}
+
+.workspace,
+
+.workspace *{
+
+    -webkit-tap-highlight-color:transparent;
+
+}
+
 .workspace{
 
     position:fixed;
@@ -29,6 +43,10 @@
     flex-direction:column;
 
     overflow:hidden;
+
+    user-select:none;
+
+    -webkit-user-select:none;
 
     padding-top:env(safe-area-inset-top);
 
@@ -105,6 +123,7 @@
     letter-spacing:.08em;
 
 }
+
 .workspace-actions{
 
     display:flex;
@@ -114,7 +133,6 @@
     gap:12px;
 
 }
-
 .icon-btn{
 
     width:46px;
@@ -153,13 +171,13 @@
 
     transition:
 
-    transform .18s ease,
+        transform .18s ease,
 
-    background .25s ease,
+        background .25s ease,
 
-    box-shadow .25s ease,
+        box-shadow .25s ease,
 
-    filter .18s ease;
+        filter .18s ease;
 
     cursor:pointer;
 
@@ -192,6 +210,7 @@
     outline-offset:3px;
 
 }
+
 .workspace-grid{
 
     flex:1;
@@ -200,7 +219,7 @@
 
     grid-template-columns:
 
-    repeat(2,1fr);
+        repeat(2,1fr);
 
     gap:18px;
 
@@ -228,9 +247,9 @@
 
     align-items:flex-start;
 
-    min-height:150px;
+    min-height:160px;
 
-    padding:20px;
+    padding:24px;
 
     border:none;
 
@@ -264,18 +283,17 @@
 
     transition:
 
-    transform .18s ease,
+        transform .18s ease,
 
-    box-shadow .25s ease,
+        box-shadow .25s ease,
 
-    filter .18s ease,
+        filter .18s ease,
 
-    background .25s ease;
+        background .25s ease;
 
     cursor:pointer;
 
 }
-
 .workspace-card::before{
 
     content:"";
@@ -322,6 +340,14 @@
 
 }
 
+.workspace-card:focus-visible{
+
+    outline:2px solid #e6d39d;
+
+    outline-offset:4px;
+
+}
+
 .card-icon{
 
     font-size:34px;
@@ -330,7 +356,22 @@
 
     color:#e6d39d;
 
+    transition:
+
+        transform .25s ease,
+
+        color .25s ease;
+
 }
+
+.workspace-card:hover .card-icon{
+
+    transform:scale(1.08);
+
+    color:#f3dfab;
+
+}
+
 .workspace-card h2{
 
     margin:0;
@@ -339,9 +380,9 @@
 
     font-weight:600;
 
-    color:#ffffff;
-
     letter-spacing:.03em;
+
+    color:#ffffff;
 
 }
 
@@ -356,18 +397,11 @@
     line-height:1.4;
 
 }
+/* ==========================
 
-/* カードのキーボード操作対応 */
+   スクロールバー
 
-.workspace-card:focus-visible{
-
-    outline:2px solid #e6d39d;
-
-    outline-offset:4px;
-
-}
-
-/* スクロールバー */
+========================== */
 
 .workspace-grid::-webkit-scrollbar{
 
@@ -387,6 +421,8 @@
 
     border-radius:999px;
 
+    transition:background .25s ease;
+
 }
 
 .workspace-grid::-webkit-scrollbar-thumb:hover{
@@ -395,7 +431,11 @@
 
 }
 
-/* タブレット */
+/* ==========================
+
+   タブレット
+
+========================== */
 
 @media (min-width:700px){
 
@@ -403,13 +443,17 @@
 
         grid-template-columns:
 
-        repeat(3,1fr);
+            repeat(3,1fr);
 
     }
 
 }
 
-/* デスクトップ */
+/* ==========================
+
+   デスクトップ
+
+========================== */
 
 @media (min-width:1100px){
 
@@ -421,25 +465,37 @@
 
         left:50%;
 
-        transform:translateX(-50%) translateY(20px);
+        transform:
+
+            translateX(-50%)
+
+            translateY(20px);
 
         border-radius:28px;
 
         box-shadow:
 
-        0 30px 80px rgba(0,0,0,.45);
+            0 30px 80px rgba(0,0,0,.45);
 
     }
 
     .workspace.is-open{
 
-        transform:translateX(-50%) translateY(0);
+        transform:
+
+            translateX(-50%)
+
+            translateY(0);
 
     }
 
 }
 
-/* アニメーション */
+/* ==========================
+
+   アニメーション
+
+========================== */
 
 @keyframes workspaceFade{
 
@@ -463,6 +519,32 @@
 
 .workspace.is-open{
 
-    animation:workspaceFade .25s ease;
+    animation:
+
+        workspaceFade .25s ease;
+
+}
+
+/* ==========================
+
+   Reduce Motion対応
+
+========================== */
+
+@media (prefers-reduced-motion: reduce){
+
+    .workspace,
+
+    .workspace *,
+
+    .workspace-card,
+
+    .icon-btn{
+
+        animation:none !important;
+
+        transition:none !important;
+
+    }
 
 }
