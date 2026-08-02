@@ -1,35 +1,47 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+  <!-- ============ 文字コード・ビューポート ============ -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
+  <!-- ============ タイトル・説明 ============ -->
   <title>Calculator 0209</title>
   <meta name="description" content="A private calculator style PWA.">
 
+  <!-- ============ PWA基本設定 ============ -->
   <meta name="theme-color" content="#0B0B0F">
   <link rel="manifest" href="manifest.json">
 
+  <!-- ============ favicon ============ -->
   <link rel="icon" href="assets/icons/icon-192.png" type="image/png">
 
+  <!-- ============ iOSホーム画面追加対応 ============ -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Calculator">
   <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
   <link rel="apple-touch-startup-image" href="assets/icons/icon-512.png">
 
+  <!-- ============ スタイルシート ============ -->
   <link rel="stylesheet" href="css/app.css">
   <link rel="stylesheet" href="css/calculator.css">
   <link rel="stylesheet" href="css/settings.css">
 </head>
 <body>
 
+<!-- ==========================================================
+     電卓メイン画面
+     ========================================================== -->
 <main id="app" class="app">
 
+  <!-- ノッチ・Dynamic Island分の余白（見た目のみ、内容は持たない） -->
   <div class="safe-area-top" aria-hidden="true"></div>
 
+  <!-- ---------------- ヘッダー：タイトル／設定ボタン／履歴表示・削除ボタン ---------------- -->
   <header class="app-header">
 
+    <!-- 設定ボタン：設定画面（settingsOverlay）を開く -->
     <button
       type="button"
       class="icon-btn"
@@ -44,8 +56,25 @@
       </svg>
     </button>
 
+    <!-- アプリタイトル -->
     <h1 class="app-title">Calculator</h1>
 
+    <!-- 履歴表示トグル：タップで履歴パネルの開閉を切り替える -->
+    <button
+      type="button"
+      class="icon-btn"
+      id="historyToggleBtn"
+      data-action="toggle-history"
+      aria-label="履歴を表示"
+      aria-expanded="false"
+      aria-controls="historyPanel">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+    <!-- 履歴削除ショートカット：設定画面を開かずワンタップで履歴を消す -->
     <button
       type="button"
       class="icon-btn"
@@ -59,10 +88,17 @@
 
   </header>
 
-  <section class="history-panel" aria-label="計算履歴">
+  <!-- ---------------- 履歴パネル ----------------
+       中身（history-item）はcalculator.jsの履歴データをもとにapp.jsが描画する。
+       表示/非表示はcalculator.cssの.is-expanded切替（app.js側で操作）で行う。
+       aria-liveで新しい計算が追加されたことをスクリーンリーダーにも伝える。 -->
+  <section id="historyPanel" class="history-panel" aria-label="計算履歴">
     <ol id="historyList" class="history-list" aria-live="polite"></ol>
   </section>
 
+  <!-- ---------------- 計算結果表示エリア ----------------
+       expressionDisplay：確定前の式（補助情報のため読み上げ対象外）
+       resultDisplay：現在の結果／入力中の数値（変化のたびに読み上げる） -->
   <section class="display-panel" aria-label="計算結果">
     <div id="expressionDisplay" class="expression-display" aria-hidden="true"></div>
     <div
@@ -73,10 +109,16 @@
       aria-atomic="true">0</div>
   </section>
 
+  <!-- ---------------- キーパッド ----------------
+       ボタンは1つもここに書かない。calculator.jsが公開するアクション定義をもとに
+       app.jsが実行時に生成し、この空のsection内へ挿入する。 -->
   <section class="keypad" id="keypad" role="group" aria-label="電卓ボタン"></section>
 
 </main>
 
+<!-- ==========================================================
+     設定画面（オーバーレイ／下からせり上がるシート）
+     ========================================================== -->
 <div id="settingsOverlay" class="settings-overlay" aria-hidden="true">
   <div
     class="settings-sheet"
@@ -85,8 +127,10 @@
     aria-labelledby="settingsTitle"
     tabindex="-1">
 
+    <!-- 下に引けば閉じられることを示す視覚的なつまみ（操作対象ではないため装飾扱い） -->
     <div class="settings-handle" aria-hidden="true"></div>
 
+    <!-- ---------------- 設定ヘッダー ---------------- -->
     <div class="settings-header">
       <h2 id="settingsTitle">設定</h2>
       <button
@@ -101,10 +145,13 @@
       </button>
     </div>
 
+    <!-- ---------------- 設定本文 ---------------- -->
     <div class="settings-body">
 
+      <!-- 生体認証・タップ音・バイブレーション -->
       <div class="settings-group" role="group" aria-label="認証とフィードバック">
 
+        <!-- 生体認証：非対応端末ではapp.jsがhidden属性を維持し、常に非表示のままにする -->
         <div class="settings-row" id="biometricRow" hidden>
           <div class="settings-row-text">
             <span class="settings-row-title">生体認証</span>
@@ -116,6 +163,7 @@
           </label>
         </div>
 
+        <!-- タップ音 -->
         <div class="settings-row">
           <div class="settings-row-text">
             <span class="settings-row-title">タップ音</span>
@@ -127,6 +175,7 @@
           </label>
         </div>
 
+        <!-- バイブレーション -->
         <div class="settings-row">
           <div class="settings-row-text">
             <span class="settings-row-title">バイブレーション</span>
@@ -139,6 +188,7 @@
         </div>
       </div>
 
+      <!-- テーマ変更：選択肢はthemes.jsの定義からapp.jsが動的に生成する -->
       <div class="settings-group">
         <div class="settings-row settings-row-select">
           <div class="settings-row-text">
@@ -152,6 +202,7 @@
           aria-label="テーマを選択"></div>
       </div>
 
+      <!-- 履歴削除（設定画面からも実行できる） -->
       <div class="settings-group">
         <button
           type="button"
@@ -162,6 +213,7 @@
         </button>
       </div>
 
+      <!-- Version表示 -->
       <div class="settings-footer">
         <span>Calculator 0209</span>
         <span id="versionLabel">Version 1.0.0</span>
@@ -171,6 +223,10 @@
   </div>
 </div>
 
+<!-- ==========================================================
+     生体認証ロック画面
+     生体認証が有効な端末で起動したときだけ表示される全画面オーバーレイ。
+     ========================================================== -->
 <div id="lockOverlay" class="lock-overlay" aria-hidden="true">
   <div
     class="lock-content"
@@ -179,6 +235,7 @@
     aria-labelledby="lockTitle"
     tabindex="-1">
 
+    <!-- 生体認証アイコン（装飾。意味はlockTitleのテキストで伝える） -->
     <div class="lock-icon" aria-hidden="true">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
         <path d="M12 3c-3 0-5 2-5 5v1M12 3c3 0 5 2 5 5v1M4 9v3c0 4 3.5 7.5 8 8.5 4.5-1 8-4.5 8-8.5V9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -188,8 +245,10 @@
       </svg>
     </div>
 
+    <!-- 説明文 -->
     <p id="lockTitle" class="lock-text">生体認証で認証してください</p>
 
+    <!-- 再試行ボタン：キャンセル・失敗時にもう一度認証を試みる -->
     <button
       type="button"
       class="lock-retry-btn"
@@ -200,6 +259,11 @@
   </div>
 </div>
 
+<!-- ==========================================================
+     スクリプト：ES Modulesのエントリーポイントのみを読み込む。
+     calculator.js / settings.js / storage.js / auth.js / sound.js /
+     themes.js はすべてapp.jsからimportされるため、ここには書かない。
+     ========================================================== -->
 <script type="module" src="js/app.js"></script>
 </body>
 </html>
