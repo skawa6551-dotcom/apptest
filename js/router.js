@@ -22,13 +22,29 @@ const SCREENS = Object.freeze({
 /** @type {'calculator'|'workspace'|'records'} */
 let currentScreen = SCREENS.CALCULATOR;
 
+/**
+ * init()が既に実行済みかどうか。registerActivityListeners()の
+ * 二重登録防止に使う（init()が将来複数回呼ばれても安全にするため）。
+ */
+let isInitialized = false;
+
+/**
+ * 現在の#app（Calculator）要素を取得する。
+ * hideCalculator()/showCalculator()の両方がここを通ることで、
+ * DOM取得箇所を1つにまとめる。
+ * @returns {HTMLElement|null}
+ */
+function getCalculatorElement() {
+  return document.getElementById('app');
+}
+
 function hideCalculator() {
-  const app = document.getElementById('app');
+  const app = getCalculatorElement();
   if (app) app.hidden = true;
 }
 
 function showCalculator() {
-  const app = document.getElementById('app');
+  const app = getCalculatorElement();
   if (app) app.hidden = false;
 }
 
@@ -62,11 +78,17 @@ function initAutoLock() {
  * notifyActivity()を呼ぶグローバルリスナーを登録する。
  * notifyActivity()自体がCalculator画面では何もしないため、
  * Calculator画面にいる間もリスナーを付けっぱなしで問題ない。
+ * isInitializedで多重登録を防ぐため、init()が将来複数回呼ばれても
+ * リスナーが増殖することはない。
  */
 function registerActivityListeners() {
+  if (isInitialized) return;
+
   ['pointerdown', 'keydown', 'input', 'touchstart'].forEach((eventName) => {
     document.addEventListener(eventName, notifyActivity, { passive: true });
   });
+
+  isInitialized = true;
 }
 
 /**
@@ -112,6 +134,12 @@ export function closeRecords() {
 /**
  * 🔒（今すぐロック）。Workspace/Recordsのどちらからでも、
  * 即座にCalculatorへ強制的に戻す。
+ *
+ * TODO: 現在はRecords/Workspaceの両方を無条件でclose()しているが、
+ *   画面数が増えた場合は switch (currentScreen) { ... } のように
+ *   「今いる画面だけ」を閉じる構造に変更すると、画面が増えるたびに
+ *   ここへclose()を1行足す必要がなくなる。Sprint1では画面数が少なく
+ *   実害が無いため、現状維持のまま次回以降の検討事項とする。
  */
 export function lockNow() {
   Records.close();
@@ -155,6 +183,13 @@ export function notifyActivity() {
     AutoLock.reset();
   }
 }
+
+// TODO: Router.destroy() — registerActivityListeners()で登録した
+// pointerdown/keydown/input/touchstartのリスナーを解除する関数。
+// 現在のPWA（ページ全体が1つのSPA的な生存期間を持つ）では不要だが、
+// 将来ユニットテストや、Routerインスタンスを使い捨てるような構成
+// （例: テストごとにモジュールを再初期化する等）が必要になった場合に
+// 実装する。現時点では未実装。
 
 const Router = {
   init,
