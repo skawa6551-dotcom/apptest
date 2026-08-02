@@ -144,7 +144,19 @@ class Workspace {
 
     `;
 
-    document.body.appendChild(this.container);
+    // appの後ろへ追加（なければbodyへ）
+
+    const appRoot = document.getElementById("app");
+
+    if (appRoot) {
+
+      appRoot.after(this.container);
+
+    } else {
+
+      document.body.appendChild(this.container);
+
+    }
 
   }
 
@@ -162,6 +174,14 @@ class Workspace {
 
     });
 
+    // 自動ロックタイマーをリセット
+
+    if (window.resetAutoLockTimer) {
+
+      window.resetAutoLockTimer();
+
+    }
+
   }
 
   close() {
@@ -177,6 +197,14 @@ class Workspace {
       this.container.hidden = true;
 
     }, 250);
+
+    // 自動ロックタイマー停止
+
+    if (window.stopAutoLockTimer) {
+
+      window.stopAutoLockTimer();
+
+    }
 
   }
 
