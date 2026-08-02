@@ -978,16 +978,32 @@ async function runBiometricLockFlow() {
 }
 
 /**
+ * Auth.isSupported()を待ちすぎないようにするための安全装置。
+ * 端末・ブラウザによってはWebAuthnの対応判定が極端に遅れる、
+ * または返ってこないことがあるため、一定時間で強制的に
+ * 「非対応（false）」とみなし、電卓本体の表示・操作を止めないようにする。
+ * @param {Promise<boolean>} promise
+ * @param {number} timeoutMs
+ * @returns {Promise<boolean>}
+ */
+function withTimeout(promise, timeoutMs) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => {
+      window.setTimeout(() => resolve(false), timeoutMs);
+    }),
+  ]);
+}
+
+/**
  * アプリの初期化処理。DOMContentLoaded後に一度だけ呼ばれる。
+ * 生体認証の対応判定を待たず、まず電卓本体のUIを必ず構築・表示できるようにし、
  * build → event → subscribe → render → biometric の順に実行する。
  */
 async function init() {
   try {
-    // 生体認証の対応判定は後続のrender()（biometricRowの表示切替）で
-    // 必要になるため、build前に確定させておく。
-    isBiometricSupported = await Auth.isSupported();
-
     // 1. build: DOM生成（キーパッド・テーマ選択肢・秘密ホーム・チャット）
+    // Auth.isSupported()の判定を待たずに、まず電卓のUIを必ず作る。
     buildKeypad();
     buildThemeOptions();
     SecretHome.create();
@@ -1000,10 +1016,12 @@ async function init() {
     // 3. subscribe: Storageの変更通知を購読
     subscribeToStorageChanges();
 
-    // 4. render: 現在の状態を初回描画
+    // 4. render: 現在の状態を初回描画（この時点で電卓は完全に操作可能になる）
     render();
 
-    // 5. biometric: 必要であれば起動時のロック解除フローを実行
+    // 5. biometric: UI構築後に判定する。最大3秒で強制的に結果を確定させる。
+    isBiometricSupported = await withTimeout(Auth.isSupported(), 3000);
+    render(); // biometricRowの表示切替を反映
     await runBiometricLockFlow();
 
     registerServiceWorker();
