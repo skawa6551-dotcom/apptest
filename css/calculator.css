@@ -9,21 +9,36 @@
 /* ------------------------------------------------------------
    履歴パネル
    画面上部、ガラス質感の細長いエリア。新しい計算ほど上に並ぶ想定。
+   ヘッダーの履歴トグルボタンで.is-expandedを付け外しし、
+   タップしたときだけ開く折りたたみ式にしている。
    ------------------------------------------------------------ */
 .history-panel {
   flex: 0 1 auto;
   min-height: 0;
+  max-height: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height var(--duration-base) var(--easing-standard),
+    opacity var(--duration-base) var(--easing-standard),
+    margin-bottom var(--duration-base) var(--easing-standard);
+}
+
+.history-panel.is-expanded {
   max-height: 22vh;
   margin-bottom: var(--space-2xs);
-  overflow: hidden;
+  opacity: 1;
 }
 
 .history-list {
   height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* スクロールバーの分だけ右端の数字が隠れないように余白を確保 */
   padding-right: var(--space-3xs);
+  /* iOSの慣性スクロールを有効にする */
   -webkit-overflow-scrolling: touch;
+  /* スクロールバーを非表示にし、ガラスパネルの見た目を崩さない（機能自体は維持） */
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -37,8 +52,11 @@
   text-align: right;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+  /* 数字の桁が縦に揃って見えるよう等幅数字を使う */
   font-variant-numeric: tabular-nums;
+  /* 1件ずつをうっすら区切る（罫線ではなく下端のグラデーションに寄せる） */
   border-bottom: 1px solid var(--color-border);
+  /* 万一長い式が生成されてもパネル幅内で折り返し、レイアウト崩れを防ぐ */
   word-break: break-word;
 }
 
@@ -48,6 +66,7 @@
 
 /* ------------------------------------------------------------
    計算結果表示エリア
+   上段：式（小さく、控えめな色）／下段：結果（大きく、主役）
    ------------------------------------------------------------ */
 .display-panel {
   flex: 1 1 auto;
@@ -58,6 +77,7 @@
   gap: var(--space-3xs);
   padding-block: var(--space-md);
   min-height: 0;
+  /* 極端に長い数字・式でも画面外へはみ出させず、パネル内に収める */
   overflow: hidden;
 }
 
@@ -65,10 +85,12 @@
   font-size: var(--font-size-lg);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
+  /* 式が長くなっても折り返さず、右端（最新の演算子側）が常に見える */
   white-space: nowrap;
   overflow-x: auto;
   max-width: 100%;
   min-height: 1.5em;
+  /* 横スクロール自体は許すが、スクロールバーは表示しない */
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -86,7 +108,9 @@
   font-feature-settings: "tnum" 1;
   white-space: nowrap;
   max-width: 100%;
+  /* 長い数字は縮小表示ではなく横スクロールを許容し、桁の可読性を優先する */
   overflow-x: auto;
+  /* 横スクロール自体は許すが、スクロールバーは表示しない */
   scrollbar-width: none;
   -ms-overflow-style: none;
   transition: color var(--duration-base) var(--easing-standard),
@@ -97,10 +121,12 @@
   display: none;
 }
 
+/* 長い数字のとき（app.jsがresult-display--longを付与）はフォントサイズを一段階縮小する */
 .result-display.result-display--long {
   font-size: clamp(1.75rem, 8vw, 3.25rem);
 }
 
+/* エラー表示時：桁区切り等の通常表示より控えめなサイズで警告色にする */
 .result-display.is-error {
   font-size: var(--font-size-xl);
   font-weight: 600;
@@ -130,6 +156,7 @@
 .key {
   flex: 1 1 0;
   aspect-ratio: 1 / 1;
+  /* Human Interface Guidelinesが推奨する最小タップ領域（44pt相当以上）を確保する */
   min-height: 56px;
   display: flex;
   align-items: center;
@@ -137,14 +164,20 @@
   border-radius: var(--radius-full);
   font-size: var(--font-size-xl);
   font-weight: 500;
+  /* 長押しによる文字選択・コールアウト表示を防止する（数字ボタンでの誤操作対策） */
   user-select: none;
   -webkit-user-select: none;
+  /* 押下アニメーションはtransformのみで完結させ、ブラウザに事前最適化を促す */
   will-change: transform;
+  /* pressedクラスの付け外しはapp.jsが行うが、ここでも:active(≒指を離す前)を
+     即座に反映させ、体感の遅延をなくす */
   transition: transform var(--duration-fast) var(--easing-standard),
     box-shadow var(--duration-fast) var(--easing-standard),
     filter var(--duration-fast) var(--easing-standard);
 }
 
+/* 押下時：app.jsが付与する.pressed、またはOS標準の:active。
+   ネオモーフィズムの「凸」を「凹」に反転させ、押し込まれた質感を出す。 */
 .key:active,
 .key.pressed {
   transform: scale(0.94);
@@ -152,7 +185,7 @@
 }
 
 /* ------------------------------------------------------------
-   数字キー：ガラス＋ネオモーフィズム
+   数字キー：ガラス＋ネオモーフィズム（浮き出た質感）
    ------------------------------------------------------------ */
 .key-num {
   background-color: var(--color-surface);
@@ -167,6 +200,7 @@
   box-shadow: var(--shadow-neumorphic-in);
 }
 
+/* 0キーだけ横長（スタジアム型）。列2つ分＋間隔ぶんの幅を確保する。 */
 .key-zero {
   flex: 2 1 0;
   aspect-ratio: unset;
@@ -175,7 +209,7 @@
 }
 
 /* ------------------------------------------------------------
-   機能キー（AC / ± / %）
+   機能キー（AC / ± / %）：控えめなガラス質感
    ------------------------------------------------------------ */
 .key-func {
   background-color: var(--color-surface-strong);
@@ -192,12 +226,13 @@
 }
 
 /* ------------------------------------------------------------
-   演算子キー（÷ × − ＋）
+   演算子キー（÷ × − ＋）：アクセントカラーで際立たせる
    ------------------------------------------------------------ */
 .key-operator {
   background-color: var(--color-accent);
   color: var(--color-accent-contrast);
   box-shadow: var(--shadow-elevated);
+  /* GPUレイヤーへ昇格させ、iPhone Safariでの押下アニメーションを滑らかにする */
   transform: translateZ(0);
 }
 
@@ -208,7 +243,7 @@
 }
 
 /* ------------------------------------------------------------
-   イコールキー
+   イコールキー：最も主役。演算子キーより一段強い陰影で強調する
    ------------------------------------------------------------ */
 .key-equal {
   flex: 2 1 0;
@@ -217,6 +252,7 @@
   color: var(--color-accent-contrast);
   font-weight: 700;
   box-shadow: var(--shadow-elevated);
+  /* GPUレイヤーへ昇格させ、iPhone Safariでの押下アニメーションを滑らかにする */
   transform: translateZ(0);
 }
 
@@ -227,7 +263,8 @@
 }
 
 /* ------------------------------------------------------------
-   狭い画面（320px幅）向けの微調整
+   狭い画面（iPhone SE等 / 320px幅）向けの微調整
+   数字・記号が窮屈にならないよう、フォントサイズだけを一段階落とす
    ------------------------------------------------------------ */
 @media (max-width: 360px) {
   .key {
@@ -240,7 +277,8 @@
 }
 
 /* ------------------------------------------------------------
-   広い画面（430px以上）向けの微調整
+   広い画面（iPhone Pro Max等 / 430px以上）向けの微調整
+   タップ領域と視認性に余裕が生まれるため、ボタンをひと回り大きくする
    ------------------------------------------------------------ */
 @media (min-width: 430px) {
   .key {
