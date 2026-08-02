@@ -12,6 +12,7 @@ import Settings from './settings.js';
 import Sound from './sound.js';
 import Auth from './auth.js';
 import { THEMES, getThemeById } from './themes.js';
+import { registerDigit, resetSequence, close as closeSecretHomeState } from './secret-home.js';
 
 // ------------------------------------------------------------
 // 定数
@@ -78,6 +79,22 @@ const CALCULATOR_ACTIONS = new Set([
   CALC_ACTIONS.DIVIDE,
   CALC_ACTIONS.DECIMAL,
   CALC_ACTIONS.EQUALS,
+]);
+
+/**
+ * 秘密コード（4桁入力バッファ）をリセットする対象のアクション。
+ * AC・＝・＋・−・×・÷・％・小数点(.) の8つのみが対象で、
+ * ±（NEGATE）は仕様上あえて対象外としている。
+ */
+const SECRET_CODE_RESET_ACTIONS = new Set([
+  CALC_ACTIONS.CLEAR,
+  CALC_ACTIONS.EQUALS,
+  CALC_ACTIONS.ADD,
+  CALC_ACTIONS.SUBTRACT,
+  CALC_ACTIONS.MULTIPLY,
+  CALC_ACTIONS.DIVIDE,
+  CALC_ACTIONS.PERCENT,
+  CALC_ACTIONS.DECIMAL,
 ]);
 
 /** エラーコードごとの表示文言。calculator.jsのerrorCodeを参照するだけで、判定ロジックは持たない */
@@ -250,6 +267,43 @@ function buildThemeOptions() {
   themeSwitchEl.appendChild(fragment);
 }
 
+/**
+ * 秘密ホーム画面のDOMを構築し、bodyへ追加する。
+ * キーパッド・テーマ選択肢と同様、静的HTMLには書かずJSで生成する
+ * （index.htmlへの追加を最小限にとどめるため）。
+ * 初期状態はhidden属性で非表示にしておく。
+ */
+function buildSecretHome() {
+  const overlay = document.createElement('div');
+  overlay.id = 'secretHomeOverlay';
+  overlay.className = 'secret-home-overlay';
+  overlay.hidden = true;
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', 'Secret Home');
+
+  const card = document.createElement('div');
+  card.className = 'secret-home-card';
+
+  const title = document.createElement('h2');
+  title.className = 'secret-home-title';
+  title.textContent = 'Secret Home';
+
+  const message = document.createElement('p');
+  message.className = 'secret-home-message';
+  message.textContent = 'Welcome';
+
+  const backButton = document.createElement('button');
+  backButton.type = 'button';
+  backButton.className = 'secret-home-back-btn';
+  backButton.dataset.action = 'close-secret-home';
+  backButton.textContent = '戻る';
+
+  card.append(title, message, backButton);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+}
+
 // ------------------------------------------------------------
 // 描画関数
 // render()以外からこれらの個別関数を直接呼ばない（画面の一貫性を保つため）。
@@ -413,6 +467,30 @@ function hideLockOverlay() {
 }
 
 // ------------------------------------------------------------
+// 秘密ホーム画面の表示制御
+// ------------------------------------------------------------
+
+/**
+ * 秘密ホーム画面を表示する。
+ * 電卓画面自体は裏側にそのまま残っているため、閉じればそのままの状態
+ * （入力中の数値・履歴等）に戻れる。
+ */
+function showSecretHome() {
+  const overlay = document.getElementById('secretHomeOverlay');
+  overlay.hidden = false;
+}
+
+/**
+ * 秘密ホーム画面を閉じ、通常の電卓表示へ戻す。
+ * secret-home.js側の内部状態（開閉フラグ・入力バッファ）もあわせてリセットする。
+ */
+function hideSecretHome() {
+  const overlay = document.getElementById('secretHomeOverlay');
+  overlay.hidden = true;
+  closeSecretHomeState();
+}
+
+// ------------------------------------------------------------
 // 履歴削除（ヘッダーショートカット／設定画面の両方から呼ばれる）
 // ------------------------------------------------------------
 
@@ -489,6 +567,7 @@ const ACTION_HANDLERS = Object.freeze({
   'select-theme': handleSelectTheme,
   'retry-auth': handleRetryAuth,
   'toggle-history': toggleHistoryPanel,
+  'close-secret-home': hideSecretHome,
 });
 
 // ------------------------------------------------------------
@@ -506,6 +585,12 @@ function handleDigitInput(digit) {
     const displayState = Calculator.getDisplayState();
     playFeedbackSound(displayState.isError ? 'error' : 'tap');
     playFeedbackVibration();
+
+    // 電卓としての処理とは独立して、秘密コード（"0209"の連続入力）を監視する。
+    // 一致した場合のみ秘密ホームを表示する（電卓自体の動作には影響しない）。
+    if (registerDigit(digit)) {
+      showSecretHome();
+    }
   } catch (error) {
     console.error('[app.js] 数字入力の処理に失敗しました', error);
   } finally {
@@ -522,6 +607,12 @@ function handleDigitInput(digit) {
  * @param {string} action
  */
 function handleCalculatorAction(action) {
+  // 秘密コードの4桁バッファは、AC/＝/＋/−/×/÷/％/. の8つのアクションでのみ
+  // リセットする（±は仕様上あえて対象外）。実際の計算処理より先に行う。
+  if (SECRET_CODE_RESET_ACTIONS.has(action)) {
+    resetSequence();
+  }
+
   try {
     dispatchToCalculator(action);
     const displayState = Calculator.getDisplayState();
@@ -860,9 +951,10 @@ async function init() {
     // 必要になるため、build前に確定させておく。
     isBiometricSupported = await Auth.isSupported();
 
-    // 1. build: DOM生成（キーパッド・テーマ選択肢）
+    // 1. build: DOM生成（キーパッド・テーマ選択肢・秘密ホーム）
     buildKeypad();
     buildThemeOptions();
+    buildSecretHome();
 
     // 2. event: イベント登録（ユーザー操作を受け付けられる状態にする）
     registerEventListeners();
