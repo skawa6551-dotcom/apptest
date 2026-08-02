@@ -12,8 +12,10 @@ import Settings from './settings.js';
 import Sound from './sound.js';
 import Auth from './auth.js';
 import { THEMES, getThemeById } from './themes.js';
-import SecretHome from './secret-home.js';
-import Chat from './chat.js';
+import Router from './router.js';
+import Passcode from './passcode.js';
+import Workspace from './workspace.js';
+import Records from './records.js';
 
 // ------------------------------------------------------------
 // 定数
@@ -83,11 +85,11 @@ const CALCULATOR_ACTIONS = new Set([
 ]);
 
 /**
- * 秘密コード（4桁入力バッファ）をリセットする対象のアクション。
+ * パスコード（入力バッファ）をリセットする対象のアクション。
  * AC・＝・＋・−・×・÷・％・小数点(.) の8つのみが対象で、
  * ±（NEGATE）は仕様上あえて対象外としている。
  */
-const SECRET_CODE_RESET_ACTIONS = new Set([
+const PASSCODE_RESET_ACTIONS = new Set([
   CALC_ACTIONS.CLEAR,
   CALC_ACTIONS.EQUALS,
   CALC_ACTIONS.ADD,
@@ -97,9 +99,6 @@ const SECRET_CODE_RESET_ACTIONS = new Set([
   CALC_ACTIONS.PERCENT,
   CALC_ACTIONS.DECIMAL,
 ]);
-
-/** この4桁が正確に入力されたらSecret Homeを開く。判定はapp.jsが行う。 */
-const SECRET_CODE = '0209';
 
 /** エラーコードごとの表示文言。calculator.jsのerrorCodeを参照するだけで、判定ロジックは持たない */
 const ERROR_DISPLAY_TEXT = Object.freeze({
@@ -130,7 +129,7 @@ let isBiometricSupported = false;
 /** 設定画面を開く直前にフォーカスされていた要素（閉じたときに戻すため） */
 let lastFocusedElement = null;
 
-/** 秘密コード（"0209"）判定用の入力バッファ。4桁ちょうどのときだけ判定する。 */
+/** パスコード判定用の入力バッファ。桁数がパスコードと一致したときだけ判定する。 */
 let secretCodeBuffer = '';
 
 /**
@@ -437,47 +436,166 @@ function hideLockOverlay() {
 }
 
 // ------------------------------------------------------------
-// 秘密ホーム画面の表示制御
+// Workspace / Records 画面の表示制御
 // ------------------------------------------------------------
 
 /**
- * Secret Homeの「戻る」ボタンの処理。
- * SecretHome.close()で画面を閉じ、電卓画面（#app）を再表示し、
- * 秘密コードの入力バッファもリセットする。
+ * Workspaceの「戻る」ボタンの処理。Router経由でCalculatorへ戻る。
+ * パスコードの入力バッファもリセットする。
  */
-function handleCloseSecretHome() {
-  SecretHome.close();
-  document.getElementById('app').hidden = false;
+function handleCloseWorkspace() {
+  Router.closeWorkspace();
   secretCodeBuffer = '';
   render();
 }
 
 /**
- * Secret Homeの「チャット」カードの処理。チャット画面を開く。
- * Secret Home自体は裏側に残したままにする（チャットの「戻る」でSecret Homeへ戻る）。
+ * Recordsの「戻る」ボタンの処理。Router経由でWorkspaceへ戻る。
  */
-function handleOpenChat() {
-  Chat.open();
+function handleCloseRecords() {
+  Router.closeRecords();
 }
 
 /**
- * チャット画面の「戻る」ボタンの処理。チャット画面を閉じてSecret Homeへ戻る。
+ * 🔒（今すぐロック）の処理。Workspace/Recordsどちらからでも、
+ * Router経由で即座にCalculatorへ戻し、パスコードの入力バッファもリセットする。
  */
-function handleCloseChat() {
-  Chat.close();
+function handleLockNow() {
+  Router.lockNow();
+  secretCodeBuffer = '';
+  render();
 }
 
 /**
- * チャット画面の「送信」ボタンの処理。
- * 現時点ではFirebase等のバックエンドが無いため、入力内容を
- * メッセージ一覧へローカルに追加するだけで、どこにも送信・保存はしない。
+ * 👁（鑑賞モード）ボタンの処理。
+ * 既に鑑賞モード中ならワンタップで解除し、そうでなければパスコード確認
+ * パネルを表示する（有効化にはパスコードの再入力を要求する）。
  */
-function handleSendChatMessage() {
-  const text = Chat.getInputValue().trim();
+function handleToggleViewMode() {
+  if (Workspace.isViewModeActive()) {
+    Workspace.setViewModeActive(false);
+    Router.disableViewMode();
+    return;
+  }
+
+  Workspace.showViewModeAuth();
+}
+
+/**
+ * 鑑賞モード確認パネルの「確認」ボタンの処理。
+ * 入力値がパスコードと一致した場合のみ鑑賞モードを有効化する。
+ */
+function handleConfirmViewMode() {
+  const value = Workspace.getViewModeAuthValue();
+
+  if (Passcode.validate(value)) {
+    playFeedbackSound('success');
+    playFeedbackVibration();
+    Workspace.hideViewModeAuth();
+    Workspace.clearViewModeAuthInput();
+    Workspace.setViewModeActive(true);
+    Router.enableViewMode();
+    return;
+  }
+
+  playFeedbackSound('error');
+  playFeedbackVibration();
+  Workspace.clearViewModeAuthInput();
+}
+
+/**
+ * 鑑賞モード確認パネルの「キャンセル」ボタンの処理。
+ */
+function handleCancelViewMode() {
+  Workspace.hideViewModeAuth();
+  Workspace.clearViewModeAuthInput();
+}
+
+/**
+ * Recordsの「送信」ボタンの処理。
+ * 現時点ではFirebase等のバックエンドが無いため、入力内容をメモリ上の
+ * アーカイブへ保存するだけで、画面上には一切表示・保持しない
+ * （送信すると入力欄がそのまま空になり、メッセージ一覧のような
+ * 表示は一切残らない）。
+ */
+function handleSendRecord() {
+  const text = Records.getInputValue().trim();
   if (!text) return;
 
-  Chat.addMessage(text);
-  Chat.clearInput();
+  Records.saveToArchive(text);
+  Records.clearInput();
+  playFeedbackSound('success');
+  playFeedbackVibration();
+}
+
+/**
+ * Workspace画面が開いている間のクリックを処理する。
+ * @param {HTMLElement} target
+ */
+function handleWorkspaceScreenClick(target) {
+  const { action, secret } = target.dataset;
+
+  playFeedbackSound('tap');
+  playFeedbackVibration();
+  Router.notifyActivity();
+
+  if (action === 'close-workspace') {
+    handleCloseWorkspace();
+    return;
+  }
+
+  if (action === 'lock-now') {
+    handleLockNow();
+    return;
+  }
+
+  if (action === 'toggle-view-mode') {
+    handleToggleViewMode();
+    return;
+  }
+
+  if (action === 'confirm-view-mode') {
+    handleConfirmViewMode();
+    return;
+  }
+
+  if (action === 'cancel-view-mode') {
+    handleCancelViewMode();
+    return;
+  }
+
+  if (secret === 'records') {
+    Router.openRecords();
+    return;
+  }
+
+  // カレンダー／写真／行きたい場所／設定は現時点では未実装（Sprint1範囲外）。
+}
+
+/**
+ * Records画面が開いている間のクリックを処理する。
+ * @param {HTMLElement} target
+ */
+function handleRecordsScreenClick(target) {
+  const { action } = target.dataset;
+
+  playFeedbackSound('tap');
+  playFeedbackVibration();
+  Router.notifyActivity();
+
+  if (action === 'close-records') {
+    handleCloseRecords();
+    return;
+  }
+
+  if (action === 'lock-now') {
+    handleLockNow();
+    return;
+  }
+
+  if (action === 'send-record') {
+    handleSendRecord();
+  }
 }
 
 // ------------------------------------------------------------
@@ -557,7 +675,6 @@ const ACTION_HANDLERS = Object.freeze({
   'select-theme': handleSelectTheme,
   'retry-auth': handleRetryAuth,
   'toggle-history': toggleHistoryPanel,
-  'close-secret-home': handleCloseSecretHome,
 });
 
 // ------------------------------------------------------------
@@ -578,17 +695,17 @@ function handleDigitInput(digit) {
     playFeedbackSound(displayState.isError ? 'error' : 'tap');
     playFeedbackVibration();
 
-    // 秘密コード（"0209"）の判定は電卓の計算処理とは独立して行う。
-    // 5文字以上になっても切り詰めない。文字数が4桁ちょうどのときだけ判定する
-    // ことで、"120209"のような余分な桁を含む入力では絶対に開かないようにする。
+    // パスコードの判定は電卓の計算処理とは独立して行う。
+    // 5文字以上になっても切り詰めない。桁数がパスコードとちょうど同じときだけ
+    // 判定することで、"120209"のような余分な桁を含む入力では絶対に開かないようにする。
     secretCodeBuffer += digit;
 
-    if (secretCodeBuffer.length === SECRET_CODE.length) {
-      if (secretCodeBuffer === SECRET_CODE) {
-        SecretHome.open();
-        document.getElementById('app').hidden = true;
+    const passcode = Passcode.getPasscode();
+    if (secretCodeBuffer.length === passcode.length) {
+      if (Passcode.validate(secretCodeBuffer)) {
+        Router.openWorkspace();
         secretCodeBuffer = '';
-        // Secret Homeへ切り替わった直後は電卓側のrender()は不要なのでスキップする。
+        // Workspaceへ切り替わった直後は電卓側のrender()は不要なのでスキップする。
         shouldRender = false;
         return;
       }
@@ -611,9 +728,9 @@ function handleDigitInput(digit) {
  * @param {string} action
  */
 function handleCalculatorAction(action) {
-  // 秘密コードの4桁バッファは、AC/＝/＋/−/×/÷/％/. の8つのアクションでのみ
+  // パスコードの入力バッファは、AC/＝/＋/−/×/÷/％/. の8つのアクションでのみ
   // リセットする（±は仕様上あえて対象外）。実際の計算処理より先に行う。
-  if (SECRET_CODE_RESET_ACTIONS.has(action)) {
+  if (PASSCODE_RESET_ACTIONS.has(action)) {
     secretCodeBuffer = '';
   }
 
@@ -657,35 +774,17 @@ function handleDocumentClick(event) {
   const target = event.target.closest('[data-action], [data-num], [data-secret]');
   if (!target) return;
 
-  // チャット画面が開いている間は、閉じる操作・送信操作だけを受け付ける。
-  if (Chat.isOpen()) {
-    if (target.dataset.action === 'close-chat') {
-      playFeedbackSound('tap');
-      playFeedbackVibration();
-      handleCloseChat();
-    } else if (target.dataset.action === 'send-chat-message') {
-      playFeedbackSound('tap');
-      playFeedbackVibration();
-      handleSendChatMessage();
-    }
+  // 今どの画面にいるかはRouterが一元管理している。
+  // Calculator以外にいる間は、電卓のキーパッド操作を一切受け付けない。
+  const currentScreen = Router.getCurrentScreen();
+
+  if (currentScreen === 'records') {
+    handleRecordsScreenClick(target);
     return;
   }
 
-  // 秘密ホームが開いている間は、電卓操作を一切受け付けない。
-  // 「戻る」（close-secret-home）またはカード選択（例：チャット）だけを許可する。
-  if (SecretHome.isOpen()) {
-    if (target.dataset.action === 'close-secret-home') {
-      playFeedbackSound('tap');
-      playFeedbackVibration();
-      handleCloseSecretHome();
-      return;
-    }
-    if (target.dataset.secret === 'chat') {
-      playFeedbackSound('tap');
-      playFeedbackVibration();
-      handleOpenChat();
-      return;
-    }
+  if (currentScreen === 'workspace') {
+    handleWorkspaceScreenClick(target);
     return;
   }
 
@@ -1002,12 +1101,13 @@ function withTimeout(promise, timeoutMs) {
  */
 async function init() {
   try {
-    // 1. build: DOM生成（キーパッド・テーマ選択肢・秘密ホーム・チャット）
+    // 1. build: DOM生成（キーパッド・テーマ選択肢・Workspace・Records）
     // Auth.isSupported()の判定を待たずに、まず電卓のUIを必ず作る。
     buildKeypad();
     buildThemeOptions();
-    SecretHome.create();
-    Chat.create();
+    Workspace.create();
+    Records.create();
+    Router.initAutoLock();
 
     // 2. event: イベント登録（ユーザー操作を受け付けられる状態にする）
     registerEventListeners();
