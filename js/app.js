@@ -12,7 +12,8 @@ import Settings from './settings.js';
 import Sound from './sound.js';
 import Auth from './auth.js';
 import { THEMES, getThemeById } from './themes.js';
-import { registerDigit, resetSequence, close as closeSecretHomeState } from './secret-home.js';
+import SecretHome from './secret-home.js';
+import Chat from './chat.js';
 
 // ------------------------------------------------------------
 // 定数
@@ -97,6 +98,9 @@ const SECRET_CODE_RESET_ACTIONS = new Set([
   CALC_ACTIONS.DECIMAL,
 ]);
 
+/** この4桁が正確に入力されたらSecret Homeを開く。判定はapp.jsが行う。 */
+const SECRET_CODE = '0209';
+
 /** エラーコードごとの表示文言。calculator.jsのerrorCodeを参照するだけで、判定ロジックは持たない */
 const ERROR_DISPLAY_TEXT = Object.freeze({
   'division-by-zero': 'エラー',
@@ -125,6 +129,9 @@ let isBiometricSupported = false;
 
 /** 設定画面を開く直前にフォーカスされていた要素（閉じたときに戻すため） */
 let lastFocusedElement = null;
+
+/** 秘密コード（"0209"）判定用の入力バッファ。4桁ちょうどのときだけ判定する。 */
+let secretCodeBuffer = '';
 
 /**
  * キーパッドの各キー要素に紐づく「pressedクラス解除タイマー」のID。
@@ -265,43 +272,6 @@ function buildThemeOptions() {
   });
 
   themeSwitchEl.appendChild(fragment);
-}
-
-/**
- * 秘密ホーム画面のDOMを構築し、bodyへ追加する。
- * キーパッド・テーマ選択肢と同様、静的HTMLには書かずJSで生成する
- * （index.htmlへの追加を最小限にとどめるため）。
- * 初期状態はhidden属性で非表示にしておく。
- */
-function buildSecretHome() {
-  const overlay = document.createElement('div');
-  overlay.id = 'secretHomeOverlay';
-  overlay.className = 'secret-home-overlay';
-  overlay.hidden = true;
-  overlay.setAttribute('role', 'dialog');
-  overlay.setAttribute('aria-modal', 'true');
-  overlay.setAttribute('aria-label', 'Secret Home');
-
-  const card = document.createElement('div');
-  card.className = 'secret-home-card';
-
-  const title = document.createElement('h2');
-  title.className = 'secret-home-title';
-  title.textContent = 'Secret Home';
-
-  const message = document.createElement('p');
-  message.className = 'secret-home-message';
-  message.textContent = 'Welcome';
-
-  const backButton = document.createElement('button');
-  backButton.type = 'button';
-  backButton.className = 'secret-home-back-btn';
-  backButton.dataset.action = 'close-secret-home';
-  backButton.textContent = '戻る';
-
-  card.append(title, message, backButton);
-  overlay.appendChild(card);
-  document.body.appendChild(overlay);
 }
 
 // ------------------------------------------------------------
@@ -471,23 +441,43 @@ function hideLockOverlay() {
 // ------------------------------------------------------------
 
 /**
- * 秘密ホーム画面を表示する。
- * 電卓画面自体は裏側にそのまま残っているため、閉じればそのままの状態
- * （入力中の数値・履歴等）に戻れる。
+ * Secret Homeの「戻る」ボタンの処理。
+ * SecretHome.close()で画面を閉じ、電卓画面（#app）を再表示し、
+ * 秘密コードの入力バッファもリセットする。
  */
-function showSecretHome() {
-  const overlay = document.getElementById('secretHomeOverlay');
-  overlay.hidden = false;
+function handleCloseSecretHome() {
+  SecretHome.close();
+  document.getElementById('app').hidden = false;
+  secretCodeBuffer = '';
+  render();
 }
 
 /**
- * 秘密ホーム画面を閉じ、通常の電卓表示へ戻す。
- * secret-home.js側の内部状態（開閉フラグ・入力バッファ）もあわせてリセットする。
+ * Secret Homeの「チャット」カードの処理。チャット画面を開く。
+ * Secret Home自体は裏側に残したままにする（チャットの「戻る」でSecret Homeへ戻る）。
  */
-function hideSecretHome() {
-  const overlay = document.getElementById('secretHomeOverlay');
-  overlay.hidden = true;
-  closeSecretHomeState();
+function handleOpenChat() {
+  Chat.open();
+}
+
+/**
+ * チャット画面の「戻る」ボタンの処理。チャット画面を閉じてSecret Homeへ戻る。
+ */
+function handleCloseChat() {
+  Chat.close();
+}
+
+/**
+ * チャット画面の「送信」ボタンの処理。
+ * 現時点ではFirebase等のバックエンドが無いため、入力内容を
+ * メッセージ一覧へローカルに追加するだけで、どこにも送信・保存はしない。
+ */
+function handleSendChatMessage() {
+  const text = Chat.getInputValue().trim();
+  if (!text) return;
+
+  Chat.addMessage(text);
+  Chat.clearInput();
 }
 
 // ------------------------------------------------------------
@@ -567,7 +557,7 @@ const ACTION_HANDLERS = Object.freeze({
   'select-theme': handleSelectTheme,
   'retry-auth': handleRetryAuth,
   'toggle-history': toggleHistoryPanel,
-  'close-secret-home': hideSecretHome,
+  'close-secret-home': handleCloseSecretHome,
 });
 
 // ------------------------------------------------------------
@@ -580,21 +570,35 @@ const ACTION_HANDLERS = Object.freeze({
  * @param {string} digit
  */
 function handleDigitInput(digit) {
+  let shouldRender = true;
+
   try {
     dispatchToCalculator(CALC_ACTIONS.DIGIT, digit);
     const displayState = Calculator.getDisplayState();
     playFeedbackSound(displayState.isError ? 'error' : 'tap');
     playFeedbackVibration();
 
-    // 電卓としての処理とは独立して、秘密コード（"0209"の連続入力）を監視する。
-    // 一致した場合のみ秘密ホームを表示する（電卓自体の動作には影響しない）。
-    if (registerDigit(digit)) {
-      showSecretHome();
+    // 秘密コード（"0209"）の判定は電卓の計算処理とは独立して行う。
+    // 5文字以上になっても切り詰めない。文字数が4桁ちょうどのときだけ判定する
+    // ことで、"120209"のような余分な桁を含む入力では絶対に開かないようにする。
+    secretCodeBuffer += digit;
+
+    if (secretCodeBuffer.length === SECRET_CODE.length) {
+      if (secretCodeBuffer === SECRET_CODE) {
+        SecretHome.open();
+        document.getElementById('app').hidden = true;
+        secretCodeBuffer = '';
+        // Secret Homeへ切り替わった直後は電卓側のrender()は不要なのでスキップする。
+        shouldRender = false;
+        return;
+      }
     }
   } catch (error) {
     console.error('[app.js] 数字入力の処理に失敗しました', error);
   } finally {
-    render();
+    if (shouldRender) {
+      render();
+    }
   }
 }
 
@@ -610,7 +614,7 @@ function handleCalculatorAction(action) {
   // 秘密コードの4桁バッファは、AC/＝/＋/−/×/÷/％/. の8つのアクションでのみ
   // リセットする（±は仕様上あえて対象外）。実際の計算処理より先に行う。
   if (SECRET_CODE_RESET_ACTIONS.has(action)) {
-    resetSequence();
+    secretCodeBuffer = '';
   }
 
   try {
@@ -650,8 +654,40 @@ function handleDocumentClick(event) {
   // closest()はElementにしか存在しないため、型を確認してから呼ぶ。
   if (!(event.target instanceof Element)) return;
 
-  const target = event.target.closest('[data-action], [data-num]');
+  const target = event.target.closest('[data-action], [data-num], [data-secret]');
   if (!target) return;
+
+  // チャット画面が開いている間は、閉じる操作・送信操作だけを受け付ける。
+  if (Chat.isOpen()) {
+    if (target.dataset.action === 'close-chat') {
+      playFeedbackSound('tap');
+      playFeedbackVibration();
+      handleCloseChat();
+    } else if (target.dataset.action === 'send-chat-message') {
+      playFeedbackSound('tap');
+      playFeedbackVibration();
+      handleSendChatMessage();
+    }
+    return;
+  }
+
+  // 秘密ホームが開いている間は、電卓操作を一切受け付けない。
+  // 「戻る」（close-secret-home）またはカード選択（例：チャット）だけを許可する。
+  if (SecretHome.isOpen()) {
+    if (target.dataset.action === 'close-secret-home') {
+      playFeedbackSound('tap');
+      playFeedbackVibration();
+      handleCloseSecretHome();
+      return;
+    }
+    if (target.dataset.secret === 'chat') {
+      playFeedbackSound('tap');
+      playFeedbackVibration();
+      handleOpenChat();
+      return;
+    }
+    return;
+  }
 
   const { action, num } = target.dataset;
 
@@ -951,10 +987,11 @@ async function init() {
     // 必要になるため、build前に確定させておく。
     isBiometricSupported = await Auth.isSupported();
 
-    // 1. build: DOM生成（キーパッド・テーマ選択肢・秘密ホーム）
+    // 1. build: DOM生成（キーパッド・テーマ選択肢・秘密ホーム・チャット）
     buildKeypad();
     buildThemeOptions();
-    buildSecretHome();
+    SecretHome.create();
+    Chat.create();
 
     // 2. event: イベント登録（ユーザー操作を受け付けられる状態にする）
     registerEventListeners();
