@@ -14,7 +14,7 @@ let currentPasscode = DEFAULT_PASSCODE;
 
 /**
  * 現在のパスコードを返す。
- * app.js側の桁数判定（secretCodeBuffer.length === Passcode.getPasscode().length）
+ * app.js側の桁数判定（passcodeBuffer.length === Passcode.getPasscode().length）
  * にそのまま使えるよう、常に文字列を返す。
  * @returns {string}
  */
