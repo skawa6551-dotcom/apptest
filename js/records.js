@@ -26,9 +26,10 @@ let isBuilt = false;
 /**
  * 送信された内容の保管庫。
  * 通常画面では一切表示せず、将来のArchive画面から参照する想定。
+ * push()するだけで再代入はしないため const にする。
  * @type {RecordEntry[]}
  */
-let archive = [];
+const archive = [];
 
 /**
  * コンテナ要素（#records）を取得する。
@@ -121,6 +122,8 @@ function createBody() {
 /**
  * #records の中身（ヘッダー＋本文）を構築する。
  * 既に構築済みの場合は何もしない（二重生成防止）。
+ * appendChild()ではなくreplaceChildren()を使うことで、将来create()が
+ * 再度呼ばれるケースになっても、既存の子要素を置き換える形で安全に動作する。
  */
 export function create() {
   if (isBuilt) return;
@@ -130,7 +133,7 @@ export function create() {
   const fragment = document.createDocumentFragment();
   fragment.appendChild(createHeader());
   fragment.appendChild(createBody());
-  container.appendChild(fragment);
+  container.replaceChildren(fragment);
 
   isBuilt = true;
 }
@@ -175,10 +178,16 @@ export function getInputValue() {
   return input ? input.value : '';
 }
 
-/** 入力欄を空にする（送信後、画面から内容を消すために使う）。 */
+/**
+ * 入力欄を空にする（送信後、画面から内容を消すために使う）。
+ * 空にした直後にフォーカスも戻し、連続で次のメモを入力しやすくする。
+ */
 export function clearInput() {
   const input = document.getElementById('recordsInput');
-  if (input) input.value = '';
+  if (!input) return;
+
+  input.value = '';
+  input.focus();
 }
 
 /**
