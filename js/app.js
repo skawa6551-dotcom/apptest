@@ -130,7 +130,7 @@ let isBiometricSupported = false;
 let lastFocusedElement = null;
 
 /** パスコード判定用の入力バッファ。桁数がパスコードと一致したときだけ判定する。 */
-let secretCodeBuffer = '';
+let passcodeBuffer = '';
 
 /**
  * キーパッドの各キー要素に紐づく「pressedクラス解除タイマー」のID。
@@ -445,7 +445,7 @@ function hideLockOverlay() {
  */
 function handleCloseWorkspace() {
   Router.closeWorkspace();
-  secretCodeBuffer = '';
+  passcodeBuffer = '';
   render();
 }
 
@@ -462,7 +462,7 @@ function handleCloseRecords() {
  */
 function handleLockNow() {
   Router.lockNow();
-  secretCodeBuffer = '';
+  passcodeBuffer = '';
   render();
 }
 
@@ -529,7 +529,21 @@ function handleSendRecord() {
 }
 
 /**
+ * Workspace画面のdata-action → ハンドラ関数の対応表。
+ * ACTION_HANDLERS（Calculator側）と同じ考え方をWorkspaceにも適用する。
+ */
+const WORKSPACE_ACTION_HANDLERS = Object.freeze({
+  'close-workspace': handleCloseWorkspace,
+  'lock-now': handleLockNow,
+  'toggle-view-mode': handleToggleViewMode,
+  'confirm-view-mode': handleConfirmViewMode,
+  'cancel-view-mode': handleCancelViewMode,
+});
+
+/**
  * Workspace画面が開いている間のクリックを処理する。
+ * AutoLockのリセットはrouter.jsのグローバルリスナー（pointerdown等）が
+ * 自動で行うため、ここでは呼ばない。
  * @param {HTMLElement} target
  */
 function handleWorkspaceScreenClick(target) {
@@ -537,30 +551,10 @@ function handleWorkspaceScreenClick(target) {
 
   playFeedbackSound('tap');
   playFeedbackVibration();
-  Router.notifyActivity();
 
-  if (action === 'close-workspace') {
-    handleCloseWorkspace();
-    return;
-  }
-
-  if (action === 'lock-now') {
-    handleLockNow();
-    return;
-  }
-
-  if (action === 'toggle-view-mode') {
-    handleToggleViewMode();
-    return;
-  }
-
-  if (action === 'confirm-view-mode') {
-    handleConfirmViewMode();
-    return;
-  }
-
-  if (action === 'cancel-view-mode') {
-    handleCancelViewMode();
+  const handler = WORKSPACE_ACTION_HANDLERS[action];
+  if (handler) {
+    handler();
     return;
   }
 
@@ -573,6 +567,15 @@ function handleWorkspaceScreenClick(target) {
 }
 
 /**
+ * Records画面のdata-action → ハンドラ関数の対応表。
+ */
+const RECORDS_ACTION_HANDLERS = Object.freeze({
+  'close-records': handleCloseRecords,
+  'lock-now': handleLockNow,
+  'send-record': handleSendRecord,
+});
+
+/**
  * Records画面が開いている間のクリックを処理する。
  * @param {HTMLElement} target
  */
@@ -581,20 +584,10 @@ function handleRecordsScreenClick(target) {
 
   playFeedbackSound('tap');
   playFeedbackVibration();
-  Router.notifyActivity();
 
-  if (action === 'close-records') {
-    handleCloseRecords();
-    return;
-  }
-
-  if (action === 'lock-now') {
-    handleLockNow();
-    return;
-  }
-
-  if (action === 'send-record') {
-    handleSendRecord();
+  const handler = RECORDS_ACTION_HANDLERS[action];
+  if (handler) {
+    handler();
   }
 }
 
@@ -698,13 +691,16 @@ function handleDigitInput(digit) {
     // パスコードの判定は電卓の計算処理とは独立して行う。
     // 5文字以上になっても切り詰めない。桁数がパスコードとちょうど同じときだけ
     // 判定することで、"120209"のような余分な桁を含む入力では絶対に開かないようにする。
-    secretCodeBuffer += digit;
+    // 毎回getPasscode()を呼んで最新値を取得する（結果をローカル変数に
+    // キャッシュしない）。将来Settings画面からパスコードを変更できるように
+    // なった際、変更直後の入力から新しいパスコードで判定させるため。
+    passcodeBuffer += digit;
 
     const passcode = Passcode.getPasscode();
-    if (secretCodeBuffer.length === passcode.length) {
-      if (Passcode.validate(secretCodeBuffer)) {
+    if (passcodeBuffer.length === passcode.length) {
+      if (Passcode.validate(passcodeBuffer)) {
         Router.openWorkspace();
-        secretCodeBuffer = '';
+        passcodeBuffer = '';
         // Workspaceへ切り替わった直後は電卓側のrender()は不要なのでスキップする。
         shouldRender = false;
         return;
@@ -731,7 +727,7 @@ function handleCalculatorAction(action) {
   // パスコードの入力バッファは、AC/＝/＋/−/×/÷/％/. の8つのアクションでのみ
   // リセットする（±は仕様上あえて対象外）。実際の計算処理より先に行う。
   if (PASSCODE_RESET_ACTIONS.has(action)) {
-    secretCodeBuffer = '';
+    passcodeBuffer = '';
   }
 
   try {
@@ -778,12 +774,12 @@ function handleDocumentClick(event) {
   // Calculator以外にいる間は、電卓のキーパッド操作を一切受け付けない。
   const currentScreen = Router.getCurrentScreen();
 
-  if (currentScreen === 'records') {
+  if (currentScreen === Router.Screen.RECORDS) {
     handleRecordsScreenClick(target);
     return;
   }
 
-  if (currentScreen === 'workspace') {
+  if (currentScreen === Router.Screen.WORKSPACE) {
     handleWorkspaceScreenClick(target);
     return;
   }
@@ -1101,13 +1097,14 @@ function withTimeout(promise, timeoutMs) {
  */
 async function init() {
   try {
-    // 1. build: DOM生成（キーパッド・テーマ選択肢・Workspace・Records）
+    // 1. build: DOM生成（キーパッド・テーマ選択肢）
     // Auth.isSupported()の判定を待たずに、まず電卓のUIを必ず作る。
     buildKeypad();
     buildThemeOptions();
-    Workspace.create();
-    Records.create();
-    Router.initAutoLock();
+
+    // Workspace/Records画面の構築、AutoLock、操作全般の活動検知リスナーは
+    // Router.init()にまとめて任せる（app.jsは画面制御のみ担当する）。
+    Router.init();
 
     // 2. event: イベント登録（ユーザー操作を受け付けられる状態にする）
     registerEventListeners();
