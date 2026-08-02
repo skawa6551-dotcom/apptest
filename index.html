@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+  <title>Calculator 0209</title>
+  <meta name="description" content="A private calculator style PWA.">
+
+  <meta name="theme-color" content="#0B0B0F">
+  <link rel="manifest" href="manifest.json">
+
+  <link rel="icon" href="assets/icons/icon-192.png" type="image/png">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Calculator">
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+  <link rel="apple-touch-startup-image" href="assets/icons/icon-512.png">
+
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/calculator.css">
+  <link rel="stylesheet" href="css/settings.css">
+</head>
+<body>
+
+<main id="app" class="app">
+
+  <div class="safe-area-top" aria-hidden="true"></div>
+
+  <header class="app-header">
+
+    <button
+      type="button"
+      class="icon-btn"
+      id="settingsOpenBtn"
+      data-action="open-settings"
+      aria-label="設定を開く"
+      aria-haspopup="dialog"
+      aria-controls="settingsOverlay">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M19.4 13a7.4 7.4 0 0 0 .06-1 7.4 7.4 0 0 0-.06-1l2.03-1.58a.5.5 0 0 0 .12-.63l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.5 7.5 0 0 0-1.73-1l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54a7.5 7.5 0 0 0-1.73 1l-2.39-.96a.5.5 0 0 0-.6.22L2.65 8.79a.5.5 0 0 0 .12.63L4.8 11a7.4 7.4 0 0 0-.06 1 7.4 7.4 0 0 0 .06 1l-2.03 1.58a.5.5 0 0 0-.12.63l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96a7.5 7.5 0 0 0 1.73 1l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54a7.5 7.5 0 0 0 1.73-1l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.63L19.4 13Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+    <h1 class="app-title">Calculator</h1>
+
+    <button
+      type="button"
+      class="icon-btn"
+      id="historyClearShortcut"
+      data-action="clear-history"
+      aria-label="履歴をすべて削除">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 7h16M9 7V4.8A.8.8 0 0 1 9.8 4h4.4a.8.8 0 0 1 .8.8V7m2 0-.7 12.3a1.6 1.6 0 0 1-1.6 1.5H8.3a1.6 1.6 0 0 1-1.6-1.5L6 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+  </header>
+
+  <section class="history-panel" aria-label="計算履歴">
+    <ol id="historyList" class="history-list" aria-live="polite"></ol>
+  </section>
+
+  <section class="display-panel" aria-label="計算結果">
+    <div id="expressionDisplay" class="expression-display" aria-hidden="true"></div>
+    <div
+      id="resultDisplay"
+      class="result-display"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true">0</div>
+  </section>
+
+  <section class="keypad" id="keypad" role="group" aria-label="電卓ボタン"></section>
+
+</main>
+
+<div id="settingsOverlay" class="settings-overlay" aria-hidden="true">
+  <div
+    class="settings-sheet"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="settingsTitle"
+    tabindex="-1">
+
+    <div class="settings-handle" aria-hidden="true"></div>
+
+    <div class="settings-header">
+      <h2 id="settingsTitle">設定</h2>
+      <button
+        type="button"
+        class="icon-btn"
+        id="settingsCloseBtn"
+        data-action="close-settings"
+        aria-label="設定を閉じる">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="settings-body">
+
+      <div class="settings-group" role="group" aria-label="認証とフィードバック">
+
+        <div class="settings-row" id="biometricRow" hidden>
+          <div class="settings-row-text">
+            <span class="settings-row-title">生体認証</span>
+            <span class="settings-row-desc" id="biometricDesc">起動時にPasskeyで認証</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="biometricToggle">
+            <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <span class="settings-row-title">タップ音</span>
+            <span class="settings-row-desc">ボタン操作音を再生</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="soundToggle" checked>
+            <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <span class="settings-row-title">バイブレーション</span>
+            <span class="settings-row-desc">タップ時に振動</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="vibrationToggle" checked>
+            <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-row settings-row-select">
+          <div class="settings-row-text">
+            <span class="settings-row-title">テーマ</span>
+          </div>
+        </div>
+        <div
+          class="theme-switch"
+          id="themeSwitch"
+          role="radiogroup"
+          aria-label="テーマを選択"></div>
+      </div>
+
+      <div class="settings-group">
+        <button
+          type="button"
+          class="settings-action-btn"
+          id="historyClearBtn"
+          data-action="clear-history">
+          履歴をすべて削除
+        </button>
+      </div>
+
+      <div class="settings-footer">
+        <span>Calculator 0209</span>
+        <span id="versionLabel">Version 1.0.0</span>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="lockOverlay" class="lock-overlay" aria-hidden="true">
+  <div
+    class="lock-content"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="lockTitle"
+    tabindex="-1">
+
+    <div class="lock-icon" aria-hidden="true">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+        <path d="M12 3c-3 0-5 2-5 5v1M12 3c3 0 5 2 5 5v1M4 9v3c0 4 3.5 7.5 8 8.5 4.5-1 8-4.5 8-8.5V9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="9" cy="11" r="1" fill="currentColor"/>
+        <circle cx="15" cy="11" r="1" fill="currentColor"/>
+        <path d="M9.5 15.5c.7.6 1.6 1 2.5 1s1.8-.4 2.5-1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <p id="lockTitle" class="lock-text">生体認証で認証してください</p>
+
+    <button
+      type="button"
+      class="lock-retry-btn"
+      id="lockRetryBtn"
+      data-action="retry-auth">
+      再試行
+    </button>
+  </div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
