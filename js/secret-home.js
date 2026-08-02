@@ -1,84 +1,170 @@
 // ============================================================
 // secret-home.js
-// 「0209」の完全一致入力を検知し、秘密ホームの開閉状態を管理するモジュール。
-// calculator.js等と同じ方針で、DOM操作は一切行わない（app.jsの責務）。
-// 状態（入力バッファ・開閉フラグ）はこのモジュール内のメモリにのみ保持し、
-// Storageへの保存も行わない（アプリ再読み込みでリセットされる想定）。
+// 秘密ホーム画面（#secretHome）のDOM生成と開閉状態を管理するモジュール。
 //
-// 仕様：
-//   ・リセットされてから正確に4桁（SECRET_CODE.length）打ったときだけ判定する。
-//   ・4桁ちょうどで一致すれば開く。
-//   ・4桁に満たない間、または5桁目以降に進んでしまった場合は、
-//     次にリセットされるまで二度と一致しない
-//     （末尾4文字だけを見る「スライディングウィンドウ」方式ではない）。
+// 「0209」の入力判定はここでは一切行わない（app.js側の責務）。
+// このファイルはあくまで「秘密ホームという画面そのもの」の
+//   ・DOM構築（create）
+//   ・表示（open）
+//   ・非表示（close）
+//   ・現在開いているかどうかの参照（isOpen）
+// だけを担当する。calculator.js等の他モジュールと異なり、
+// この画面専用にDOM操作を行うことを役割として持つ。
 // ============================================================
 
-/** この4桁が正確に入力されたら秘密ホームを開く */
-const SECRET_CODE = '0209';
+/** 秘密ホームのDOMを差し込む先のコンテナのid（index.htmlに静的に用意済み） */
+const CONTAINER_ID = 'secretHome';
 
 /**
- * リセットされてから現在までに入力された数字をそのまま溜めるバッファ。
- * わざと切り詰めない（.slice()等をしない）ことがポイントで、
- * これにより「ちょうどSECRET_CODE.length文字になった瞬間だけ」
- * 文字列としての完全一致判定が成立し、それ以外（短すぎる／長すぎる）は
- * 自動的に不一致になる。
+ * カードの定義データ。表示ラベルと data-secret 属性の値の対応表。
+ * ここに1件追加するだけでカードが1枚増える。
  */
-let inputBuffer = '';
+const CARD_DEFINITIONS = Object.freeze([
+  Object.freeze({ label: 'チャット', key: 'chat', icon: '💬' }),
+  Object.freeze({ label: 'カレンダー', key: 'calendar', icon: '📅' }),
+  Object.freeze({ label: '写真', key: 'photo', icon: '🖼️' }),
+  Object.freeze({ label: '行きたい場所', key: 'places', icon: '📍' }),
+  Object.freeze({ label: '設定', key: 'settings', icon: '⚙️' }),
+]);
 
-/** 秘密ホームが開いているかどうか */
-let isOpen = false;
+/** create() が既に実行済みかどうか（二重生成防止） */
+let isBuilt = false;
 
 /**
- * 数字キーが1つ押されるたびに呼び出す。
- * バッファへ数字を追加し、ちょうどSECRET_CODEと同じ長さになった時点で
- * 完全一致するかどうかだけを判定する。
- *
- * 例：
- *   '0' '2' '0' '9'                  → 4桁目で一致 → 開く
- *   '1' '2' '3' '4'                  → 4桁目で不一致 → 開かない（以後もリセットまで開かない）
- *   '1' '2' '0' '2' '0' '9'          → 4桁目("1202")で既に不一致、5桁目以降は
- *                                       文字数が合わないため判定自体が成立しない → 開かない
- *   '0' '0' '2' '0' '9'              → 同上の理由で開かない
- *   '0' '2' '0' '8'                  → 4桁目で不一致 → 開かない
- *
- * @param {string} digit - '0'〜'9'の数字1文字
- * @returns {boolean} この呼び出しで新たに秘密ホームを開いた場合はtrue
+ * コンテナ要素（#secretHome）を取得する。
+ * @returns {HTMLElement|null}
  */
-export function registerDigit(digit) {
-  inputBuffer += digit;
+function getContainer() {
+  return document.getElementById(CONTAINER_ID);
+}
 
-  if (inputBuffer === SECRET_CODE) {
-    isOpen = true;
-    // 秘密ホームへ入ったら入力履歴（バッファ）をリセットする。
-    inputBuffer = '';
-    return true;
+/**
+ * ヘッダー（戻るボタン＋タイトル）を作る。
+ * @returns {HTMLElement}
+ */
+function createHeader() {
+  const header = document.createElement('header');
+  header.className = 'secret-home-header';
+
+  const backButton = document.createElement('button');
+  backButton.type = 'button';
+  backButton.className = 'icon-btn';
+  backButton.dataset.action = 'close-secret-home';
+  backButton.setAttribute('aria-label', '戻る');
+  backButton.textContent = '‹';
+
+  const title = document.createElement('h2');
+  title.className = 'secret-home-title';
+  title.textContent = 'Secret Home';
+
+  header.appendChild(backButton);
+  header.appendChild(title);
+
+  return header;
+}
+
+/**
+ * 1枚分のカード（button要素）を作る。
+ * @param {{label: string, key: string, icon: string}} definition
+ * @returns {HTMLButtonElement}
+ */
+function createCard(definition) {
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'secret-home-card';
+  card.dataset.secret = definition.key;
+
+  const icon = document.createElement('span');
+  icon.className = 'secret-home-card-icon';
+  icon.textContent = definition.icon;
+
+  const label = document.createElement('span');
+  label.className = 'secret-home-card-label';
+  label.textContent = definition.label;
+
+  card.appendChild(icon);
+  card.appendChild(label);
+
+  return card;
+}
+
+/**
+ * CARD_DEFINITIONSからカード一覧（main要素）を作る。
+ * @returns {HTMLElement}
+ */
+function createMain() {
+  const main = document.createElement('main');
+  main.className = 'secret-home-main';
+
+  const fragment = document.createDocumentFragment();
+  CARD_DEFINITIONS.forEach((definition) => {
+    fragment.appendChild(createCard(definition));
+  });
+  main.appendChild(fragment);
+
+  return main;
+}
+
+/**
+ * #secretHome の中身（ヘッダー＋カード一覧）を構築する。
+ * 既に構築済みの場合は何もしない（二重生成防止）。
+ * createElementとDocumentFragmentのみを使い、innerHTML等は使用しない。
+ */
+export function create() {
+  if (isBuilt) return;
+
+  const container = getContainer();
+  if (!container) {
+    console.warn(`[secret-home.js] #${CONTAINER_ID} が見つかりません`);
+    return;
   }
 
-  return false;
+  const fragment = document.createDocumentFragment();
+  fragment.appendChild(createHeader());
+  fragment.appendChild(createMain());
+  container.appendChild(fragment);
+
+  isBuilt = true;
 }
 
 /**
- * AC・＝・＋・−・×・÷・％・小数点（.）など、
- * app.js側で「リセット対象」と定めた操作が行われたときに呼び出す。
- * 4桁入力バッファを空に戻す。
+ * 秘密ホーム画面を表示する。
  */
-export function resetSequence() {
-  inputBuffer = '';
+export function open() {
+  const container = getContainer();
+  if (!container) return;
+
+  container.scrollTop = 0;
+  container.classList.add('is-open');
+  container.setAttribute('aria-hidden', 'false');
 }
 
 /**
- * 秘密ホームを閉じ、内部状態を初期化する。
- * 通常の電卓画面へ戻るときにapp.js側から呼ばれる想定。
+ * 秘密ホーム画面を非表示にする。
  */
 export function close() {
-  isOpen = false;
-  inputBuffer = '';
+  const container = getContainer();
+  if (!container) return;
+
+  container.classList.remove('is-open');
+  container.setAttribute('aria-hidden', 'true');
+  container.scrollTop = 0;
 }
 
 /**
- * 現在秘密ホームが開いているかどうかを返す。
+ * 秘密ホーム画面が現在開いているかどうかを返す。
  * @returns {boolean}
  */
-export function isSecretHomeOpen() {
-  return isOpen;
+export function isOpen() {
+  const container = getContainer();
+  return container ? container.classList.contains('is-open') : false;
 }
+
+const SecretHome = {
+  create,
+  open,
+  close,
+  isOpen,
+};
+
+export default SecretHome;
