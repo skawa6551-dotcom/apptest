@@ -40,7 +40,7 @@
   <!-- ノッチ・Dynamic Island分の余白（見た目のみ、内容は持たない） -->
   <div class="safe-area-top" aria-hidden="true"></div>
 
-  <!-- ---------------- ヘッダー：タイトル／設定ボタン／履歴削除ボタン ---------------- -->
+  <!-- ---------------- ヘッダー：タイトル／設定ボタン／履歴表示ボタン ---------------- -->
   <header class="app-header">
 
     <!-- 設定ボタン：設定画面（settingsOverlay）を開く -->
@@ -61,7 +61,8 @@
     <!-- アプリタイトル -->
     <h1 class="app-title">Calculator</h1>
 
-    <!-- 履歴削除ショートカット：設定画面を開かずワンタップで履歴を消す -->
+    <!-- 履歴表示トグル：タップで履歴パネルの開閉を切り替える。
+         削除は設定画面の「履歴をすべて削除」に統一し、ここには置かない。 -->
     <button
       type="button"
       class="icon-btn"
@@ -76,23 +77,12 @@
       </svg>
     </button>
 
-    <button
-      type="button"
-      class="icon-btn"
-      id="historyClearShortcut"
-      data-action="clear-history"
-      aria-label="履歴をすべて削除">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M4 7h16M9 7V4.8A.8.8 0 0 1 9.8 4h4.4a.8.8 0 0 1 .8.8V7m2 0-.7 12.3a1.6 1.6 0 0 1-1.6 1.5H8.3a1.6 1.6 0 0 1-1.6-1.5L6 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </button>
-
   </header>
 
   <!-- ---------------- 履歴パネル ----------------
        中身（history-item）はcalculator.jsの履歴データをもとにapp.jsが描画する。
        aria-liveで新しい計算が追加されたことをスクリーンリーダーにも伝える。 -->
-  <section id="historyPanel" class="history-panel" aria-label="計算履歴">
+  <section id="historyPanel" class="history-panel" aria-label="計算履歴" hidden>
     <ol id="historyList" class="history-list" aria-live="polite"></ol>
   </section>
 
@@ -233,6 +223,7 @@
     role="dialog"
     aria-modal="true"
     aria-labelledby="lockTitle"
+    aria-describedby="lockDescription"
     tabindex="-1">
 
     <!-- 生体認証アイコン（装飾。意味はlockTitleのテキストで伝える） -->
@@ -247,6 +238,7 @@
 
     <!-- 説明文 -->
     <p id="lockTitle" class="lock-text">生体認証で認証してください</p>
+    <p id="lockDescription" class="lock-description">Face IDまたはTouch IDでロックを解除するか、下のボタンから再試行してください。</p>
 
     <!-- 再試行ボタン：キャンセル・失敗時にもう一度認証を試みる -->
     <button
@@ -270,6 +262,11 @@
      Workspace（旧Secret Home）コンテナ
      中身の生成・表示/非表示の制御はすべてworkspace.js/app.js側で行う。
      ここでは空のコンテナだけを用意する。
+
+     配置についての補足：WorkspaceはCalculator（#app、<main>）と
+     同じ階層で表示を丸ごと切り替える別画面であり、Calculatorの
+     子要素ではない。そのため<main id="app">の内側ではなく、
+     ここ（bodyの終端、<main>と兄弟の位置）に置いている。
      ========================================================== -->
 <div
   id="workspace"
