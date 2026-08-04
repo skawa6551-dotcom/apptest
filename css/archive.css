@@ -1,0 +1,199 @@
+/* ============================================================
+   archive.css
+   Workspace内「Archive」画面専用のスタイル。
+   記録を振り返るための、落ち着いた高級感のあるライブラリ画面。
+
+   背景プリセット（archive-bg--*）のみ、app.cssの共有トークンではなく
+   このファイル内に閉じた固定値を使う。理由：プリセットは「決まった
+   選択肢の中からユーザーが選ぶ」ための、意図的に固定された配色
+   （Black & Gold / Dark Navy / Glass / Abstract Art）であり、テーマ
+   切り替え（app.cssのCSS変数）とは別レイヤーの機能のため。
+   それ以外の余白・角丸・影・モーション・Safe Area等はすべて app.css の
+   CSS変数を使う。
+   app.css / calculator.css / settings.css / workspace.css /
+   records.css / calendar.css には触れない。
+   ============================================================ */
+
+.archive {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-lock) + 10);
+
+  display: none;
+  visibility: hidden;
+  flex-direction: column;
+
+  color: var(--color-text-primary);
+
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-base) var(--easing-standard);
+
+  padding-top: max(var(--space-md), var(--safe-top));
+  padding-bottom: max(var(--space-md), var(--safe-bottom));
+  padding-left: max(var(--space-md), var(--safe-left));
+  padding-right: max(var(--space-md), var(--safe-right));
+}
+
+.archive.is-open {
+  display: flex;
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ------------------------------------------------------------
+   背景プリセット
+   ------------------------------------------------------------ */
+.archive.archive-bg--black-gold {
+  background: linear-gradient(180deg, #050505 0%, #171008 100%);
+}
+
+.archive.archive-bg--dark-navy {
+  background: linear-gradient(180deg, #05070d 0%, #0d1a2e 100%);
+}
+
+.archive.archive-bg--glass {
+  background: linear-gradient(180deg, #101214 0%, #24272b 100%);
+}
+
+.archive.archive-bg--abstract {
+  background: linear-gradient(160deg, #140a07 0%, #241506 45%, #0a0d14 100%);
+}
+
+/* ------------------------------------------------------------
+   ヘッダー：戻るボタン＋タイトル＋ロックボタン
+   ------------------------------------------------------------ */
+.archive-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+  padding-bottom: var(--space-sm);
+}
+
+.archive-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* ------------------------------------------------------------
+   検索欄
+   ------------------------------------------------------------ */
+.archive-search {
+  flex-shrink: 0;
+  padding-bottom: var(--space-sm);
+}
+
+.archive-search-input {
+  width: 100%;
+  padding: var(--space-2xs) var(--space-sm);
+  border: none;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-family: inherit;
+}
+
+.archive-search-input::placeholder {
+  color: var(--color-text-secondary);
+}
+
+/* ------------------------------------------------------------
+   背景プリセット選択UI
+   ------------------------------------------------------------ */
+.archive-bg-picker {
+  display: flex;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-md);
+}
+
+.archive-bg-swatch {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  transition: transform var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard);
+}
+
+.archive-bg-swatch:active {
+  transform: scale(0.92);
+}
+
+.archive-bg-swatch.active {
+  border-color: var(--color-accent);
+}
+
+.archive-bg-swatch--black-gold {
+  background: linear-gradient(135deg, #050505 0%, #171008 100%);
+}
+
+.archive-bg-swatch--dark-navy {
+  background: linear-gradient(135deg, #05070d 0%, #0d1a2e 100%);
+}
+
+.archive-bg-swatch--glass {
+  background: linear-gradient(135deg, #101214 0%, #24272b 100%);
+}
+
+.archive-bg-swatch--abstract {
+  background: linear-gradient(135deg, #140a07 0%, #241506 45%, #0a0d14 100%);
+}
+
+/* ------------------------------------------------------------
+   記録一覧
+   ------------------------------------------------------------ */
+.archive-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-lg);
+}
+
+.archive-entry {
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(var(--blur-glass));
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  box-shadow: var(--shadow-elevated);
+}
+
+.archive-entry-date {
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+  margin: 0 0 var(--space-3xs) 0;
+}
+
+.archive-entry-text {
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+
+.archive-empty-state {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+  padding: var(--space-lg);
+}
