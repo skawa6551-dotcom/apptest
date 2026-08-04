@@ -17,7 +17,7 @@
 // キャッシュの中身（対象ファイルや内容）を変更したら、この数値を
 // 上げるだけで古いキャッシュが自動的に破棄され、新しい内容に更新される。
 // ------------------------------------------------------------
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 5;
 const CACHE_NAME = `calculator-0209-cache-v${CACHE_VERSION}`;
 
 // ------------------------------------------------------------
@@ -26,6 +26,17 @@ const CACHE_NAME = `calculator-0209-cache-v${CACHE_VERSION}`;
 // Workspace/Records/Router/Passcode/AutoLock導入に伴い、
 // 対象ファイルを追加している（CACHE_VERSIONもあわせて引き上げ、
 // それ以前のセッションで端末に残っている古いキャッシュを破棄する）。
+// Calendar画面追加に伴い、calendar.js/calendar.cssも追加し、
+// CACHE_VERSIONを再度引き上げている。
+// Archive画面追加に伴い、archive.js/archive.cssも追加し、
+// CACHE_VERSIONをさらに引き上げている。
+// Phase1（メッセージ機能）追加に伴い、pairing.js/messages.js/
+// firebase.js/firebase-config.js/pairing.css/messages.cssを追加し、
+// CACHE_VERSIONをさらに引き上げている。
+// なお、Firebase SDK自体（https://www.gstatic.com/firebasejs/...）は
+// 他オリジンのため、このService Workerのfetchハンドラの対象外
+// （下記の同一オリジン判定で自動的に除外される）。ブラウザの通常の
+// HTTPキャッシュに任せる。
 // ------------------------------------------------------------
 const PRECACHE_URLS = Object.freeze([
   './',
@@ -36,6 +47,10 @@ const PRECACHE_URLS = Object.freeze([
   './css/settings.css',
   './css/workspace.css',
   './css/records.css',
+  './css/calendar.css',
+  './css/archive.css',
+  './css/pairing.css',
+  './css/messages.css',
   './js/app.js',
   './js/calculator.js',
   './js/settings.js',
@@ -48,6 +63,12 @@ const PRECACHE_URLS = Object.freeze([
   './js/autolock.js',
   './js/workspace.js',
   './js/records.js',
+  './js/calendar.js',
+  './js/archive.js',
+  './js/firebase-config.js',
+  './js/firebase.js',
+  './js/pairing.js',
+  './js/messages.js',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
   './assets/icons/icon-512-maskable.png',
