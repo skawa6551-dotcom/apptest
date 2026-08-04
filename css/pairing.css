@@ -1,0 +1,147 @@
+/* ============================================================
+   pairing.css
+   ペアリング画面（#pairing / .pairing）専用のスタイル。
+   色・余白・角丸・影・モーション・Safe Area等はすべて app.css の
+   CSS変数を使う。app.css / calculator.css / settings.css /
+   workspace.css / records.css / calendar.css / archive.css には
+   触れない。
+   ============================================================ */
+
+.pairing {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-lock) + 10);
+
+  display: none;
+  visibility: hidden;
+  flex-direction: column;
+
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-base) var(--easing-standard);
+
+  padding-top: max(var(--space-md), var(--safe-top));
+  padding-bottom: max(var(--space-md), var(--safe-bottom));
+  padding-left: max(var(--space-md), var(--safe-left));
+  padding-right: max(var(--space-md), var(--safe-right));
+}
+
+.pairing.is-open {
+  display: flex;
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ------------------------------------------------------------
+   ヘッダー
+   ------------------------------------------------------------ */
+.pairing-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+  padding-bottom: var(--space-lg);
+}
+
+.pairing-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------
+   パネル共通
+   ------------------------------------------------------------ */
+.pairing-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-md);
+  flex: 1 1 auto;
+  justify-content: center;
+  max-width: 22rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.pairing-message {
+  text-align: center;
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+}
+
+.pairing-input {
+  width: 100%;
+  padding: var(--space-sm);
+  border: none;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  font-family: inherit;
+  text-align: center;
+}
+
+.pairing-code-input {
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.pairing-input::placeholder {
+  color: var(--color-text-secondary);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.pairing-primary-btn,
+.pairing-secondary-btn {
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  transition: transform var(--duration-fast) var(--easing-standard);
+}
+
+.pairing-primary-btn:active,
+.pairing-secondary-btn:active {
+  transform: scale(0.97);
+}
+
+.pairing-primary-btn {
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.pairing-secondary-btn {
+  background-color: var(--color-surface-strong);
+  color: var(--color-text-primary);
+}
+
+.pairing-code-display {
+  text-align: center;
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--color-accent);
+}
+
+.pairing-status {
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.pairing-error {
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: #ff6b6b;
+}
