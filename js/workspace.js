@@ -14,12 +14,16 @@ const CONTAINER_ID = 'workspace';
 /**
  * カードの定義データ。表示ラベルと data-secret 属性の値の対応表。
  * ここに1件追加するだけでカードが1枚増える。
- * 「チャット」は廃止し、「記録」（Records）に置き換えている。
+ * 「記録」は廃止し、Firebaseリアルタイム同期による「メッセージ」に
+ * 置き換えている（records.js自体は、archive.jsが引き続き参照する
+ * ローカル記録データの読み出し先として残っているが、Workspaceの
+ * カードとしては表示しない）。
  */
 const CARD_DEFINITIONS = Object.freeze([
-  Object.freeze({ label: '記録', key: 'records', icon: '📝' }),
+  Object.freeze({ label: 'メッセージ', key: 'messages', icon: '💬' }),
+  Object.freeze({ label: 'Archive', key: 'archive', icon: '📚' }),
   Object.freeze({ label: 'カレンダー', key: 'calendar', icon: '📅' }),
-  Object.freeze({ label: '写真', key: 'photo', icon: '🖼️' }),
+  Object.freeze({ label: '写真', key: 'photo', icon: '📷' }),
   Object.freeze({ label: '行きたい場所', key: 'places', icon: '📍' }),
   Object.freeze({ label: '設定', key: 'settings', icon: '⚙️' }),
 ]);
