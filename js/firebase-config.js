@@ -13,12 +13,12 @@
 // ============================================================
 
 const firebaseConfig = Object.freeze({
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_PROJECT_ID.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID',
+  apiKey: 'AIzaSyAnOD_OGuGfHO68psK_UYSTIMeFcHZCtDQ',
+  authDomain: 'apptest-6752c.firebaseapp.com',
+  projectId: 'apptest-6752c',
+  storageBucket: 'apptest-6752c.firebasestorage.app',
+  messagingSenderId: '251875277279',
+  appId: '1:251875277279:web:b44bf7ccf1d33c6cd06c6a',
 });
 
 export default firebaseConfig;
