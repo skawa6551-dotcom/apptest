@@ -16,6 +16,11 @@ import Router from './router.js';
 import Passcode from './passcode.js';
 import Workspace from './workspace.js';
 import Records from './records.js';
+import Calendar from './calendar.js';
+import Archive from './archive.js';
+import Pairing from './pairing.js';
+import Messages from './messages.js';
+import Firebase from './firebase.js';
 
 // ------------------------------------------------------------
 // 定数
@@ -563,7 +568,36 @@ function handleWorkspaceScreenClick(target) {
     return;
   }
 
-  // カレンダー／写真／行きたい場所／設定は現時点では未実装（Sprint1範囲外）。
+  if (secret === 'calendar') {
+    Router.openCalendar();
+    return;
+  }
+
+  if (secret === 'archive') {
+    Router.openArchive();
+    return;
+  }
+
+  if (secret === 'messages') {
+    handleOpenMessagesCard();
+    return;
+  }
+
+  // 写真／行きたい場所／設定は現時点では未実装。
+}
+
+/**
+ * Workspaceの「メッセージ」カードの処理。
+ * 既にルームへ接続済み（ローカルにroomIdがある）ならMessagesを直接開き、
+ * まだ未接続ならPairing（招待コードの発行/入力）を開く。
+ */
+function handleOpenMessagesCard() {
+  const roomId = Firebase.getLocalRoomId();
+  if (roomId) {
+    Router.openMessages();
+  } else {
+    Router.openPairing();
+  }
 }
 
 /**
@@ -589,6 +623,290 @@ function handleRecordsScreenClick(target) {
   if (handler) {
     handler();
   }
+}
+
+/**
+ * Calendarの「戻る」ボタンの処理。Router経由でWorkspaceへ戻る。
+ */
+function handleCloseCalendar() {
+  Router.closeCalendar();
+}
+
+/**
+ * Calendarの「前の月」ボタンの処理。
+ */
+function handlePrevMonth() {
+  Calendar.goToPreviousMonth();
+}
+
+/**
+ * Calendarの「次の月」ボタンの処理。
+ */
+function handleNextMonth() {
+  Calendar.goToNextMonth();
+}
+
+/**
+ * Calendarの日付セルをタップしたときの処理。
+ * タップされたセルのdata-date（'YYYY-MM-DD'）をそのままCalendarへ渡し、
+ * その日のメモ編集パネルを開かせる。
+ * @param {HTMLElement} target
+ */
+function handleSelectDate(target) {
+  const { date } = target.dataset;
+  if (!date) return;
+
+  Calendar.selectDate(date);
+}
+
+/**
+ * Calendarのメモ編集パネル「保存」ボタンの処理。
+ * 入力内容はCalendar.saveNote()経由でStorageへ保存される
+ * （calendar.js自身がStorageを介して永続化する。app.jsはlocalStorageに
+ * 直接触れない）。
+ */
+function handleSaveNote() {
+  const text = Calendar.getNoteInputValue();
+  Calendar.saveNote(text);
+  playFeedbackSound('success');
+  playFeedbackVibration();
+}
+
+/**
+ * Calendarのメモ編集パネル「キャンセル」ボタンの処理。
+ */
+function handleCancelNote() {
+  Calendar.closeNoteEditor();
+}
+
+/**
+ * Calendar画面のdata-action → ハンドラ関数の対応表。
+ * 「select-date」だけはdata-dateの値が必要なため、
+ * handleCalendarScreenClick()側で個別に扱う。
+ */
+const CALENDAR_ACTION_HANDLERS = Object.freeze({
+  'close-calendar': handleCloseCalendar,
+  'lock-now': handleLockNow,
+  'prev-month': handlePrevMonth,
+  'next-month': handleNextMonth,
+  'save-note': handleSaveNote,
+  'cancel-note': handleCancelNote,
+});
+
+/**
+ * Calendar画面が開いている間のクリックを処理する。
+ * @param {HTMLElement} target
+ */
+function handleCalendarScreenClick(target) {
+  const { action } = target.dataset;
+
+  playFeedbackSound('tap');
+  playFeedbackVibration();
+
+  if (action === 'select-date') {
+    handleSelectDate(target);
+    return;
+  }
+
+  const handler = CALENDAR_ACTION_HANDLERS[action];
+  if (handler) {
+    handler();
+  }
+}
+
+/**
+ * Archiveの「戻る」ボタンの処理。Router経由でWorkspaceへ戻る。
+ */
+function handleCloseArchive() {
+  Router.closeArchive();
+}
+
+/**
+ * Archiveの背景プリセット選択の処理。
+ * @param {HTMLElement} target
+ */
+function handleSelectBackground(target) {
+  const { backgroundId } = target.dataset;
+  if (!backgroundId) return;
+
+  Archive.selectBackground(backgroundId);
+}
+
+/**
+ * Archive画面のdata-action → ハンドラ関数の対応表。
+ * 「select-background」だけはdata-backgroundIdの値が必要なため、
+ * handleArchiveScreenClick()側で個別に扱う。
+ */
+const ARCHIVE_ACTION_HANDLERS = Object.freeze({
+  'close-archive': handleCloseArchive,
+  'lock-now': handleLockNow,
+});
+
+/**
+ * Archive画面が開いている間のクリックを処理する。
+ * @param {HTMLElement} target
+ */
+function handleArchiveScreenClick(target) {
+  const { action } = target.dataset;
+
+  playFeedbackSound('tap');
+  playFeedbackVibration();
+
+  if (action === 'select-background') {
+    handleSelectBackground(target);
+    return;
+  }
+
+  const handler = ARCHIVE_ACTION_HANDLERS[action];
+  if (handler) {
+    handler();
+  }
+}
+
+/**
+ * Pairingの「戻る」ボタンの処理。Router経由でWorkspaceへ戻る。
+ */
+function handleClosePairing() {
+  Router.closePairing();
+}
+
+/**
+ * Pairing「次へ」（表示名保存）ボタンの処理。
+ * 入力が空の場合は何もしない（ボタンを押しても先へ進めない）。
+ */
+function handleSaveDisplayName() {
+  const name = Pairing.getDisplayNameInputValue();
+  if (!name) return;
+
+  Pairing.saveDisplayName(name);
+  Pairing.showChoicePanel();
+}
+
+/**
+ * Pairing「招待コードを発行する」ボタンの処理。
+ * 発行パネルを先に表示してから、非同期の発行処理を開始する
+ * （通信中もユーザーには「発行中…」の状態が見えるようにするため）。
+ */
+function handleChooseGenerate() {
+  Pairing.showGeneratePanel();
+  Pairing.generateInvite().catch((error) => {
+    console.error('[app.js] 招待コードの発行に失敗しました', error);
+  });
+}
+
+/**
+ * Pairing「招待コードを入力する」ボタンの処理。
+ */
+function handleChooseJoin() {
+  Pairing.showJoinPanel();
+}
+
+/**
+ * Pairing「戻る」（選択パネルへ戻る）ボタンの処理。
+ * 発行待機中であればPairing.backToChoice()内で購読も止まる。
+ */
+function handleBackToChoice() {
+  Pairing.backToChoice();
+}
+
+/**
+ * Pairing「参加する」ボタンの処理。
+ * 成功時の画面遷移（Router.completePairing()）は、pairing.js内の
+ * onPairedCallback経由で一元的に行われるため、ここでは呼ばない
+ * （招待コード発行側の「相手の参加を検知して自動遷移」と経路を揃えるため）。
+ * 失敗したら画面内にエラーメッセージを表示するだけで、画面遷移はしない。
+ */
+async function handleSubmitJoinCode() {
+  try {
+    await Pairing.submitJoinCode();
+    playFeedbackSound('success');
+    playFeedbackVibration();
+  } catch (error) {
+    playFeedbackSound('error');
+    playFeedbackVibration();
+    Pairing.showJoinError(error.message || '参加に失敗しました。');
+  }
+}
+
+/**
+ * Pairing画面のdata-action → ハンドラ関数の対応表。
+ */
+const PAIRING_ACTION_HANDLERS = Object.freeze({
+  'close-pairing': handleClosePairing,
+  'lock-now': handleLockNow,
+  'save-display-name': handleSaveDisplayName,
+  'choose-generate': handleChooseGenerate,
+  'choose-join': handleChooseJoin,
+  'back-to-choice': handleBackToChoice,
+  'submit-join-code': handleSubmitJoinCode,
+});
+
+/**
+ * Pairing画面が開いている間のクリックを処理する。
+ * @param {HTMLElement} target
+ */
+function handlePairingScreenClick(target) {
+  const { action } = target.dataset;
+
+  playFeedbackSound('tap');
+  playFeedbackVibration();
+
+  const handler = PAIRING_ACTION_HANDLERS[action];
+  if (handler) {
+    handler();
+  }
+}
+
+/**
+ * Messagesの「戻る」ボタンの処理。Router経由でWorkspaceへ戻る。
+ */
+function handleCloseMessages() {
+  Router.closeMessages();
+}
+
+/**
+ * Messagesの「送信」ボタンの処理。
+ * 実際の送受信・永続化はFirebase（messages.js経由）が担い、ここでは
+ * フィードバック音とエラーハンドリングだけを受け持つ。
+ */
+function handleSendMessage() {
+  Messages.sendMessage().catch((error) => {
+    console.error('[app.js] メッセージの送信に失敗しました', error);
+  });
+}
+
+/**
+ * Messages画面のdata-action → ハンドラ関数の対応表。
+ */
+const MESSAGES_ACTION_HANDLERS = Object.freeze({
+  'close-messages': handleCloseMessages,
+  'lock-now': handleLockNow,
+  'send-message': handleSendMessage,
+});
+
+/**
+ * Messages画面が開いている間のクリックを処理する。
+ * @param {HTMLElement} target
+ */
+function handleMessagesScreenClick(target) {
+  const { action } = target.dataset;
+
+  playFeedbackSound('tap');
+  playFeedbackVibration();
+
+  const handler = MESSAGES_ACTION_HANDLERS[action];
+  if (handler) {
+    handler();
+  }
+}
+
+/**
+ * Archive画面の検索欄（#archiveSearchInput）の入力を処理する。
+ * document全体を監視するhandleGlobalInput()から、対象idのときだけ呼ばれる。
+ * @param {string} query
+ */
+function handleArchiveSearchInput(query) {
+  Archive.search(query);
 }
 
 // ------------------------------------------------------------
@@ -784,6 +1102,26 @@ function handleDocumentClick(event) {
     return;
   }
 
+  if (currentScreen === Router.Screen.CALENDAR) {
+    handleCalendarScreenClick(target);
+    return;
+  }
+
+  if (currentScreen === Router.Screen.ARCHIVE) {
+    handleArchiveScreenClick(target);
+    return;
+  }
+
+  if (currentScreen === Router.Screen.PAIRING) {
+    handlePairingScreenClick(target);
+    return;
+  }
+
+  if (currentScreen === Router.Screen.MESSAGES) {
+    handleMessagesScreenClick(target);
+    return;
+  }
+
   if (currentScreen === Router.Screen.WORKSPACE) {
     handleWorkspaceScreenClick(target);
     return;
@@ -806,6 +1144,22 @@ function handleDocumentClick(event) {
     playFeedbackSound('tap');
     playFeedbackVibration();
     handler(target, event);
+  }
+}
+
+/**
+ * document全体のinputイベントを1つのリスナーで受け止める。
+ * 現時点ではArchiveの検索欄（#archiveSearchInput）だけを対象とする。
+ * router.jsのグローバルinputリスナー（AutoLockの活動検知用）とは
+ * 目的が異なる、別の関心事として独立させている。
+ * @param {Event} event
+ */
+function handleDocumentInput(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) return;
+
+  if (target.id === 'archiveSearchInput') {
+    handleArchiveSearchInput(target.value);
   }
 }
 
@@ -962,6 +1316,7 @@ function handleKeypadPointerUp(event) {
 function registerEventListeners() {
   document.addEventListener('click', handleDocumentClick);
   document.addEventListener('keydown', handleKeyDown);
+  document.addEventListener('input', handleDocumentInput);
 
   document.querySelector('.settings-body').addEventListener('change', handleSettingsChange);
 
@@ -1110,6 +1465,14 @@ async function init() {
     // Workspace/Records画面の構築、AutoLock、操作全般の活動検知リスナーは
     // Router.init()にまとめて任せる（app.jsは画面制御のみ担当する）。
     Router.init();
+
+    // ペアリング成立時（招待コード発行→相手参加の検知、または招待コード
+    // 入力→参加成功）にPairingからMessagesへ直接遷移させる。
+    // Router.completePairing()は「PairingからMessagesへ切り替える」という
+    // 画面遷移の責務そのものなので、ここではRouter側の関数を渡すだけにする。
+    Pairing.setOnPaired(() => {
+      Router.completePairing();
+    });
 
     // 2. event: イベント登録（ユーザー操作を受け付けられる状態にする）
     registerEventListeners();
