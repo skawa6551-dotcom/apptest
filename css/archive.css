@@ -164,6 +164,16 @@
   padding-bottom: var(--space-lg);
 }
 
+/*
+ * [hidden]属性が付いている間は必ず非表示にする。
+ * display: flex の指定はブラウザ標準の[hidden]{display:none}より
+ * 優先されてしまうため、ここで明示的に上書きする
+ * （pairing.cssの.pairing-panel[hidden]と同じ理由）。
+ */
+.archive-list[hidden] {
+  display: none;
+}
+
 .archive-entry {
   padding: var(--space-md);
   border-radius: var(--radius-lg);
@@ -196,4 +206,8 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-md);
   padding: var(--space-lg);
+}
+
+.archive-empty-state[hidden] {
+  display: none;
 }
