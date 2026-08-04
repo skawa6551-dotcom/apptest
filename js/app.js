@@ -876,12 +876,56 @@ function handleSendMessage() {
 }
 
 /**
+ * 長押しアクションシート「コピー」ボタンの処理。
+ */
+function handleCopyMessage() {
+  Messages.copySelectedMessage().catch((error) => {
+    console.error('[app.js] メッセージのコピーに失敗しました', error);
+  });
+}
+
+/**
+ * 長押しアクションシート「削除」ボタンの処理。
+ * 削除できるのは自分が送ったメッセージのみ（messages.js側とFirestoreの
+ * セキュリティルール側の両方で強制している）。
+ */
+function handleDeleteMessage() {
+  Messages.deleteSelectedMessage().catch((error) => {
+    console.error('[app.js] メッセージの削除に失敗しました', error);
+  });
+}
+
+/**
+ * 長押しアクションシート「キャンセル」ボタンの処理。
+ */
+function handleCancelActionSheet() {
+  Messages.closeActionSheet();
+}
+
+/**
+ * 長押しアクションシートのリアクション絵文字ボタンの処理。
+ * data-emojiの値が必要なため、handleMessagesScreenClick()側で個別に扱う。
+ * @param {HTMLElement} target
+ */
+function handleReactToMessage(target) {
+  const { emoji } = target.dataset;
+  if (!emoji) return;
+
+  Messages.reactToSelectedMessage(emoji);
+}
+
+/**
  * Messages画面のdata-action → ハンドラ関数の対応表。
+ * 「react」だけはdata-emojiの値が必要なため、
+ * handleMessagesScreenClick()側で個別に扱う。
  */
 const MESSAGES_ACTION_HANDLERS = Object.freeze({
   'close-messages': handleCloseMessages,
   'lock-now': handleLockNow,
   'send-message': handleSendMessage,
+  'copy-message': handleCopyMessage,
+  'delete-message': handleDeleteMessage,
+  'cancel-action-sheet': handleCancelActionSheet,
 });
 
 /**
@@ -893,6 +937,11 @@ function handleMessagesScreenClick(target) {
 
   playFeedbackSound('tap');
   playFeedbackVibration();
+
+  if (action === 'react') {
+    handleReactToMessage(target);
+    return;
+  }
 
   const handler = MESSAGES_ACTION_HANDLERS[action];
   if (handler) {
@@ -1149,17 +1198,24 @@ function handleDocumentClick(event) {
 
 /**
  * document全体のinputイベントを1つのリスナーで受け止める。
- * 現時点ではArchiveの検索欄（#archiveSearchInput）だけを対象とする。
+ * Archiveの検索欄（#archiveSearchInput、input要素）と、Messagesの
+ * 入力欄（#messagesInput、textarea要素）の両方を対象とするため、
+ * HTMLInputElement/HTMLTextAreaElementのどちらも受け付ける。
  * router.jsのグローバルinputリスナー（AutoLockの活動検知用）とは
  * 目的が異なる、別の関心事として独立させている。
  * @param {Event} event
  */
 function handleDocumentInput(event) {
   const target = event.target;
-  if (!(target instanceof HTMLInputElement)) return;
+  if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement)) return;
 
   if (target.id === 'archiveSearchInput') {
     handleArchiveSearchInput(target.value);
+    return;
+  }
+
+  if (target.id === 'messagesInput') {
+    Messages.notifyTyping();
   }
 }
 
