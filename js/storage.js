@@ -1,4 +1,4 @@
-// ============================================================
+/ ============================================================
 // storage.js
 // アプリ全体で唯一 localStorage にアクセスするモジュール。
 // 他のモジュール（calculator.js / settings.js など）は
@@ -16,12 +16,19 @@ export const STORAGE_KEYS = Object.freeze({
   SOUND_ENABLED: 'sound_enabled',
   VIBRATION_ENABLED: 'vibration_enabled',
   BIOMETRIC_ENABLED: 'biometric_enabled',
+  CALENDAR_NOTES: 'calendar_notes',
+  RECORDS_ARCHIVE: 'records_archive',
+  ARCHIVE_BACKGROUND: 'archive_background',
+  CLIENT_ID: 'client_id',
+  CURRENT_ROOM_ID: 'current_room_id',
+  DISPLAY_NAME: 'display_name',
 });
 
 const VALID_KEYS = new Set(Object.values(STORAGE_KEYS));
 
 const LIST_LIMITS = Object.freeze({
   [STORAGE_KEYS.HISTORY]: 100,
+  [STORAGE_KEYS.RECORDS_ARCHIVE]: 500,
 });
 
 const memoryFallback = new Map();
