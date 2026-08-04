@@ -73,6 +73,18 @@
   width: 100%;
 }
 
+/*
+ * [hidden]属性が付いている間は必ず非表示にする。
+ * 上の .pairing-panel { display: flex; ... } はブラウザ標準の
+ * [hidden]{display:none}（UAスタイルシート）より優先されてしまうため、
+ * ここで明示的に上書きしないと、非表示にしたはずのパネルが
+ * 表示されたままになってしまう（発行・入力・選択の3パネルが
+ * 同時に見えてしまう不具合の直接の原因だった）。
+ */
+.pairing-panel[hidden] {
+  display: none;
+}
+
 .pairing-message {
   text-align: center;
   font-size: var(--font-size-md);
