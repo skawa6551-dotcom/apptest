@@ -536,6 +536,99 @@ export function subscribeToMessages(roomId, callback) {
   };
 }
 
+/**
+ * 指定したメッセージを「自分が既読にした」状態にする。
+ * 既に自分のuidがreadByに含まれている場合は何もしない
+ * （無駄な書き込みを避けるため、呼び出し側でも判定しているが念のためここでも確認する）。
+ * @param {string} roomId
+ * @param {string} messageId
+ * @param {string} uid
+ * @param {string[]} currentReadBy
+ * @returns {Promise<void>}
+ */
+export async function markMessageAsRead(roomId, messageId, uid, currentReadBy) {
+  if (Array.isArray(currentReadBy) && currentReadBy.includes(uid)) return;
+
+  const { db, firestoreFns } = await loadFirebase();
+  const messageRef = firestoreFns.doc(db, 'rooms', roomId, 'messages', messageId);
+  await firestoreFns.updateDoc(messageRef, {
+    readBy: firestoreFns.arrayUnion(uid),
+  });
+}
+
+/**
+ * メッセージへの自分のリアクションを設定する。
+ * 同じ絵文字を再度渡すとリアクションを取り消す（トグル）。
+ * @param {string} roomId
+ * @param {string} messageId
+ * @param {string} uid
+ * @param {string|null} emoji - nullで明示的に取り消す
+ * @returns {Promise<void>}
+ */
+export async function setMessageReaction(roomId, messageId, uid, emoji) {
+  const { db, firestoreFns } = await loadFirebase();
+  const messageRef = firestoreFns.doc(db, 'rooms', roomId, 'messages', messageId);
+
+  if (emoji === null) {
+    await firestoreFns.updateDoc(messageRef, {
+      [`reactions.${uid}`]: firestoreFns.deleteField(),
+    });
+    return;
+  }
+
+  await firestoreFns.updateDoc(messageRef, {
+    [`reactions.${uid}`]: emoji,
+  });
+}
+
+/**
+ * メッセージを削除する（自分が送信したメッセージのみ。ルール側でも強制する）。
+ * @param {string} roomId
+ * @param {string} messageId
+ * @returns {Promise<void>}
+ */
+export async function deleteMessage(roomId, messageId) {
+  const { db, firestoreFns } = await loadFirebase();
+  const messageRef = firestoreFns.doc(db, 'rooms', roomId, 'messages', messageId);
+  await firestoreFns.deleteDoc(messageRef);
+}
+
+/**
+ * 入力中状態をルームドキュメントへ書き込む。
+ * isTypingがfalseの場合はフィールド自体を削除する（サイズを抑えるため）。
+ * @param {string} roomId
+ * @param {string} uid
+ * @param {boolean} isTyping
+ * @returns {Promise<void>}
+ */
+export async function updateTypingState(roomId, uid, isTyping) {
+  const { db, firestoreFns } = await loadFirebase();
+  const roomRef = firestoreFns.doc(db, 'rooms', roomId);
+
+  await firestoreFns.updateDoc(roomRef, {
+    [`typing.${uid}`]: isTyping ? firestoreFns.serverTimestamp() : firestoreFns.deleteField(),
+  });
+}
+
+/**
+ * オンライン状態をルームドキュメントへ書き込む。
+ * @param {string} roomId
+ * @param {string} uid
+ * @param {boolean} isOnline
+ * @returns {Promise<void>}
+ */
+export async function updatePresence(roomId, uid, isOnline) {
+  const { db, firestoreFns } = await loadFirebase();
+  const roomRef = firestoreFns.doc(db, 'rooms', roomId);
+
+  await firestoreFns.updateDoc(roomRef, {
+    [`presence.${uid}`]: {
+      state: isOnline ? 'online' : 'offline',
+      lastSeenAt: firestoreFns.serverTimestamp(),
+    },
+  });
+}
+
 const Firebase = {
   ensureSignedIn,
   getCurrentUid,
@@ -550,6 +643,11 @@ const Firebase = {
   subscribeToRoom,
   sendTextMessage,
   subscribeToMessages,
+  markMessageAsRead,
+  setMessageReaction,
+  deleteMessage,
+  updateTypingState,
+  updatePresence,
 };
 
 export default Firebase;
