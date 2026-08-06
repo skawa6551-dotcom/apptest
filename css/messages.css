@@ -347,7 +347,7 @@
 
 .messages-action-btn--danger {
   background-color: var(--color-surface-strong);
-  color: #ff6b6b;
+  color: var(--color-error);
 }
 
 .messages-action-btn--cancel {
