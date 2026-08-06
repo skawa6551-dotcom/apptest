@@ -594,6 +594,25 @@ export async function deleteMessage(roomId, messageId) {
 }
 
 /**
+ * 現在のルーム内で、自分が送信したメッセージをすべて削除する
+ * （設定画面の「データ管理」から呼ぶ想定）。ルールの制約上、
+ * 他人が送信したメッセージは削除できない。
+ * @param {string} roomId
+ * @param {string} uid
+ * @returns {Promise<number>} 削除した件数
+ */
+export async function deleteAllOwnMessages(roomId, uid) {
+  const { db, firestoreFns } = await loadFirebase();
+  const messagesRef = firestoreFns.collection(db, 'rooms', roomId, 'messages');
+  const ownMessagesQuery = firestoreFns.query(messagesRef, firestoreFns.where('senderId', '==', uid));
+
+  const snapshot = await firestoreFns.getDocs(ownMessagesQuery);
+  await Promise.all(snapshot.docs.map((docSnapshot) => firestoreFns.deleteDoc(docSnapshot.ref)));
+
+  return snapshot.size;
+}
+
+/**
  * 入力中状態をルームドキュメントへ書き込む。
  * isTypingがfalseの場合はフィールド自体を削除する（サイズを抑えるため）。
  * @param {string} roomId
@@ -646,6 +665,7 @@ const Firebase = {
   markMessageAsRead,
   setMessageReaction,
   deleteMessage,
+  deleteAllOwnMessages,
   updateTypingState,
   updatePresence,
 };
