@@ -8,7 +8,10 @@
 
 import Calculator, { ACTIONS as CALC_ACTIONS } from './calculator.js';
 import Storage, { STORAGE_KEYS } from './storage.js';
-import Settings from './settings.js';
+import Settings, {
+  AUTO_LOCK_DURATION_PRESETS,
+  CONVERSATION_ORGANIZE_DURATION_PRESETS,
+} from './settings.js';
 import Sound from './sound.js';
 import Auth from './auth.js';
 import { THEMES, getThemeById } from './themes.js';
@@ -278,6 +281,41 @@ function buildThemeOptions() {
   themeSwitchEl.appendChild(fragment);
 }
 
+/**
+ * {label, valueMs}の配列から<select>の選択肢を組み立てる、汎用のヘルパー。
+ * 自動ロック時間・会話整理時間の両方のプリセット生成で使う。
+ * @param {HTMLSelectElement} selectEl
+ * @param {{label: string, valueMs: number}[]} presets
+ */
+function populateDurationSelect(selectEl, presets) {
+  const fragment = document.createDocumentFragment();
+
+  presets.forEach((preset) => {
+    const option = document.createElement('option');
+    option.value = String(preset.valueMs);
+    option.textContent = preset.label;
+    fragment.appendChild(option);
+  });
+
+  selectEl.appendChild(fragment);
+}
+
+/**
+ * settings.jsのプリセット定義から、自動ロック時間・会話整理時間の
+ * セレクトボックスの選択肢を構築する。実際に選択されている値の反映は
+ * renderSettings()側で行う。
+ */
+function buildDurationSelectOptions() {
+  populateDurationSelect(
+    document.getElementById('autoLockDurationSelect'),
+    AUTO_LOCK_DURATION_PRESETS,
+  );
+  populateDurationSelect(
+    document.getElementById('organizeDurationSelect'),
+    CONVERSATION_ORGANIZE_DURATION_PRESETS,
+  );
+}
+
 // ------------------------------------------------------------
 // 描画関数
 // render()以外からこれらの個別関数を直接呼ばない（画面の一貫性を保つため）。
@@ -374,7 +412,39 @@ function renderSettings() {
     document.getElementById('biometricToggle').checked = Settings.isBiometricEnabled();
   }
 
+  // ---- セキュリティ ----
+  document.getElementById('autoLockDurationSelect').value = String(Settings.getAutoLockDurationMs());
+  document.getElementById('archiveLockToggle').checked = Settings.isArchiveLockEnabled();
+
+  // ---- 通知（設定値のみ） ----
+  document.getElementById('notificationsToggle').checked = Settings.isNotificationsEnabled();
+  document.getElementById('notificationContentToggle').checked = Settings.isNotificationContentEnabled();
+  document.getElementById('notificationSoundToggle').checked = Settings.isNotificationSoundEnabled();
+  document.getElementById('notificationVibrationToggle').checked = Settings.isNotificationVibrationEnabled();
+
+  // ---- チャット設定 ----
+  document.getElementById('readReceiptsToggle').checked = Settings.isReadReceiptsEnabled();
+  document.getElementById('onlineVisibilityToggle').checked = Settings.isOnlineVisibilityEnabled();
+  document.getElementById('organizeModeSelect').value = Settings.getConversationOrganizeMode();
+  document.getElementById('organizeDurationSelect').value = String(Settings.getConversationOrganizeDurationMs());
+
+  // ---- データ管理 ----
+  renderStorageUsage();
+
   document.getElementById('versionLabel').textContent = `Version ${Settings.getVersion()}`;
+}
+
+/**
+ * 保存データ使用量の表示テキストを更新する。
+ * バイト数をKB単位（小数点以下1桁）に整形して表示する。
+ */
+function renderStorageUsage() {
+  const label = document.getElementById('storageUsageLabel');
+  if (!label) return;
+
+  const bytes = Storage.getUsageBytes();
+  const kb = bytes / 1024;
+  label.textContent = `約${kb.toFixed(1)} KB`;
 }
 
 /**
@@ -733,6 +803,26 @@ function handleSelectBackground(target) {
 }
 
 /**
+ * Archiveロック認証パネルの「確認」ボタンの処理。
+ * パスコードが正しければarchive.js内部でコンテンツが表示される。
+ * 誤っていた場合はarchive.js側でエラー表示・入力クリアまで行うため、
+ * ここでは成功/失敗に応じたフィードバック音だけを鳴らす。
+ */
+function handleConfirmArchiveAuth() {
+  const success = Archive.confirmAuth();
+  playFeedbackSound(success ? 'success' : 'error');
+  playFeedbackVibration();
+}
+
+/**
+ * Archiveロック認証パネルの「キャンセル」ボタンの処理。
+ * 認証せずにWorkspaceへ戻る。
+ */
+function handleCancelArchiveAuth() {
+  Router.closeArchive();
+}
+
+/**
  * Archive画面のdata-action → ハンドラ関数の対応表。
  * 「select-background」だけはdata-backgroundIdの値が必要なため、
  * handleArchiveScreenClick()側で個別に扱う。
@@ -740,6 +830,8 @@ function handleSelectBackground(target) {
 const ARCHIVE_ACTION_HANDLERS = Object.freeze({
   'close-archive': handleCloseArchive,
   'lock-now': handleLockNow,
+  'confirm-archive-auth': handleConfirmArchiveAuth,
+  'cancel-archive-auth': handleCancelArchiveAuth,
 });
 
 /**
@@ -977,6 +1069,68 @@ function handleClearHistory() {
 }
 
 /**
+ * 「キャッシュを削除」ボタンの処理。
+ * Service Workerが保持しているキャッシュ（CACHE_NAME）をすべて削除する。
+ * 削除しただけでは画面上の見た目は変わらないため、次回起動時（または
+ * 次にService Workerが再インストールされたタイミング）から反映される
+ * ことを利用者に伝える。
+ */
+async function handleClearCache() {
+  try {
+    if (!('caches' in window)) return;
+
+    const cacheNames = await caches.keys();
+    await Promise.all(cacheNames.map((name) => caches.delete(name)));
+
+    playFeedbackSound('success');
+    playFeedbackVibration();
+  } catch (error) {
+    console.error('[app.js] キャッシュの削除に失敗しました', error);
+    playFeedbackSound('error');
+    playFeedbackVibration();
+  }
+}
+
+/**
+ * 「自分の送信メッセージを一括削除」ボタンの処理。
+ * 現在接続中のルームの中で、自分が送信したメッセージだけを削除する
+ * （Firestoreのルール上、他人のメッセージは削除できない）。
+ * ルーム未接続の場合は何もしない。
+ */
+async function handleDeleteAllMyMessages() {
+  const roomId = Firebase.getLocalRoomId();
+  const uid = Firebase.getCurrentUid();
+  if (!roomId || !uid) return;
+
+  try {
+    await Firebase.deleteAllOwnMessages(roomId, uid);
+    playFeedbackSound('success');
+    playFeedbackVibration();
+  } catch (error) {
+    console.error('[app.js] メッセージの一括削除に失敗しました', error);
+    playFeedbackSound('error');
+    playFeedbackVibration();
+  }
+}
+
+/**
+ * 「Archiveの記録をすべて削除」ボタンの処理。
+ * records.jsが管理するローカルのアーカイブデータ（Storage経由）を空にする。
+ */
+function handleClearArchiveData() {
+  try {
+    Records.clearArchive();
+    renderStorageUsage();
+    playFeedbackSound('success');
+    playFeedbackVibration();
+  } catch (error) {
+    console.error('[app.js] Archiveデータの削除に失敗しました', error);
+    playFeedbackSound('error');
+    playFeedbackVibration();
+  }
+}
+
+/**
  * 履歴パネルの開閉を切り替える。設定/ロック画面と同様、
  * これは一時的な表示状態のためrender()を経由せず直接DOMを操作する。
  * CSSのmax-height/opacityによるアニメーションだけに頼らず、
@@ -1040,6 +1194,9 @@ const ACTION_HANDLERS = Object.freeze({
   'select-theme': handleSelectTheme,
   'retry-auth': handleRetryAuth,
   'toggle-history': toggleHistoryPanel,
+  'clear-cache': handleClearCache,
+  'delete-all-my-messages': handleDeleteAllMyMessages,
+  'clear-archive-data': handleClearArchiveData,
 });
 
 // ------------------------------------------------------------
@@ -1226,14 +1383,79 @@ function handleDocumentInput(event) {
  */
 function handleSettingsChange(event) {
   const target = event.target;
-  if (!(target instanceof HTMLInputElement) || target.type !== 'checkbox') return;
 
-  if (target.id === 'soundToggle') {
-    Settings.setSoundEnabled(target.checked);
-  } else if (target.id === 'vibrationToggle') {
-    Settings.setVibrationEnabled(target.checked);
-  } else if (target.id === 'biometricToggle') {
-    handleBiometricToggle(target.checked);
+  if (target instanceof HTMLInputElement && target.type === 'checkbox') {
+    handleSettingsCheckboxChange(target);
+    return;
+  }
+
+  if (target instanceof HTMLSelectElement) {
+    handleSettingsSelectChange(target);
+  }
+}
+
+/**
+ * 設定画面内のチェックボックス（トグル）の変更を処理する。
+ * @param {HTMLInputElement} target
+ */
+function handleSettingsCheckboxChange(target) {
+  const checked = target.checked;
+
+  switch (target.id) {
+    case 'soundToggle':
+      Settings.setSoundEnabled(checked);
+      break;
+    case 'vibrationToggle':
+      Settings.setVibrationEnabled(checked);
+      break;
+    case 'biometricToggle':
+      handleBiometricToggle(checked);
+      break;
+    case 'archiveLockToggle':
+      Settings.setArchiveLockEnabled(checked);
+      break;
+    case 'notificationsToggle':
+      Settings.setNotificationsEnabled(checked);
+      break;
+    case 'notificationContentToggle':
+      Settings.setNotificationContentEnabled(checked);
+      break;
+    case 'notificationSoundToggle':
+      Settings.setNotificationSoundEnabled(checked);
+      break;
+    case 'notificationVibrationToggle':
+      Settings.setNotificationVibrationEnabled(checked);
+      break;
+    case 'readReceiptsToggle':
+      Settings.setReadReceiptsEnabled(checked);
+      break;
+    case 'onlineVisibilityToggle':
+      Settings.setOnlineVisibilityEnabled(checked);
+      break;
+    default:
+      break;
+  }
+}
+
+/**
+ * 設定画面内の<select>（自動ロック時間・会話整理方法・整理時間）の
+ * 変更を処理する。時間系の値はミリ秒の文字列として持たせているため、
+ * 保存時にNumber()へ変換する。
+ * @param {HTMLSelectElement} target
+ */
+function handleSettingsSelectChange(target) {
+  switch (target.id) {
+    case 'autoLockDurationSelect':
+      Settings.setAutoLockDurationMs(Number(target.value));
+      break;
+    case 'organizeModeSelect':
+      Settings.setConversationOrganizeMode(target.value);
+      break;
+    case 'organizeDurationSelect':
+      Settings.setConversationOrganizeDurationMs(Number(target.value));
+      break;
+    default:
+      break;
   }
 }
 
@@ -1518,6 +1740,7 @@ async function init() {
     // Auth.isSupported()の判定を待たずに、まず電卓のUIを必ず作る。
     buildKeypad();
     buildThemeOptions();
+    buildDurationSelectOptions();
 
     // Workspace/Records画面の構築、AutoLock、操作全般の活動検知リスナーは
     // Router.init()にまとめて任せる（app.jsは画面制御のみ担当する）。
