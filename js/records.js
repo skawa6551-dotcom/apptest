@@ -6,10 +6,11 @@
 // シンプルなツールという体裁にする（吹き出し形式の会話ログ等は表示しない）。
 // 送信すると入力欄はすぐに空になり、通常画面には何も残らない
 // （＝chat.jsが持っていたメッセージ一覧表示は廃止）。
-// 送信内容はメモリ上のアーカイブ配列にだけ保持する。
-// 現時点ではアーカイブを閲覧するUIは無いが、将来のArchive画面・検索・
-// Firebase同期のために、データ構造（RecordEntry）だけ先に用意しておく。
+// 送信内容はStorage経由でlocalStorageへ永続化し、Archive画面から
+// 振り返れるようにする（calendar.jsのメモ保存と同じ方針）。
 // ============================================================
+
+import Storage, { STORAGE_KEYS } from './storage.js';
 
 /** 記録画面のDOMを差し込む先のコンテナのid */
 const CONTAINER_ID = 'records';
@@ -24,12 +25,20 @@ let isBuilt = false;
  */
 
 /**
- * 送信された内容の保管庫。
- * 通常画面では一切表示せず、将来のArchive画面から参照する想定。
- * push()するだけで再代入はしないため const にする。
- * @type {RecordEntry[]}
+ * 保存済みアーカイブ一式をStorage経由で読み込む。
+ * @returns {RecordEntry[]}
  */
-const archive = [];
+function loadArchive() {
+  return Storage.get(STORAGE_KEYS.RECORDS_ARCHIVE, []);
+}
+
+/**
+ * アーカイブ一式をStorage経由で保存する。
+ * @param {RecordEntry[]} entries
+ */
+function saveArchive(entries) {
+  Storage.set(STORAGE_KEYS.RECORDS_ARCHIVE, entries);
+}
 
 /**
  * コンテナ要素（#records）を取得する。
@@ -193,26 +202,33 @@ export function clearInput() {
 /**
  * 入力内容をアーカイブへ保存する（通常画面には一切表示しない）。
  * 空文字列・空白のみの内容は保存しない。
- *
- * TODO: 現在はメモリ上の配列に保存するだけ。将来的には
- *   saveToArchive() → ArchiveService.save() のような形で、
- *   保存先を Storage（localStorage）や Firebase へ差し替えられる
- *   ようにする。呼び出し側（app.jsのhandleSendRecord）は
- *   このシグネチャ（textを受け取るだけ）を変えずに済むようにしたい。
+ * Storage経由でlocalStorageへ永続化するため、アプリを再度開いても
+ * Archive画面から振り返ることができる。
  * @param {string} text
  */
 export function saveToArchive(text) {
   if (typeof text !== 'string' || text.trim() === '') return;
-  archive.push({ text: text.trim(), timestamp: Date.now() });
+
+  const entries = loadArchive();
+  entries.unshift({ text: text.trim(), timestamp: Date.now() });
+  saveArchive(entries);
 }
 
 /**
- * アーカイブ全件を返す（将来のArchive画面・検索・Firebase同期用）。
- * 内部配列そのものへの参照は渡さず、複製を返す。
+ * アーカイブ全件を返す（Archive画面・検索・将来のFirebase同期用）。
+ * 新しい記録が先頭に来る順序で返す。
  * @returns {RecordEntry[]}
  */
 export function getArchive() {
-  return archive.map((entry) => ({ ...entry }));
+  return loadArchive();
+}
+
+/**
+ * アーカイブ（記録の保存内容）をすべて削除する。
+ * 設定画面の「データ管理」から呼ばれる想定。
+ */
+export function clearArchive() {
+  saveArchive([]);
 }
 
 const Records = {
@@ -224,6 +240,7 @@ const Records = {
   clearInput,
   saveToArchive,
   getArchive,
+  clearArchive,
 };
 
 export default Records;
