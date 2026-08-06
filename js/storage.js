@@ -22,6 +22,16 @@ export const STORAGE_KEYS = Object.freeze({
   CLIENT_ID: 'client_id',
   CURRENT_ROOM_ID: 'current_room_id',
   DISPLAY_NAME: 'display_name',
+  AUTO_LOCK_DURATION_MS: 'auto_lock_duration_ms',
+  ARCHIVE_LOCK_ENABLED: 'archive_lock_enabled',
+  NOTIFICATIONS_ENABLED: 'notifications_enabled',
+  NOTIFICATION_CONTENT_ENABLED: 'notification_content_enabled',
+  NOTIFICATION_SOUND_ENABLED: 'notification_sound_enabled',
+  NOTIFICATION_VIBRATION_ENABLED: 'notification_vibration_enabled',
+  CONVERSATION_ORGANIZE_MODE: 'conversation_organize_mode',
+  CONVERSATION_ORGANIZE_DURATION_MS: 'conversation_organize_duration_ms',
+  READ_RECEIPTS_ENABLED: 'read_receipts_enabled',
+  ONLINE_VISIBILITY_ENABLED: 'online_visibility_enabled',
 });
 
 const VALID_KEYS = new Set(Object.values(STORAGE_KEYS));
@@ -290,6 +300,29 @@ export function getVersion() {
   return CURRENT_VERSION;
 }
 
+/**
+ * このアプリ（cal0209_プレフィックス）がlocalStorageに実際に使用している
+ * 概算バイト数を返す。キー名＋値のJSON文字列長を積算した概算値であり、
+ * ブラウザの内部エンコーディングと厳密には一致しないが、目安表示としては十分。
+ * @returns {number}
+ */
+export function getUsageBytes() {
+  if (!isStorageAvailable()) return 0;
+
+  let total = 0;
+  try {
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const fullKey = window.localStorage.key(i);
+      if (!fullKey || !fullKey.startsWith(PREFIX)) continue;
+      const value = window.localStorage.getItem(fullKey);
+      total += fullKey.length + (value ? value.length : 0);
+    }
+  } catch (error) {
+    console.warn('[storage.js] getUsageBytesの計算中にエラーが発生しました', error);
+  }
+  return total;
+}
+
 runMigrations();
 
 function handleStorageEvent(event) {
@@ -331,6 +364,7 @@ const Storage = {
   unsubscribe,
   runMigrations,
   getVersion,
+  getUsageBytes,
 };
 
 export default Storage;
