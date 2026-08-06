@@ -1,4 +1,4 @@
-// ============================================================
+============================================================
 // messages.js
 // Workspace内「メッセージ」画面のDOM生成・開閉・リアルタイム送受信・
 // 既読表示・入力中表示・オンライン状態・長押しアクション（リアクション/
@@ -170,7 +170,13 @@ function createComposer() {
   sendButton.type = 'button';
   sendButton.className = 'messages-send-btn';
   sendButton.dataset.action = 'send-message';
-  sendButton.textContent = '送信';
+  sendButton.setAttribute('aria-label', '送信');
+  // 固定の装飾アイコン（紙飛行機）のみで、ユーザー入力は一切含まない
+  // ため、innerHTMLでの組み立てとしている。
+  sendButton.innerHTML =
+    '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<path d="M3.4 20.6 21 12 3.4 3.4 3 10l12 2-12 2 .4 6.6Z" fill="currentColor"/>' +
+    '</svg>';
 
   composer.appendChild(input);
   composer.appendChild(sendButton);
@@ -525,10 +531,26 @@ export function getInputValue() {
   return input ? input.value : '';
 }
 
-/** 入力欄を空にする（送信後に呼ぶ）。 */
+/** 入力欄を空にする（送信後に呼ぶ）。高さもCSSのmin-heightまで戻す。 */
 export function clearInput() {
   const input = document.getElementById('messagesInput');
-  if (input) input.value = '';
+  if (!input) return;
+  input.value = '';
+  input.style.height = 'auto';
+}
+
+/**
+ * 入力欄の高さを、実際の入力内容（行数）に合わせて伸縮させる。
+ * iMessageのように、1行のうちは低いまま、改行や折り返しで
+ * 中身が増えるにつれて（CSSのmax-heightまで）滑らかに伸びるようにする。
+ * 高さの変化自体のアニメーションはCSS側（.messages-inputのtransition）が担う。
+ */
+export function autoResizeInput() {
+  const input = document.getElementById('messagesInput');
+  if (!input) return;
+
+  input.style.height = 'auto';
+  input.style.height = `${input.scrollHeight}px`;
 }
 
 /**
@@ -814,6 +836,7 @@ const Messages = {
   isOpen,
   getInputValue,
   clearInput,
+  autoResizeInput,
   sendMessage,
   notifyTyping,
   closeActionSheet,
