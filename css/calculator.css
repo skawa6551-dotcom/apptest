@@ -4,7 +4,42 @@
    色・余白・角丸・影・モーション等の値はすべて app.css で定義された
    CSS変数を参照し、このファイルでは新しい変数を作らない。
    app.cssの共通スタイル（リセット・ヘッダー・オーバーレイ等）には触れない。
+
+   例外：.app の背景だけ、ここで木目調グラデーションへ上書きする。
+   木目の色味は電卓画面だけの意図的な演出であり、他の画面（Workspace/
+   メッセージ等）とは共有しないため、archive.cssの背景プリセットと
+   同じ考え方で、CSS変数化はせずこのファイル内に閉じた固定値として持たせる。
    ============================================================ */
+
+/* ------------------------------------------------------------
+   電卓画面の背景：木目調
+   実際の木目画像は使わず、明暗の異なる暖色の帯を重ねたグラデーションで
+   「艶のある濃い木材」の質感を表現する。ヘッダー・キー等の上に乗る
+   ガラス質感の要素は元々半透明なので、この背景の色味がうっすら
+   透けて見え、電卓全体が「木目の上に黒ガラスのパネルが載っている」
+   ような重なりに見えるようにしている。
+   ------------------------------------------------------------ */
+.app {
+  background-image:
+    repeating-linear-gradient(
+      179deg,
+      rgba(0, 0, 0, 0) 0px,
+      rgba(0, 0, 0, 0.16) 1px,
+      rgba(0, 0, 0, 0) 3px,
+      rgba(255, 200, 150, 0.02) 5px,
+      rgba(0, 0, 0, 0) 8px
+    ),
+    repeating-linear-gradient(
+      179deg,
+      rgba(110, 66, 32, 0.16) 0px,
+      rgba(80, 46, 22, 0.1) 60px,
+      rgba(120, 74, 36, 0.18) 120px,
+      rgba(64, 36, 18, 0.12) 190px
+    ),
+    radial-gradient(ellipse 120% 60% at 50% -10%, rgba(90, 55, 26, 0.35), transparent 65%),
+    linear-gradient(180deg, #1c130a 0%, #120c07 55%, #080503 100%);
+  background-color: var(--color-bg);
+}
 
 /* ------------------------------------------------------------
    履歴パネル
@@ -113,6 +148,8 @@
   /* 横スクロール自体は許すが、スクロールバーは表示しない */
   scrollbar-width: none;
   -ms-overflow-style: none;
+  /* 高級感の演出として、結果の数字にごく控えめなゴールドの発光を追加する */
+  text-shadow: 0 0 1.5rem rgba(201, 169, 106, 0.18);
   transition: color var(--duration-base) var(--easing-standard),
     font-size var(--duration-base) var(--easing-standard);
 }
@@ -131,6 +168,7 @@
   font-size: var(--font-size-xl);
   font-weight: 600;
   color: var(--color-error);
+  text-shadow: none;
 }
 
 /* ------------------------------------------------------------
@@ -154,6 +192,7 @@
    キー共通スタイル（丸ボタン）
    ------------------------------------------------------------ */
 .key {
+  position: relative;
   flex: 1 1 0;
   aspect-ratio: 1 / 1;
   /* Human Interface Guidelinesが推奨する最小タップ領域（44pt相当以上）を確保する */
@@ -169,11 +208,25 @@
   -webkit-user-select: none;
   /* 押下アニメーションはtransformのみで完結させ、ブラウザに事前最適化を促す */
   will-change: transform;
+  overflow: hidden;
   /* pressedクラスの付け外しはapp.jsが行うが、ここでも:active(≒指を離す前)を
      即座に反映させ、体感の遅延をなくす */
   transition: transform var(--duration-fast) var(--easing-standard),
     box-shadow var(--duration-fast) var(--easing-standard),
     filter var(--duration-fast) var(--easing-standard);
+}
+
+/*
+ * 黒ガラスの質感を強調する、キー上部のうっすらとしたハイライト。
+ * ::beforeで薄い半透明の帯を重ねるだけで、押下時にfilter:brightness()と
+ * 組み合わさり「ガラスの反射が沈み込む」ような見え方になる。
+ */
+.key::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 45%);
+  pointer-events: none;
 }
 
 /* 押下時：app.jsが付与する.pressed、またはOS標準の:active。
@@ -192,7 +245,7 @@
   color: var(--color-text-primary);
   backdrop-filter: blur(var(--blur-glass));
   -webkit-backdrop-filter: blur(var(--blur-glass));
-  box-shadow: var(--shadow-neumorphic-out);
+  box-shadow: var(--shadow-neumorphic-out), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .key-num:active,
@@ -226,12 +279,12 @@
 }
 
 /* ------------------------------------------------------------
-   演算子キー（÷ × − ＋）：アクセントカラーで際立たせる
+   演算子キー（÷ × − ＋）：ゴールドのグラデーションで際立たせる
    ------------------------------------------------------------ */
 .key-operator {
-  background-color: var(--color-accent);
+  background-image: linear-gradient(155deg, color-mix(in srgb, var(--color-accent) 100%, white 18%) 0%, var(--color-accent) 55%, color-mix(in srgb, var(--color-accent) 100%, black 18%) 100%);
   color: var(--color-accent-contrast);
-  box-shadow: var(--shadow-elevated);
+  box-shadow: var(--shadow-elevated), 0 0 1.25rem color-mix(in srgb, var(--color-accent) 45%, transparent);
   /* GPUレイヤーへ昇格させ、iPhone Safariでの押下アニメーションを滑らかにする */
   transform: translateZ(0);
 }
@@ -248,10 +301,10 @@
 .key-equal {
   flex: 2 1 0;
   aspect-ratio: unset;
-  background-color: var(--color-accent);
+  background-image: linear-gradient(155deg, color-mix(in srgb, var(--color-accent) 100%, white 22%) 0%, var(--color-accent) 55%, color-mix(in srgb, var(--color-accent) 100%, black 20%) 100%);
   color: var(--color-accent-contrast);
   font-weight: 700;
-  box-shadow: var(--shadow-elevated);
+  box-shadow: var(--shadow-elevated), 0 0 1.75rem color-mix(in srgb, var(--color-accent) 55%, transparent);
   /* GPUレイヤーへ昇格させ、iPhone Safariでの押下アニメーションを滑らかにする */
   transform: translateZ(0);
 }
