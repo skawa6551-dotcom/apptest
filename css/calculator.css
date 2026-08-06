@@ -142,26 +142,38 @@
    パネルの上に、式（小さく控えめ）と結果（大きく主役）を乗せる。
    ------------------------------------------------------------ */
 .display-panel {
+  position: relative;
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   align-items: flex-end;
   gap: var(--space-3xs);
-  margin-block: var(--space-sm);
-  padding: var(--space-md);
+  margin-block: var(--space-md);
+  padding: var(--space-lg) var(--space-md);
   min-height: 0;
   /* 極端に長い数字・式でも画面外へはみ出させず、パネル内に収める */
   overflow: hidden;
   border-radius: var(--radius-lg);
-  /* LCD画面のような、木目より一段明るいクリーム色の窪みパネル */
-  background: linear-gradient(180deg, #ecdfc7 0%, #dccaa8 100%);
-  box-shadow: inset 0 3px 8px rgba(70, 40, 15, 0.3), inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+  /* 木枠に埋め込まれた、本物のデジタル表示機のようなブラックガラスパネル */
+  background: linear-gradient(165deg, #14100a 0%, #0a0705 55%, #050302 100%);
+  box-shadow: inset 0 0.2rem 0.6rem rgba(0, 0, 0, 0.65), inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.5), 0 0.25rem 0.75rem rgba(30, 16, 6, 0.35);
+}
+
+/* ガラス面のうっすらとした反射（左上から右下へ抜ける光の帯） */
+.display-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.035) 48%, rgba(255, 255, 255, 0) 66%);
+  pointer-events: none;
 }
 
 .expression-display {
+  position: relative;
   font-size: var(--font-size-lg);
-  color: var(--color-text-secondary);
+  color: color-mix(in srgb, var(--color-accent) 65%, transparent);
   font-variant-numeric: tabular-nums;
   /* 式が長くなっても折り返さず、右端（最新の演算子側）が常に見える */
   white-space: nowrap;
@@ -178,10 +190,11 @@
 }
 
 .result-display {
+  position: relative;
   font-size: var(--font-size-display);
   font-weight: 400;
   line-height: 1.05;
-  color: var(--color-text-primary);
+  color: #f3ead9;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
   white-space: nowrap;
@@ -191,6 +204,8 @@
   /* 横スクロール自体は許すが、スクロールバーは表示しない */
   scrollbar-width: none;
   -ms-overflow-style: none;
+  /* デジタル表示機のような、ごく控えめなゴールドの発光 */
+  text-shadow: 0 0 1.5rem color-mix(in srgb, var(--color-accent) 35%, transparent);
   transition: color var(--duration-base) var(--easing-standard),
     font-size var(--duration-base) var(--easing-standard);
 }
@@ -219,13 +234,13 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: var(--space-2xs);
+  gap: var(--space-sm);
   padding-bottom: var(--space-sm);
 }
 
 .keypad-row {
   display: flex;
-  gap: var(--space-2xs);
+  gap: var(--space-sm);
 }
 
 /* ------------------------------------------------------------
@@ -250,10 +265,18 @@
   will-change: transform;
   overflow: hidden;
   /* pressedクラスの付け外しはapp.jsが行うが、ここでも:active(≒指を離す前)を
-     即座に反映させ、体感の遅延をなくす */
-  transition: transform var(--duration-fast) var(--easing-standard),
-    box-shadow var(--duration-fast) var(--easing-standard),
-    filter var(--duration-fast) var(--easing-standard);
+     即座に反映させ、体感の遅延をなくす。押した瞬間は素早く沈み込み、
+     離した瞬間はわずかに弾むように、押す/離すで異なる速度・曲線を使う。 */
+  transition: transform 90ms cubic-bezier(0.4, 0, 1, 1),
+    box-shadow 90ms cubic-bezier(0.4, 0, 1, 1),
+    filter 90ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* 指を離した瞬間（=pressedが外れた瞬間）だけ、わずかに弾む戻り方にする */
+.key:not(.pressed):not(:active) {
+  transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 220ms var(--easing-standard),
+    filter 220ms var(--easing-standard);
 }
 
 /*
@@ -273,22 +296,24 @@
 /* 押下時：app.jsが付与する.pressed、またはOS標準の:active。 */
 .key:active,
 .key.pressed {
-  transform: scale(0.94);
+  transform: scale(0.94) translateY(0.0625rem);
   filter: brightness(1.15);
 }
 
 /* ------------------------------------------------------------
    数字キー：参考画像のような、つやのある黒いキー
+   立体感を強めるため、接地面の濃い影と、キー下端の縁取りを重ねている
    ------------------------------------------------------------ */
 .key-num {
   background-color: #17110b;
   color: #f2e8d8;
-  box-shadow: 0 0.375rem 0.875rem rgba(50, 28, 10, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0.375rem 0.875rem rgba(50, 28, 10, 0.4), 0 0.0625rem 0 rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 -0.125rem 0.25rem rgba(0, 0, 0, 0.3);
 }
 
 .key-num:active,
 .key-num.pressed {
-  box-shadow: inset 0 0.1875rem 0.5rem rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 0.1875rem 0.5rem rgba(0, 0, 0, 0.55);
 }
 
 /* 0キーだけ横長（スタジアム型）。列2つ分＋間隔ぶんの幅を確保する。 */
@@ -307,12 +332,13 @@
   color: #f2e8d8;
   font-size: var(--font-size-lg);
   font-weight: 600;
-  box-shadow: 0 0.375rem 0.875rem rgba(50, 28, 10, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0.375rem 0.875rem rgba(50, 28, 10, 0.4), 0 0.0625rem 0 rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 -0.125rem 0.25rem rgba(0, 0, 0, 0.3);
 }
 
 .key-func:active,
 .key-func.pressed {
-  box-shadow: inset 0 0.1875rem 0.5rem rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 0.1875rem 0.5rem rgba(0, 0, 0, 0.55);
 }
 
 /* ------------------------------------------------------------
@@ -321,7 +347,9 @@
 .key-operator {
   background-image: linear-gradient(155deg, color-mix(in srgb, var(--color-accent) 100%, white 18%) 0%, var(--color-accent) 55%, color-mix(in srgb, var(--color-accent) 100%, black 18%) 100%);
   color: var(--color-accent-contrast);
-  box-shadow: 0 0.375rem 0.875rem rgba(50, 28, 10, 0.35), 0 0 1.25rem color-mix(in srgb, var(--color-accent) 45%, transparent);
+  box-shadow: 0 0.375rem 0.875rem rgba(50, 28, 10, 0.4), 0 0.0625rem 0 rgba(60, 38, 10, 0.5),
+    0 0 1.25rem color-mix(in srgb, var(--color-accent) 45%, transparent),
+    inset 0 -0.125rem 0.25rem color-mix(in srgb, var(--color-accent) 100%, black 25%);
   /* GPUレイヤーへ昇格させ、iPhone Safariでの押下アニメーションを滑らかにする */
   transform: translateZ(0);
 }
@@ -329,7 +357,7 @@
 .key-operator:active,
 .key-operator.pressed {
   filter: brightness(0.88);
-  box-shadow: none;
+  box-shadow: inset 0 0.1875rem 0.5rem rgba(0, 0, 0, 0.35);
 }
 
 /* ------------------------------------------------------------
@@ -341,7 +369,9 @@
   background-image: linear-gradient(155deg, color-mix(in srgb, var(--color-accent) 100%, white 22%) 0%, var(--color-accent) 55%, color-mix(in srgb, var(--color-accent) 100%, black 20%) 100%);
   color: var(--color-accent-contrast);
   font-weight: 700;
-  box-shadow: 0 0.375rem 0.875rem rgba(50, 28, 10, 0.35), 0 0 1.75rem color-mix(in srgb, var(--color-accent) 55%, transparent);
+  box-shadow: 0 0.375rem 0.875rem rgba(50, 28, 10, 0.4), 0 0.0625rem 0 rgba(60, 38, 10, 0.5),
+    0 0 1.75rem color-mix(in srgb, var(--color-accent) 55%, transparent),
+    inset 0 -0.125rem 0.25rem color-mix(in srgb, var(--color-accent) 100%, black 25%);
   /* GPUレイヤーへ昇格させ、iPhone Safariでの押下アニメーションを滑らかにする */
   transform: translateZ(0);
 }
@@ -349,7 +379,7 @@
 .key-equal:active,
 .key-equal.pressed {
   filter: brightness(0.88);
-  box-shadow: none;
+  box-shadow: inset 0 0.1875rem 0.5rem rgba(0, 0, 0, 0.35);
 }
 
 /* ------------------------------------------------------------
