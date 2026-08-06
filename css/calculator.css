@@ -1,51 +1,88 @@
 /* ============================================================
    calculator.css
    電卓画面（履歴・表示部・キーパッド）専用のスタイル。
-   色・余白・角丸・影・モーション等の値はすべて app.css で定義された
-   CSS変数を参照し、このファイルでは新しい変数を作らない。
-   app.cssの共通スタイル（リセット・ヘッダー・オーバーレイ等）には触れない。
+   余白・角丸・モーション等の値はすべて app.css で定義された
+   CSS変数を参照する。app.cssの共通スタイル（リセット・ヘッダー・
+   オーバーレイ等）そのものには触れない。
 
-   例外：.app の背景だけ、ここで木目調グラデーションへ上書きする。
-   木目の色味は電卓画面だけの意図的な演出であり、他の画面（Workspace/
-   メッセージ等）とは共有しないため、archive.cssの背景プリセットと
-   同じ考え方で、CSS変数化はせずこのファイル内に閉じた固定値として持たせる。
+   例外：電卓画面（.app）だけ、明るいチェリー材＋黒いキーという
+   独自の配色にする（Workspace/メッセージ等の他画面は、従来通りの
+   ブラック×ゴールドのガラス調のまま）。そのために、.app のところで
+   --color-text-primary 等のCSS変数を「上書き」している。
+   CSS変数は子孫要素へ引き継がれる（カスケードする）ため、
+   app.css側で定義されている .icon-btn 等の共通コンポーネントも、
+   app.cssを一切編集しないまま、電卓画面の中でだけ自動的に
+   明るい配色に切り替わる。木目の色味・キーの黒はこのファイル内に
+   閉じた固定値として持たせ、新しいCSS変数としては追加しない
+   （archive.cssの背景プリセットと同じ考え方）。
    ============================================================ */
 
 /* ------------------------------------------------------------
-   電卓画面の背景：木目調
-   実際の木目画像は使わず、明暗の異なる暖色の帯を重ねたグラデーションで
-   「艶のある濃い木材」の質感を表現する。ヘッダー・キー等の上に乗る
-   ガラス質感の要素は元々半透明なので、この背景の色味がうっすら
-   透けて見え、電卓全体が「木目の上に黒ガラスのパネルが載っている」
-   ような重なりに見えるようにしている。
+   電卓画面の背景：明るいチェリー材
+   実際の木目画像は使わず、暖色の帯を重ねたグラデーションで
+   「艶のある明るい木材」の質感を表現する。
    ------------------------------------------------------------ */
 .app {
+  position: relative;
+
+  /* 電卓画面の中だけ、文字色・ガラス面の色をチェリー材向けに上書きする */
+  --color-text-primary: #2b1a0d;
+  --color-text-secondary: #6b4d33;
+  --color-border: rgba(43, 26, 13, 0.16);
+  --color-surface: rgba(24, 16, 10, 0.85);
+  --color-surface-strong: rgba(24, 16, 10, 0.92);
+
   background-image:
+    /* 木目の細かい繊維：明暗の細い縞を重ねる */
     repeating-linear-gradient(
       179deg,
-      rgba(0, 0, 0, 0) 0px,
-      rgba(0, 0, 0, 0.16) 1px,
-      rgba(0, 0, 0, 0) 3px,
-      rgba(255, 200, 150, 0.02) 5px,
-      rgba(0, 0, 0, 0) 8px
+      rgba(255, 255, 255, 0) 0px,
+      rgba(120, 70, 30, 0.08) 1px,
+      rgba(255, 255, 255, 0) 3px,
+      rgba(255, 238, 210, 0.12) 5px,
+      rgba(255, 255, 255, 0) 8px
     ),
+    /* 木目の大きな帯（板の継ぎ目・色の濃淡） */
     repeating-linear-gradient(
       179deg,
-      rgba(110, 66, 32, 0.16) 0px,
-      rgba(80, 46, 22, 0.1) 60px,
-      rgba(120, 74, 36, 0.18) 120px,
-      rgba(64, 36, 18, 0.12) 190px
+      rgba(196, 138, 76, 0.55) 0px,
+      rgba(163, 108, 56, 0.35) 55px,
+      rgba(214, 156, 92, 0.6) 115px,
+      rgba(150, 96, 48, 0.32) 185px,
+      rgba(222, 168, 104, 0.55) 260px
     ),
-    radial-gradient(ellipse 120% 60% at 50% -10%, rgba(90, 55, 26, 0.35), transparent 65%),
-    linear-gradient(180deg, #1c130a 0%, #120c07 55%, #080503 100%);
-  background-color: var(--color-bg);
+    /* 塗装の艶：左上から右下へ抜けるうっすらとした光の帯 */
+    linear-gradient(
+      115deg,
+      rgba(255, 244, 222, 0) 28%,
+      rgba(255, 244, 222, 0.35) 46%,
+      rgba(255, 244, 222, 0) 64%
+    ),
+    /* 中心を明るく、縁を落とすビネット（素材に立体感を出す） */
+    radial-gradient(ellipse 120% 60% at 50% -10%, rgba(255, 226, 182, 0.35), transparent 65%),
+    radial-gradient(ellipse 140% 90% at 50% 110%, rgba(96, 55, 24, 0.28), transparent 55%),
+    linear-gradient(180deg, #d9a869 0%, #c4915a 55%, #a8763f 100%);
+  background-color: #b9895d;
+}
+
+/*
+ * 画面の縁をうっすら落とし、木材パネルが1枚の板として縁取られている
+ * ように見せる（暗すぎるとチェリー材の明るさを損なうため、黒ではなく
+ * 濃い木の色で軽く落とす程度にとどめる）。
+ */
+.app::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 2.5rem rgba(70, 38, 14, 0.3), inset 0 0 0.25rem rgba(50, 26, 10, 0.35);
 }
 
 /* ------------------------------------------------------------
    履歴パネル
-   画面上部、ガラス質感の細長いエリア。新しい計算ほど上に並ぶ想定。
-   ヘッダーの履歴トグルボタンで.is-expandedを付け外しし、
-   タップしたときだけ開く折りたたみ式にしている。
+   画面上部、木目がうっすら透ける細長いエリア。新しい計算ほど
+   上に並ぶ想定。ヘッダーの履歴トグルボタンで.is-expandedを
+   付け外しし、タップしたときだけ開く折りたたみ式にしている。
    ------------------------------------------------------------ */
 .history-panel {
   flex: 0 1 auto;
@@ -73,7 +110,7 @@
   padding-right: var(--space-3xs);
   /* iOSの慣性スクロールを有効にする */
   -webkit-overflow-scrolling: touch;
-  /* スクロールバーを非表示にし、ガラスパネルの見た目を崩さない（機能自体は維持） */
+  /* スクロールバーを非表示にし、木目の見た目を崩さない（機能自体は維持） */
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -89,7 +126,7 @@
   color: var(--color-text-secondary);
   /* 数字の桁が縦に揃って見えるよう等幅数字を使う */
   font-variant-numeric: tabular-nums;
-  /* 1件ずつをうっすら区切る（罫線ではなく下端のグラデーションに寄せる） */
+  /* 1件ずつをうっすら区切る */
   border-bottom: 1px solid var(--color-border);
   /* 万一長い式が生成されてもパネル幅内で折り返し、レイアウト崩れを防ぐ */
   word-break: break-word;
@@ -101,7 +138,8 @@
 
 /* ------------------------------------------------------------
    計算結果表示エリア
-   上段：式（小さく、控えめな色）／下段：結果（大きく、主役）
+   参考画像のLCD画面のように、木目に埋め込まれた明るいクリーム色の
+   パネルの上に、式（小さく控えめ）と結果（大きく主役）を乗せる。
    ------------------------------------------------------------ */
 .display-panel {
   flex: 1 1 auto;
@@ -110,10 +148,15 @@
   justify-content: flex-end;
   align-items: flex-end;
   gap: var(--space-3xs);
-  padding-block: var(--space-md);
+  margin-block: var(--space-sm);
+  padding: var(--space-md);
   min-height: 0;
   /* 極端に長い数字・式でも画面外へはみ出させず、パネル内に収める */
   overflow: hidden;
+  border-radius: var(--radius-lg);
+  /* LCD画面のような、木目より一段明るいクリーム色の窪みパネル */
+  background: linear-gradient(180deg, #ecdfc7 0%, #dccaa8 100%);
+  box-shadow: inset 0 3px 8px rgba(70, 40, 15, 0.3), inset 0 -1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .expression-display {
@@ -136,7 +179,7 @@
 
 .result-display {
   font-size: var(--font-size-display);
-  font-weight: 300;
+  font-weight: 400;
   line-height: 1.05;
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
@@ -148,8 +191,6 @@
   /* 横スクロール自体は許すが、スクロールバーは表示しない */
   scrollbar-width: none;
   -ms-overflow-style: none;
-  /* 高級感の演出として、結果の数字にごく控えめなゴールドの発光を追加する */
-  text-shadow: 0 0 1.5rem rgba(201, 169, 106, 0.18);
   transition: color var(--duration-base) var(--easing-standard),
     font-size var(--duration-base) var(--easing-standard);
 }
@@ -168,7 +209,6 @@
   font-size: var(--font-size-xl);
   font-weight: 600;
   color: var(--color-error);
-  text-shadow: none;
 }
 
 /* ------------------------------------------------------------
@@ -217,9 +257,10 @@
 }
 
 /*
- * 黒ガラスの質感を強調する、キー上部のうっすらとしたハイライト。
+ * キー上部のうっすらとしたハイライト。参考画像の黒いキーが持つ
+ * 「つややかなプラスチック／ガラスの反射」を表現する。
  * ::beforeで薄い半透明の帯を重ねるだけで、押下時にfilter:brightness()と
- * 組み合わさり「ガラスの反射が沈み込む」ような見え方になる。
+ * 組み合わさり「反射が沈み込む」ような見え方になる。
  */
 .key::before {
   content: '';
@@ -229,28 +270,25 @@
   pointer-events: none;
 }
 
-/* 押下時：app.jsが付与する.pressed、またはOS標準の:active。
-   ネオモーフィズムの「凸」を「凹」に反転させ、押し込まれた質感を出す。 */
+/* 押下時：app.jsが付与する.pressed、またはOS標準の:active。 */
 .key:active,
 .key.pressed {
   transform: scale(0.94);
-  filter: brightness(0.92);
+  filter: brightness(1.15);
 }
 
 /* ------------------------------------------------------------
-   数字キー：ガラス＋ネオモーフィズム（浮き出た質感）
+   数字キー：参考画像のような、つやのある黒いキー
    ------------------------------------------------------------ */
 .key-num {
-  background-color: var(--color-surface);
-  color: var(--color-text-primary);
-  backdrop-filter: blur(var(--blur-glass));
-  -webkit-backdrop-filter: blur(var(--blur-glass));
-  box-shadow: var(--shadow-neumorphic-out), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  background-color: #17110b;
+  color: #f2e8d8;
+  box-shadow: 0 0.375rem 0.875rem rgba(50, 28, 10, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .key-num:active,
 .key-num.pressed {
-  box-shadow: var(--shadow-neumorphic-in);
+  box-shadow: inset 0 0.1875rem 0.5rem rgba(0, 0, 0, 0.5);
 }
 
 /* 0キーだけ横長（スタジアム型）。列2つ分＋間隔ぶんの幅を確保する。 */
@@ -262,20 +300,19 @@
 }
 
 /* ------------------------------------------------------------
-   機能キー（AC / ± / %）：控えめなガラス質感
+   機能キー（AC / ± / %）：数字キーよりわずかに明るい黒
    ------------------------------------------------------------ */
 .key-func {
-  background-color: var(--color-surface-strong);
-  color: var(--color-text-primary);
-  backdrop-filter: blur(var(--blur-glass));
-  -webkit-backdrop-filter: blur(var(--blur-glass));
+  background-color: #241c14;
+  color: #f2e8d8;
   font-size: var(--font-size-lg);
   font-weight: 600;
+  box-shadow: 0 0.375rem 0.875rem rgba(50, 28, 10, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .key-func:active,
 .key-func.pressed {
-  background-color: var(--color-surface);
+  box-shadow: inset 0 0.1875rem 0.5rem rgba(0, 0, 0, 0.5);
 }
 
 /* ------------------------------------------------------------
@@ -284,7 +321,7 @@
 .key-operator {
   background-image: linear-gradient(155deg, color-mix(in srgb, var(--color-accent) 100%, white 18%) 0%, var(--color-accent) 55%, color-mix(in srgb, var(--color-accent) 100%, black 18%) 100%);
   color: var(--color-accent-contrast);
-  box-shadow: var(--shadow-elevated), 0 0 1.25rem color-mix(in srgb, var(--color-accent) 45%, transparent);
+  box-shadow: 0 0.375rem 0.875rem rgba(50, 28, 10, 0.35), 0 0 1.25rem color-mix(in srgb, var(--color-accent) 45%, transparent);
   /* GPUレイヤーへ昇格させ、iPhone Safariでの押下アニメーションを滑らかにする */
   transform: translateZ(0);
 }
@@ -304,7 +341,7 @@
   background-image: linear-gradient(155deg, color-mix(in srgb, var(--color-accent) 100%, white 22%) 0%, var(--color-accent) 55%, color-mix(in srgb, var(--color-accent) 100%, black 20%) 100%);
   color: var(--color-accent-contrast);
   font-weight: 700;
-  box-shadow: var(--shadow-elevated), 0 0 1.75rem color-mix(in srgb, var(--color-accent) 55%, transparent);
+  box-shadow: 0 0.375rem 0.875rem rgba(50, 28, 10, 0.35), 0 0 1.75rem color-mix(in srgb, var(--color-accent) 55%, transparent);
   /* GPUレイヤーへ昇格させ、iPhone Safariでの押下アニメーションを滑らかにする */
   transform: translateZ(0);
 }
