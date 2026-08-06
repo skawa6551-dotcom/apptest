@@ -6,10 +6,14 @@
 // 「時間切れになったら登録済みのハンドラを呼ぶ」という責務だけを持ち、
 // 実際に何をロックとするか・画面をどう切り替えるかはrouter.js側が決める。
 // DOM操作は一切行わない。
+//
+// タイムアウトまでの時間は固定値ではなく、設定画面で変更できる
+// settings.js の autoLockDurationMs を都度参照する（start()を呼ぶ
+// たびに最新の設定値を読み直すため、設定変更後は次にタイマーが
+// 開始した時点から新しい時間が反映される）。
 // ============================================================
 
-/** 無操作でタイムアウトするまでの時間（5分） */
-const AUTO_LOCK_TIME_MS = 5 * 60 * 1000;
+import Settings from './settings.js';
 
 /** window.setTimeout()のID。動いていない間はnull。 */
 let timerId = null;
@@ -30,16 +34,23 @@ function clearTimer() {
 /**
  * タイマーを開始する（既に動いていれば一度止めてから開始し直す）。
  * router.jsがWorkspace/Records入場時に呼ぶ想定。
+ * 設定値が0（「なし」）の場合は、自動ロックしない設定とみなし
+ * タイマー自体をセットしない（isActiveはtrueのままにしておき、
+ * 後から設定がONの時間に変更された場合に次のreset()から反映されるようにする）。
  */
 export function start() {
   isActive = true;
   clearTimer();
+
+  const durationMs = Settings.getAutoLockDurationMs();
+  if (durationMs <= 0) return;
+
   timerId = window.setTimeout(() => {
     timerId = null;
     if (typeof onTimeout === 'function') {
       onTimeout();
     }
-  }, AUTO_LOCK_TIME_MS);
+  }, durationMs);
 }
 
 /**
