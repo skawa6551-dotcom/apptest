@@ -155,5 +155,5 @@
 .pairing-error {
   text-align: center;
   font-size: var(--font-size-sm);
-  color: #ff6b6b;
+  color: var(--color-error);
 }
