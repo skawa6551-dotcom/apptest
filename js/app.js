@@ -1216,6 +1216,7 @@ function handleDocumentInput(event) {
 
   if (target.id === 'messagesInput') {
     Messages.notifyTyping();
+    Messages.autoResizeInput();
   }
 }
 
