@@ -192,6 +192,148 @@
         </div>
       </div>
 
+      <!-- ---------------- セキュリティ ---------------- -->
+      <div class="settings-group" role="group" aria-label="セキュリティ">
+        <div class="settings-row settings-row-select">
+          <div class="settings-row-text">
+            <span class="settings-row-title">自動ロックまでの時間</span>
+          </div>
+          <select id="autoLockDurationSelect" class="settings-select" aria-label="自動ロックまでの時間"></select>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <span class="settings-row-title">Archiveロック</span>
+            <span class="settings-row-desc">Archiveを開く際にパスコードを要求する</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="archiveLockToggle">
+            <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- ---------------- 通知 ----------------
+           【注意】通知を実際に配信する仕組みは未実装のため、
+           ここでは設定値の保存のみを行う。 -->
+      <div class="settings-group" role="group" aria-label="通知">
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <span class="settings-row-title">通知</span>
+            <span class="settings-row-desc">新着メッセージの通知（現在は設定値のみ）</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="notificationsToggle" checked>
+            <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <span class="settings-row-title">通知にメッセージ内容を表示</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="notificationContentToggle" checked>
+            <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <span class="settings-row-title">通知音</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="notificationSoundToggle" checked>
+            <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <span class="settings-row-title">通知時のバイブレーション</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="notificationVibrationToggle" checked>
+            <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- ---------------- チャット設定 ---------------- -->
+      <div class="settings-group" role="group" aria-label="チャット設定">
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <span class="settings-row-title">既読を送信</span>
+            <span class="settings-row-desc">OFFにすると、自分が読んだことは相手に伝わりません</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="readReceiptsToggle" checked>
+            <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <span class="settings-row-title">オンライン状態を表示</span>
+            <span class="settings-row-desc">OFFにすると、相手からは常にオフラインに見えます</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="onlineVisibilityToggle" checked>
+            <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+
+        <div class="settings-row settings-row-select">
+          <div class="settings-row-text">
+            <span class="settings-row-title">会話整理方法</span>
+            <span class="settings-row-desc">現在は設定項目のみで、実際の整理処理は未実装です</span>
+          </div>
+          <select id="organizeModeSelect" class="settings-select" aria-label="会話整理方法">
+            <option value="manual">手動</option>
+            <option value="auto">自動</option>
+            <option value="both">手動＋自動</option>
+          </select>
+        </div>
+
+        <div class="settings-row settings-row-select">
+          <div class="settings-row-text">
+            <span class="settings-row-title">整理までの時間</span>
+          </div>
+          <select id="organizeDurationSelect" class="settings-select" aria-label="整理までの時間"></select>
+        </div>
+      </div>
+
+      <!-- ---------------- データ管理 ---------------- -->
+      <div class="settings-group" role="group" aria-label="データ管理">
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <span class="settings-row-title">保存データ使用量</span>
+            <span class="settings-row-desc" id="storageUsageLabel">計算中…</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="settings-action-btn"
+          data-action="clear-cache">
+          キャッシュを削除
+        </button>
+
+        <button
+          type="button"
+          class="settings-action-btn"
+          data-action="delete-all-my-messages">
+          自分の送信メッセージを一括削除
+        </button>
+
+        <button
+          type="button"
+          class="settings-action-btn"
+          data-action="clear-archive-data">
+          Archiveの記録をすべて削除
+        </button>
+      </div>
+
       <!-- テーマ変更：選択肢はthemes.jsの定義からapp.jsが動的に生成する -->
       <div class="settings-group">
         <div class="settings-row settings-row-select">
