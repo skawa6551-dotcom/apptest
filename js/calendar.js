@@ -14,6 +14,7 @@
 // ============================================================
 
 import Storage, { STORAGE_KEYS } from './storage.js';
+import Customization from './customization.js';
 
 /** カレンダー画面のDOMを差し込む先のコンテナのid */
 const CONTAINER_ID = 'calendar';
@@ -23,6 +24,9 @@ const WEEKDAY_LABELS = Object.freeze(['日', '月', '火', '水', '木', '金', 
 
 /** create() が既に実行済みかどうか（二重生成防止） */
 let isBuilt = false;
+
+/** customization.jsの購読解除関数。 */
+let unsubscribeCustomization = null;
 
 /** 「今日」の日付（起動時に1度だけ確定させ、日をまたいでも当日中は固定で扱う） */
 const today = new Date();
@@ -350,6 +354,11 @@ export function create() {
 
   updateMonthLabel();
   renderGrid();
+
+  if (unsubscribeCustomization) unsubscribeCustomization();
+  unsubscribeCustomization = Customization.subscribe((customization) => {
+    Customization.applyBackgroundClass(container, 'calendar', customization.backgrounds?.calendar);
+  });
 
   isBuilt = true;
 }
