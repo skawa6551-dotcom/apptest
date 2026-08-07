@@ -106,6 +106,82 @@
   font-family: inherit;
 }
 
+.settings-text-input {
+  width: 100%;
+  padding: var(--space-2xs) var(--space-sm);
+  border: none;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-family: inherit;
+}
+
+.settings-text-input::placeholder {
+  color: var(--color-text-secondary);
+}
+
+/* ------------------------------------------------------------
+   Workspaceカード編集（アイコン／表示名／並び替え）
+   ------------------------------------------------------------ */
+.card-customization-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.card-edit-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.card-icon-input {
+  flex: 0 0 3rem;
+  width: 3rem;
+  padding: var(--space-2xs);
+  border: none;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-family: inherit;
+  text-align: center;
+}
+
+.card-label-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--space-2xs) var(--space-sm);
+  border: none;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-family: inherit;
+}
+
+.card-move-btn {
+  flex: 0 0 2.25rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-strong);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  transition: transform var(--duration-fast) var(--easing-standard),
+    opacity var(--duration-base) var(--easing-standard);
+}
+
+.card-move-btn:active {
+  transform: scale(0.94);
+}
+
+.card-move-btn:disabled {
+  opacity: 0.3;
+}
+
 .settings-row-text {
   display: flex;
   flex-direction: column;
