@@ -1,4 +1,4 @@
-============================================================
+// ============================================================
 // messages.js
 // Workspace内「メッセージ」画面のDOM生成・開閉・リアルタイム送受信・
 // 既読表示・入力中表示・オンライン状態・長押しアクション（リアクション/
@@ -22,6 +22,7 @@
 // ============================================================
 
 import Firebase from './firebase.js';
+import Settings from './settings.js';
 
 /** メッセージ画面のDOMを差し込む先のコンテナのid */
 const CONTAINER_ID = 'messages';
@@ -411,15 +412,17 @@ function renderMessages(messageList) {
   updateTypingIndicatorDisplay();
   listEl.scrollTop = listEl.scrollHeight;
 
-  messageList.forEach((message) => {
-    if (message.senderId === currentUid) return;
-    const readBy = message.readBy ?? [];
-    if (readBy.includes(currentUid)) return;
+  if (Settings.isReadReceiptsEnabled()) {
+    messageList.forEach((message) => {
+      if (message.senderId === currentUid) return;
+      const readBy = message.readBy ?? [];
+      if (readBy.includes(currentUid)) return;
 
-    Firebase.markMessageAsRead(currentRoomId, message.id, currentUid, readBy).catch((error) => {
-      console.error('[messages.js] 既読の更新に失敗しました', error);
+      Firebase.markMessageAsRead(currentRoomId, message.id, currentUid, readBy).catch((error) => {
+        console.error('[messages.js] 既読の更新に失敗しました', error);
+      });
     });
-  });
+  }
 }
 
 // ------------------------------------------------------------
@@ -604,6 +607,7 @@ export async function sendMessage() {
 
 function handleVisibilityChange() {
   if (!currentRoomId || !currentUid) return;
+  if (!Settings.isOnlineVisibilityEnabled()) return;
 
   if (document.visibilityState === 'hidden') {
     Firebase.updatePresence(currentRoomId, currentUid, false).catch(() => {});
@@ -612,8 +616,19 @@ function handleVisibilityChange() {
   }
 }
 
+/**
+ * オンライン状態の送信を開始する。「オンライン表示」設定がOFFの場合は、
+ * 自分からは一切「オンライン」を送らず、明示的に「オフライン」を
+ * 1回送るだけに留める（相手からは常にオフライン、または最終オンライン
+ * 時刻のまま見える状態になる）。
+ */
 function startPresence() {
   if (!currentRoomId || !currentUid) return;
+
+  if (!Settings.isOnlineVisibilityEnabled()) {
+    Firebase.updatePresence(currentRoomId, currentUid, false).catch(() => {});
+    return;
+  }
 
   Firebase.updatePresence(currentRoomId, currentUid, true).catch(() => {});
 
