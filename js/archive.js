@@ -15,34 +15,36 @@
 // 参照するだけ）。
 // ============================================================
 
-import Storage, { STORAGE_KEYS } from './storage.js';
 import Records from './records.js';
 import Settings from './settings.js';
 import Passcode from './passcode.js';
+import Customization from './customization.js';
 
 /** Archive画面のDOMを差し込む先のコンテナのid */
 const CONTAINER_ID = 'archive';
 
-/**
- * 背景プリセットの定義。
- * 個人の日記・思い出全般に合う、恋愛関係に限定しない抽象的な
- * デザインのみを用意する。
- * 色は archive.css 側でこのidに対応するクラス（archive-bg--{id}）として
- * 定義する。プリセット固有の色のため、app.cssの共通変数は使わず
- * archive.css内に閉じた値として持たせる。
+/*
+ * 背景プリセットは、以前はArchive専用（black-gold/dark-navy/glass/
+ * abstract）をStorage（端末ごと）へ保存していたが、Phase1.6より
+ * customization.jsが持つ共有プリセット（Workspace/メッセージ/
+ * カレンダー等と共通の8種類）をFirestore（ペアリング相手と共有）へ
+ * 保存する方式に統一した。画面内のスウォッチUI自体は変更していない
+ * （二重実装を避けるため、保存先だけを差し替えている）。
+ * 旧プリセットidとの対応: black-gold→'default' / dark-navy→'navy' /
+ * glass→'black-glass' / abstract→'abstract'（メニュー表示順もこれに揃える）。
  */
 const BACKGROUND_PRESETS = Object.freeze([
-  Object.freeze({ id: 'black-gold', label: 'Black & Gold' }),
-  Object.freeze({ id: 'dark-navy', label: 'Dark Navy' }),
-  Object.freeze({ id: 'glass', label: 'Glass' }),
-  Object.freeze({ id: 'abstract', label: 'Abstract Art' }),
+  Object.freeze({ id: 'default', label: 'デフォルト' }),
+  Object.freeze({ id: 'navy', label: 'ネイビー' }),
+  Object.freeze({ id: 'black-glass', label: 'ブラックガラス' }),
+  Object.freeze({ id: 'abstract', label: '抽象グラデーション' }),
 ]);
-
-/** 背景プリセット未選択時のデフォルト値 */
-const DEFAULT_BACKGROUND_ID = BACKGROUND_PRESETS[0].id;
 
 /** create() が既に実行済みかどうか（二重生成防止） */
 let isBuilt = false;
+
+/** customization.jsの購読解除関数。 */
+let unsubscribeCustomization = null;
 
 /**
  * Archiveロック（設定でON時）を、今回の表示セッション中に
@@ -55,25 +57,6 @@ let isUnlockedThisSession = false;
 let searchFilter = {
   text: '',
 };
-
-/**
- * 現在保存されている背景プリセットidをStorage経由で読み込む。
- * 未保存・不正な値の場合はデフォルトを返す。
- * @returns {string}
- */
-function loadBackgroundId() {
-  const saved = Storage.get(STORAGE_KEYS.ARCHIVE_BACKGROUND, DEFAULT_BACKGROUND_ID);
-  const isValid = BACKGROUND_PRESETS.some((preset) => preset.id === saved);
-  return isValid ? saved : DEFAULT_BACKGROUND_ID;
-}
-
-/**
- * 背景プリセットidをStorage経由で保存する。
- * @param {string} id
- */
-function saveBackgroundId(id) {
-  Storage.set(STORAGE_KEYS.ARCHIVE_BACKGROUND, id);
-}
 
 /**
  * タイムスタンプ（ms）を「YYYY年M月D日 H:MM」の表示用文言に整形する。
@@ -346,15 +329,13 @@ function renderList() {
 function applyBackground(backgroundId) {
   const container = getContainer();
   if (container) {
-    BACKGROUND_PRESETS.forEach((preset) => {
-      container.classList.toggle(`archive-bg--${preset.id}`, preset.id === backgroundId);
-    });
+    Customization.applyBackgroundClass(container, 'archive', backgroundId);
   }
 
   const picker = document.getElementById('archiveBackgroundPicker');
   if (picker) {
     Array.from(picker.children).forEach((swatch) => {
-      const isActive = swatch.dataset.backgroundId === backgroundId;
+      const isActive = swatch.dataset.backgroundId === (backgroundId ?? 'default');
       swatch.classList.toggle('active', isActive);
       swatch.setAttribute('aria-checked', String(isActive));
     });
@@ -384,7 +365,10 @@ export function create() {
   fragment.appendChild(createAuthPanel());
   container.replaceChildren(fragment);
 
-  applyBackground(loadBackgroundId());
+  if (unsubscribeCustomization) unsubscribeCustomization();
+  unsubscribeCustomization = Customization.subscribe((customization) => {
+    applyBackground(customization.backgrounds?.archive);
+  });
 
   isBuilt = true;
 }
@@ -448,8 +432,13 @@ export function selectBackground(backgroundId) {
   const isValid = BACKGROUND_PRESETS.some((preset) => preset.id === backgroundId);
   if (!isValid) return;
 
+  // 即座に見た目へ反映してから保存する（保存の往復を待たせない）。
+  // 保存自体はcustomization.js経由でFirestoreへ書き込まれ、
+  // 設定画面の背景セレクトからの変更とまったく同じ保存先を共有する。
   applyBackground(backgroundId);
-  saveBackgroundId(backgroundId);
+  Customization.updateBackground('archive', backgroundId).catch((error) => {
+    console.error('[archive.js] 背景の保存に失敗しました', error);
+  });
 }
 
 // ------------------------------------------------------------
