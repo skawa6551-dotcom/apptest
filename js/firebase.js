@@ -648,6 +648,29 @@ export async function updatePresence(roomId, uid, isOnline) {
   });
 }
 
+/**
+ * ルームの customization フィールドを部分更新する。
+ * partialのキーは 'workspaceTitle' のようなトップレベルのキーでも、
+ * 'cards.messages.label' のようなドット区切りの深いパスでもよい
+ * （Firestoreのフィールドパス記法をそのまま使えるため）。
+ * どちらの場合も customization.（自動で先頭に付与） 配下だけを
+ * 部分更新し、customization内の他のフィールドには一切触れない。
+ * @param {string} roomId
+ * @param {Object.<string, unknown>} partial
+ * @returns {Promise<void>}
+ */
+export async function updateRoomCustomization(roomId, partial) {
+  const { db, firestoreFns } = await loadFirebase();
+  const roomRef = firestoreFns.doc(db, 'rooms', roomId);
+
+  const updates = {};
+  Object.entries(partial).forEach(([path, value]) => {
+    updates[`customization.${path}`] = value;
+  });
+
+  await firestoreFns.updateDoc(roomRef, updates);
+}
+
 const Firebase = {
   ensureSignedIn,
   getCurrentUid,
@@ -668,6 +691,7 @@ const Firebase = {
   deleteAllOwnMessages,
   updateTypingState,
   updatePresence,
+  updateRoomCustomization,
 };
 
 export default Firebase;
