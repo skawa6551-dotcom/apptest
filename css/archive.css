@@ -211,3 +211,93 @@
 .archive-empty-state[hidden] {
   display: none;
 }
+
+/* ------------------------------------------------------------
+   #archiveContent（検索欄・背景ピッカー・一覧・空表示のラッパー）
+   .archive自体のflexレイアウトをそのまま子要素へ引き継がせるため、
+   ラッパー自身はボックスとして存在しない display:contents にする。
+   ------------------------------------------------------------ */
+.archive-content {
+  display: contents;
+}
+
+/*
+ * [hidden]属性が付いている間は必ず非表示にする。display:contentsの上に
+ * さらに上書きが必要なため、他の[hidden]対応と同じ理由でここに明記する。
+ */
+.archive-content[hidden] {
+  display: none;
+}
+
+/* ------------------------------------------------------------
+   Archiveロック用パスコード認証パネル
+   workspace.cssの鑑賞モード認証パネルと同じ考え方の、画面中央寄せの
+   グラスパネル。通常は非表示（.is-openが付いたときだけ表示する）。
+   ------------------------------------------------------------ */
+.archive-auth {
+  display: none;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-md);
+  flex: 1 1 auto;
+  justify-content: center;
+  max-width: 22rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.archive-auth.is-open {
+  display: flex;
+}
+
+.archive-auth-message {
+  text-align: center;
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+}
+
+.archive-auth-input {
+  width: 100%;
+  padding: var(--space-sm);
+  border: none;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  font-family: inherit;
+  text-align: center;
+  letter-spacing: 0.3em;
+}
+
+.archive-auth-error {
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
+}
+
+.archive-auth-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.archive-auth-btn {
+  flex: 1 1 0;
+  padding: var(--space-sm);
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  transition: transform var(--duration-fast) var(--easing-standard);
+}
+
+.archive-auth-btn:active {
+  transform: scale(0.97);
+}
+
+.archive-auth-btn--cancel {
+  background-color: var(--color-surface-strong);
+  color: var(--color-text-primary);
+}
+
+.archive-auth-btn--confirm {
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
