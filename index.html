@@ -192,6 +192,50 @@
         </div>
       </div>
 
+      <!-- ---------------- Workspaceカスタマイズ ----------------
+           カード・タイトルの中身はcustomization.jsの内容をもとに
+           app.jsが動的に生成する（Firestore経由でペアリング相手と共有）。 -->
+      <div class="settings-group" role="group" aria-label="Workspaceカスタマイズ">
+        <div class="settings-row settings-row-select">
+          <div class="settings-row-text">
+            <span class="settings-row-title">Workspaceタイトル</span>
+            <span class="settings-row-desc">空欄にすると既定の「Workspace」に戻ります</span>
+          </div>
+          <input
+            type="text"
+            id="workspaceTitleInput"
+            class="settings-text-input"
+            placeholder="Workspace"
+            maxlength="20"
+            autocomplete="off">
+        </div>
+
+        <div class="settings-row settings-row-select">
+          <div class="settings-row-text">
+            <span class="settings-row-title">カード</span>
+            <span class="settings-row-desc">表示名・アイコン・並び順を変更できます（相手にも反映されます）</span>
+          </div>
+          <div id="cardCustomizationList" class="card-customization-list"></div>
+        </div>
+      </div>
+
+      <!-- ---------------- 背景 ----------------
+           対象は6画面（Workspace/メッセージ/Archive/カレンダー/写真/
+           行きたい場所）。電卓は対象外（常に木目デザインに固定）。 -->
+      <div class="settings-group" role="group" aria-label="背景">
+        <div id="backgroundCustomizationList"></div>
+      </div>
+
+      <!-- ---------------- デフォルトに戻す ---------------- -->
+      <div class="settings-group">
+        <button
+          type="button"
+          class="settings-action-btn"
+          data-action="reset-customization">
+          Workspaceカスタマイズをデフォルトに戻す
+        </button>
+      </div>
+
       <!-- ---------------- セキュリティ ---------------- -->
       <div class="settings-group" role="group" aria-label="セキュリティ">
         <div class="settings-row settings-row-select">
