@@ -32,6 +32,7 @@ export const STORAGE_KEYS = Object.freeze({
   CONVERSATION_ORGANIZE_DURATION_MS: 'conversation_organize_duration_ms',
   READ_RECEIPTS_ENABLED: 'read_receipts_enabled',
   ONLINE_VISIBILITY_ENABLED: 'online_visibility_enabled',
+  WORKSPACE_CUSTOMIZATION_CACHE: 'workspace_customization_cache',
 });
 
 const VALID_KEYS = new Set(Object.values(STORAGE_KEYS));
