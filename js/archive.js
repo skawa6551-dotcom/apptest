@@ -17,6 +17,8 @@
 
 import Storage, { STORAGE_KEYS } from './storage.js';
 import Records from './records.js';
+import Settings from './settings.js';
+import Passcode from './passcode.js';
 
 /** Archive画面のDOMを差し込む先のコンテナのid */
 const CONTAINER_ID = 'archive';
@@ -41,6 +43,13 @@ const DEFAULT_BACKGROUND_ID = BACKGROUND_PRESETS[0].id;
 
 /** create() が既に実行済みかどうか（二重生成防止） */
 let isBuilt = false;
+
+/**
+ * Archiveロック（設定でON時）を、今回の表示セッション中に
+ * 解除済みかどうか。close()のたびにfalseへ戻すため、次にArchiveを
+ * 開いたときは再度パスコードの入力を求める。
+ */
+let isUnlockedThisSession = false;
 
 /** 検索欄の現在の絞り込み条件（本文のみ。将来ここに日付・タグ等を追加できる）。 */
 let searchFilter = {
@@ -205,6 +214,62 @@ function createEmptyState() {
 }
 
 /**
+ * Archiveロック（設定でON時）用の、パスコード再入力パネルを作る。
+ * workspace.jsの鑑賞モード認証パネルと同じ考え方で、Workspace入場時と
+ * 同じパスコードをここでも使う（Archive専用の別パスコードは設けない）。
+ * 通常は非表示（.is-open が付いたときだけ表示する）。
+ * @returns {HTMLElement}
+ */
+function createAuthPanel() {
+  const panel = document.createElement('div');
+  panel.id = 'archiveAuthPanel';
+  panel.className = 'archive-auth';
+
+  const message = document.createElement('p');
+  message.className = 'archive-auth-message';
+  message.textContent = 'Archiveを開くにはパスコードを入力してください';
+
+  const input = document.createElement('input');
+  input.type = 'tel';
+  input.inputMode = 'numeric';
+  input.autocomplete = 'off';
+  input.id = 'archiveAuthInput';
+  input.className = 'archive-auth-input';
+  input.maxLength = 8;
+
+  const error = document.createElement('p');
+  error.id = 'archiveAuthError';
+  error.className = 'archive-auth-error';
+  error.hidden = true;
+  error.setAttribute('aria-live', 'assertive');
+
+  const actions = document.createElement('div');
+  actions.className = 'archive-auth-actions';
+
+  const cancelButton = document.createElement('button');
+  cancelButton.type = 'button';
+  cancelButton.className = 'archive-auth-btn archive-auth-btn--cancel';
+  cancelButton.dataset.action = 'cancel-archive-auth';
+  cancelButton.textContent = 'キャンセル';
+
+  const confirmButton = document.createElement('button');
+  confirmButton.type = 'button';
+  confirmButton.className = 'archive-auth-btn archive-auth-btn--confirm';
+  confirmButton.dataset.action = 'confirm-archive-auth';
+  confirmButton.textContent = '確認';
+
+  actions.appendChild(cancelButton);
+  actions.appendChild(confirmButton);
+
+  panel.appendChild(message);
+  panel.appendChild(input);
+  panel.appendChild(error);
+  panel.appendChild(actions);
+
+  return panel;
+}
+
+/**
  * 1件分の記録カードを作る。
  * @param {{text: string, timestamp: number}} entry
  * @returns {HTMLElement}
@@ -305,12 +370,18 @@ export function create() {
 
   const container = getContainer() ?? createContainer();
 
+  const content = document.createElement('div');
+  content.id = 'archiveContent';
+  content.className = 'archive-content';
+  content.appendChild(createSearchBar());
+  content.appendChild(createBackgroundPicker());
+  content.appendChild(createList());
+  content.appendChild(createEmptyState());
+
   const fragment = document.createDocumentFragment();
   fragment.appendChild(createHeader());
-  fragment.appendChild(createSearchBar());
-  fragment.appendChild(createBackgroundPicker());
-  fragment.appendChild(createList());
-  fragment.appendChild(createEmptyState());
+  fragment.appendChild(content);
+  fragment.appendChild(createAuthPanel());
   container.replaceChildren(fragment);
 
   applyBackground(loadBackgroundId());
@@ -325,18 +396,19 @@ export function open() {
   const container = getContainer();
   if (!container) return;
 
-  searchFilter = { text: '' };
-  const searchInput = document.getElementById('archiveSearchInput');
-  if (searchInput) searchInput.value = '';
-
-  renderList();
+  if (Settings.isArchiveLockEnabled() && !isUnlockedThisSession) {
+    showAuthPanel();
+  } else {
+    showContent();
+  }
 
   container.classList.add('is-open');
   container.setAttribute('aria-hidden', 'false');
 }
 
 /**
- * Archive画面を非表示にする。
+ * Archive画面を非表示にする。ロックが有効な場合は、次に開いたときに
+ * 再度パスコード入力を求めるため、解除済み状態をリセットする。
  */
 export function close() {
   const container = getContainer();
@@ -344,6 +416,10 @@ export function close() {
 
   container.classList.remove('is-open');
   container.setAttribute('aria-hidden', 'true');
+
+  isUnlockedThisSession = false;
+  hideAuthPanel();
+  clearAuthInput();
 }
 
 /**
@@ -376,6 +452,91 @@ export function selectBackground(backgroundId) {
   saveBackgroundId(backgroundId);
 }
 
+// ------------------------------------------------------------
+// Archiveロック（設定でON時のパスコード再認証）
+// ------------------------------------------------------------
+
+/** 記録一覧・検索欄・背景ピッカーを表示し、パネルは隠す。実際のコンテンツ表示状態にする。 */
+function showContent() {
+  hideAuthPanel();
+
+  const content = document.getElementById('archiveContent');
+  if (content) content.hidden = false;
+
+  searchFilter = { text: '' };
+  const searchInput = document.getElementById('archiveSearchInput');
+  if (searchInput) searchInput.value = '';
+
+  renderList();
+}
+
+/** パスコード認証パネルを表示し、コンテンツ側は隠す。 */
+function showAuthPanel() {
+  const content = document.getElementById('archiveContent');
+  if (content) content.hidden = true;
+
+  clearAuthInput();
+  clearAuthError();
+
+  const panel = document.getElementById('archiveAuthPanel');
+  if (panel) panel.classList.add('is-open');
+}
+
+/** パスコード認証パネルを非表示にする。 */
+function hideAuthPanel() {
+  const panel = document.getElementById('archiveAuthPanel');
+  if (panel) panel.classList.remove('is-open');
+}
+
+/**
+ * 認証パネルの入力欄の値を取得する。
+ * @returns {string}
+ */
+export function getAuthInputValue() {
+  const input = document.getElementById('archiveAuthInput');
+  return input ? input.value : '';
+}
+
+/** 認証パネルの入力欄を空にする。 */
+export function clearAuthInput() {
+  const input = document.getElementById('archiveAuthInput');
+  if (input) input.value = '';
+}
+
+/** 認証パネルのエラー表示を出す。 */
+export function showAuthError() {
+  const error = document.getElementById('archiveAuthError');
+  if (!error) return;
+  error.textContent = 'パスコードが違います';
+  error.hidden = false;
+}
+
+/** 認証パネルのエラー表示を消す。 */
+export function clearAuthError() {
+  const error = document.getElementById('archiveAuthError');
+  if (error) error.hidden = true;
+}
+
+/**
+ * 入力されたパスコードを検証し、正しければ今回のセッションだけ
+ * Archiveのロックを解除してコンテンツを表示する。
+ * @returns {boolean} 検証に成功したかどうか
+ */
+export function confirmAuth() {
+  const value = getAuthInputValue();
+  if (!Passcode.validate(value)) {
+    showAuthError();
+    clearAuthInput();
+    return false;
+  }
+
+  isUnlockedThisSession = true;
+  clearAuthInput();
+  clearAuthError();
+  showContent();
+  return true;
+}
+
 const Archive = {
   create,
   open,
@@ -383,6 +544,9 @@ const Archive = {
   isOpen,
   search,
   selectBackground,
+  getAuthInputValue,
+  clearAuthInput,
+  confirmAuth,
 };
 
 export default Archive;
