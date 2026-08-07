@@ -43,6 +43,39 @@
 }
 
 /* ------------------------------------------------------------
+   背景プリセット（Phase1.6）
+   workspace.css/messages.cssと同じ配色セットを使う。'default'は無指定。
+   ------------------------------------------------------------ */
+.calendar.calendar-bg--wood {
+  background: linear-gradient(180deg, #caa06a 0%, #a97a45 55%, #7d5730 100%);
+}
+
+.calendar.calendar-bg--black {
+  background: linear-gradient(180deg, #0a0a0a 0%, #000000 100%);
+}
+
+.calendar.calendar-bg--black-glass {
+  background: linear-gradient(180deg, #101214 0%, #24272b 100%);
+}
+
+.calendar.calendar-bg--dark-gray {
+  background: linear-gradient(180deg, #202020 0%, #121212 100%);
+}
+
+.calendar.calendar-bg--navy {
+  background: linear-gradient(180deg, #05070d 0%, #0d1a2e 100%);
+}
+
+.calendar.calendar-bg--gold {
+  background: radial-gradient(ellipse 120% 60% at 50% -10%, rgba(201, 169, 106, 0.25), transparent 60%),
+    linear-gradient(180deg, #14100a 0%, #0a0705 100%);
+}
+
+.calendar.calendar-bg--abstract {
+  background: linear-gradient(160deg, #140a07 0%, #241506 45%, #0a0d14 100%);
+}
+
+/* ------------------------------------------------------------
    ヘッダー：戻るボタン＋タイトル＋ロックボタン
    ------------------------------------------------------------ */
 .calendar-header {
