@@ -3,11 +3,13 @@
    Workspace内「Archive」画面専用のスタイル。
    記録を振り返るための、落ち着いた高級感のあるライブラリ画面。
 
-   背景プリセット（archive-bg--*）のみ、app.cssの共有トークンではなく
-   このファイル内に閉じた固定値を使う。理由：プリセットは「決まった
-   選択肢の中からユーザーが選ぶ」ための、意図的に固定された配色
-   （Black & Gold / Dark Navy / Glass / Abstract Art）であり、テーマ
-   切り替え（app.cssのCSS変数）とは別レイヤーの機能のため。
+   背景プリセット（archive-bg--*）は、Phase1.6よりWorkspace/メッセージ/
+   カレンダー等と共通の背景プリセット名（customization.jsの
+   BACKGROUND_PRESETS）に統一した。'default'は元々のBlack & Gold基調の
+   見た目そのものなので、専用クラスは持たせず無指定のままにしている。
+   プリセット固有の色はapp.cssの共有トークンではなく、このファイル内に
+   閉じた固定値として持たせる（テーマ切り替え＝app.cssのCSS変数とは
+   別レイヤーの機能のため）。
    それ以外の余白・角丸・影・モーション・Safe Area等はすべて app.css の
    CSS変数を使う。
    app.css / calculator.css / settings.css / workspace.css /
@@ -47,17 +49,13 @@
 }
 
 /* ------------------------------------------------------------
-   背景プリセット
+   背景プリセット（'default'は無指定＝既定の見た目のため専用クラス無し）
    ------------------------------------------------------------ */
-.archive.archive-bg--black-gold {
-  background: linear-gradient(180deg, #050505 0%, #171008 100%);
-}
-
-.archive.archive-bg--dark-navy {
+.archive.archive-bg--navy {
   background: linear-gradient(180deg, #05070d 0%, #0d1a2e 100%);
 }
 
-.archive.archive-bg--glass {
+.archive.archive-bg--black-glass {
   background: linear-gradient(180deg, #101214 0%, #24272b 100%);
 }
 
@@ -133,15 +131,15 @@
   border-color: var(--color-accent);
 }
 
-.archive-bg-swatch--black-gold {
+.archive-bg-swatch--default {
   background: linear-gradient(135deg, #050505 0%, #171008 100%);
 }
 
-.archive-bg-swatch--dark-navy {
+.archive-bg-swatch--navy {
   background: linear-gradient(135deg, #05070d 0%, #0d1a2e 100%);
 }
 
-.archive-bg-swatch--glass {
+.archive-bg-swatch--black-glass {
   background: linear-gradient(135deg, #101214 0%, #24272b 100%);
 }
 
