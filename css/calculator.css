@@ -149,11 +149,16 @@
   justify-content: flex-end;
   align-items: flex-end;
   gap: var(--space-3xs);
-  margin-block: var(--space-md);
-  padding: var(--space-lg) var(--space-md);
+  margin-block: var(--space-sm);
+  padding: var(--space-md);
   min-height: 0;
-  /* 極端に長い数字・式でも画面外へはみ出させず、パネル内に収める */
-  overflow: hidden;
+  /*
+   * 横方向の極端な長さは.result-display/.expression-display自身の
+   * overflow-x:autoで individually 処理する。ここをoverflow:hiddenに
+   * すると、パネルの高さがフォントサイズに対してわずかでも不足した際に
+   * 数字の上端が見切れてしまう事故が起きるため、縦方向は見えるままにする。
+   */
+  overflow: visible;
   border-radius: var(--radius-lg);
   /* 木枠に埋め込まれた、本物のデジタル表示機のようなブラックガラスパネル */
   background: linear-gradient(165deg, #14100a 0%, #0a0705 55%, #050302 100%);
