@@ -24,6 +24,7 @@ import Archive from './archive.js';
 import Pairing from './pairing.js';
 import Messages from './messages.js';
 import Firebase from './firebase.js';
+import Customization from './customization.js';
 
 // ------------------------------------------------------------
 // 定数
@@ -431,7 +432,123 @@ function renderSettings() {
   // ---- データ管理 ----
   renderStorageUsage();
 
+  // ---- Workspaceカスタマイズ（Firestore共有） ----
+  renderWorkspaceTitleInput();
+  renderCardCustomizationList();
+  renderBackgroundCustomizationList();
+
   document.getElementById('versionLabel').textContent = `Version ${Settings.getVersion()}`;
+}
+
+/** Workspaceタイトル入力欄に、現在保存されているカスタムタイトルを反映する（未設定なら空欄のまま）。 */
+function renderWorkspaceTitleInput() {
+  const input = document.getElementById('workspaceTitleInput');
+  if (!input) return;
+  input.value = Customization.getCached().workspaceTitle ?? '';
+}
+
+/**
+ * カード編集リストを、現在の並び順・表示名・アイコンで作り直す。
+ * settings.js側の値ではなくCustomization.getEffectiveCards()
+ * （customization.jsとworkspace.jsが共有する唯一の定義元）を使うため、
+ * ここでカードの定義を重複して持たない。
+ */
+function renderCardCustomizationList() {
+  const list = document.getElementById('cardCustomizationList');
+  if (!list) return;
+
+  const cards = Customization.getEffectiveCards();
+  const fragment = document.createDocumentFragment();
+
+  cards.forEach((card, index) => {
+    const row = document.createElement('div');
+    row.className = 'card-edit-row';
+
+    const iconInput = document.createElement('input');
+    iconInput.type = 'text';
+    iconInput.className = 'card-icon-input';
+    iconInput.dataset.cardKey = card.key;
+    iconInput.maxLength = 4;
+    iconInput.value = card.icon;
+    iconInput.setAttribute('aria-label', `${card.label}のアイコン`);
+
+    const labelInput = document.createElement('input');
+    labelInput.type = 'text';
+    labelInput.className = 'card-label-input';
+    labelInput.dataset.cardKey = card.key;
+    labelInput.maxLength = 12;
+    labelInput.value = card.label;
+    labelInput.setAttribute('aria-label', `${card.label}の表示名`);
+
+    const moveUpButton = document.createElement('button');
+    moveUpButton.type = 'button';
+    moveUpButton.className = 'card-move-btn';
+    moveUpButton.dataset.action = 'move-card-up';
+    moveUpButton.dataset.cardKey = card.key;
+    moveUpButton.disabled = index === 0;
+    moveUpButton.setAttribute('aria-label', `${card.label}を上へ`);
+    moveUpButton.textContent = '▲';
+
+    const moveDownButton = document.createElement('button');
+    moveDownButton.type = 'button';
+    moveDownButton.className = 'card-move-btn';
+    moveDownButton.dataset.action = 'move-card-down';
+    moveDownButton.dataset.cardKey = card.key;
+    moveDownButton.disabled = index === cards.length - 1;
+    moveDownButton.setAttribute('aria-label', `${card.label}を下へ`);
+    moveDownButton.textContent = '▼';
+
+    row.appendChild(iconInput);
+    row.appendChild(labelInput);
+    row.appendChild(moveUpButton);
+    row.appendChild(moveDownButton);
+    fragment.appendChild(row);
+  });
+
+  list.replaceChildren(fragment);
+}
+
+/**
+ * 背景プリセットの選択欄（6画面ぶん）を作り直す。
+ * 対象画面はCustomization.CUSTOMIZABLE_SCREENS（電卓は含まれない）。
+ */
+function renderBackgroundCustomizationList() {
+  const list = document.getElementById('backgroundCustomizationList');
+  if (!list) return;
+
+  const backgrounds = Customization.getCached().backgrounds ?? {};
+  const fragment = document.createDocumentFragment();
+
+  Customization.CUSTOMIZABLE_SCREENS.forEach((screen) => {
+    const row = document.createElement('div');
+    row.className = 'settings-row settings-row-select';
+
+    const textWrap = document.createElement('div');
+    textWrap.className = 'settings-row-text';
+    const title = document.createElement('span');
+    title.className = 'settings-row-title';
+    title.textContent = `${screen.label}の背景`;
+    textWrap.appendChild(title);
+
+    const select = document.createElement('select');
+    select.className = 'settings-select bg-select';
+    select.dataset.screen = screen.key;
+    select.setAttribute('aria-label', `${screen.label}の背景`);
+
+    Customization.BACKGROUND_PRESETS.forEach((preset) => {
+      const option = document.createElement('option');
+      option.value = preset.id;
+      option.textContent = preset.label;
+      select.appendChild(option);
+    });
+    select.value = backgrounds[screen.key] ?? 'default';
+
+    row.appendChild(textWrap);
+    row.appendChild(select);
+    fragment.appendChild(row);
+  });
+
+  list.replaceChildren(fragment);
 }
 
 /**
@@ -1131,6 +1248,76 @@ function handleClearArchiveData() {
 }
 
 /**
+ * カード編集リストの「▲」ボタンの処理。
+ * 現在の並び順で1つ前のカードと、orderの値を入れ替える
+ * （先頭のカードには▲ボタン自体が表示されない）。
+ * @param {HTMLElement} target
+ */
+async function handleMoveCardUp(target) {
+  const { cardKey } = target.dataset;
+  if (!cardKey) return;
+  await swapCardOrder(cardKey, -1);
+}
+
+/**
+ * カード編集リストの「▼」ボタンの処理。1つ後ろのカードとorderを入れ替える。
+ * @param {HTMLElement} target
+ */
+async function handleMoveCardDown(target) {
+  const { cardKey } = target.dataset;
+  if (!cardKey) return;
+  await swapCardOrder(cardKey, 1);
+}
+
+/**
+ * 現在表示中の並び順で、指定したカードとその前後（direction: -1で1つ前、
+ * +1で1つ後ろ）のorder値を入れ替えて保存する。設定カード（並び替え対象外）
+ * が隣接していた場合や、既に端にいる場合は何もしない。
+ * @param {string} cardKey
+ * @param {-1|1} direction
+ */
+async function swapCardOrder(cardKey, direction) {
+  const cards = Customization.getEffectiveCards();
+  const currentIndex = cards.findIndex((card) => card.key === cardKey);
+  const targetIndex = currentIndex + direction;
+  if (currentIndex === -1 || targetIndex < 0 || targetIndex >= cards.length) return;
+
+  try {
+    await Customization.updateCardOrder({
+      [cards[currentIndex].key]: targetIndex,
+      [cards[targetIndex].key]: currentIndex,
+    });
+    playFeedbackSound('tap');
+    playFeedbackVibration();
+  } catch (error) {
+    console.error('[app.js] カードの並び替えに失敗しました', error);
+    playFeedbackSound('error');
+    playFeedbackVibration();
+  }
+}
+
+/**
+ * 「Workspaceカスタマイズをデフォルトに戻す」ボタンの処理。
+ * 誤操作防止のため、確認ダイアログ（window.confirm）を挟む。
+ */
+async function handleResetCustomization() {
+  const confirmed = window.confirm(
+    'カード名・アイコン・並び順・Workspaceタイトル・背景を、すべて初期状態に戻します。よろしいですか？',
+  );
+  if (!confirmed) return;
+
+  try {
+    await Customization.resetAll();
+    playFeedbackSound('success');
+    playFeedbackVibration();
+  } catch (error) {
+    console.error('[app.js] カスタマイズのリセットに失敗しました', error);
+    playFeedbackSound('error');
+    playFeedbackVibration();
+  }
+}
+
+/**
  * 履歴パネルの開閉を切り替える。設定/ロック画面と同様、
  * これは一時的な表示状態のためrender()を経由せず直接DOMを操作する。
  * CSSのmax-height/opacityによるアニメーションだけに頼らず、
@@ -1197,6 +1384,9 @@ const ACTION_HANDLERS = Object.freeze({
   'clear-cache': handleClearCache,
   'delete-all-my-messages': handleDeleteAllMyMessages,
   'clear-archive-data': handleClearArchiveData,
+  'move-card-up': handleMoveCardUp,
+  'move-card-down': handleMoveCardDown,
+  'reset-customization': handleResetCustomization,
 });
 
 // ------------------------------------------------------------
@@ -1389,6 +1579,11 @@ function handleSettingsChange(event) {
     return;
   }
 
+  if (target instanceof HTMLInputElement && target.type === 'text') {
+    handleSettingsTextInputChange(target);
+    return;
+  }
+
   if (target instanceof HTMLSelectElement) {
     handleSettingsSelectChange(target);
   }
@@ -1444,6 +1639,18 @@ function handleSettingsCheckboxChange(target) {
  * @param {HTMLSelectElement} target
  */
 function handleSettingsSelectChange(target) {
+  // 背景セレクトは6つとも動的生成のためidを持たず、
+  // クラス名＋data-screenで判定する（他は個別idで判定する）。
+  if (target.classList.contains('bg-select')) {
+    const { screen } = target.dataset;
+    if (!screen) return;
+
+    Customization.updateBackground(screen, target.value).catch((error) => {
+      console.error('[app.js] 背景の保存に失敗しました', error);
+    });
+    return;
+  }
+
   switch (target.id) {
     case 'autoLockDurationSelect':
       Settings.setAutoLockDurationMs(Number(target.value));
@@ -1456,6 +1663,34 @@ function handleSettingsSelectChange(target) {
       break;
     default:
       break;
+  }
+}
+
+/**
+ * 設定画面内のテキスト入力（Workspaceタイトル・カードのアイコン/表示名）の
+ * 変更を処理する。カードのアイコン/表示名はクラス名＋data-cardKeyで判定する
+ * （動的生成のため、カードごとの個別idを持たない）。
+ * @param {HTMLInputElement} target
+ */
+function handleSettingsTextInputChange(target) {
+  if (target.id === 'workspaceTitleInput') {
+    Customization.updateWorkspaceTitle(target.value).catch((error) => {
+      console.error('[app.js] Workspaceタイトルの保存に失敗しました', error);
+    });
+    return;
+  }
+
+  if (target.classList.contains('card-icon-input') || target.classList.contains('card-label-input')) {
+    const { cardKey } = target.dataset;
+    if (!cardKey) return;
+
+    const changes = target.classList.contains('card-icon-input')
+      ? { icon: target.value }
+      : { label: target.value };
+
+    Customization.updateCard(cardKey, changes).catch((error) => {
+      console.error('[app.js] カードの保存に失敗しました', error);
+    });
   }
 }
 
@@ -1750,8 +1985,25 @@ async function init() {
     // 入力→参加成功）にPairingからMessagesへ直接遷移させる。
     // Router.completePairing()は「PairingからMessagesへ切り替える」という
     // 画面遷移の責務そのものなので、ここではRouter側の関数を渡すだけにする。
+    // 併せて、ペアリングが成立した瞬間にWorkspace共有カスタマイズの
+    // Firestore購読も開始する（それまではローカルキャッシュ値のみで動く）。
     Pairing.setOnPaired(() => {
       Router.completePairing();
+      Customization.start();
+    });
+
+    // 既にペアリング済み（roomIdが既にローカルに保存されている）の場合は、
+    // 起動直後からWorkspace共有カスタマイズの購読を開始する。
+    // 未ペアリングの場合は何もしない（Customization.start()内部で判定する）。
+    Customization.start();
+
+    // Workspace共有カスタマイズが変わるたびに、設定画面側の表示も
+    // 最新に保つ（設定画面を開いたまま相手が変更した場合や、
+    // ペアリング成立直後にFirestoreの実際の値が届いた場合に反映するため）。
+    Customization.subscribe(() => {
+      renderWorkspaceTitleInput();
+      renderCardCustomizationList();
+      renderBackgroundCustomizationList();
     });
 
     // 2. event: イベント登録（ユーザー操作を受け付けられる状態にする）
