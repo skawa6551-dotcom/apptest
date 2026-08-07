@@ -23,6 +23,7 @@
 
 import Firebase from './firebase.js';
 import Settings from './settings.js';
+import Customization from './customization.js';
 
 /** メッセージ画面のDOMを差し込む先のコンテナのid */
 const CONTAINER_ID = 'messages';
@@ -56,6 +57,9 @@ const QUICK_REACTIONS = Object.freeze(['👍', '❤️', '😂', '😮', '😢',
 // ------------------------------------------------------------
 
 let isBuilt = false;
+
+/** customization.jsの購読解除関数。 */
+let unsubscribeCustomization = null;
 
 let unsubscribeMessages = null;
 let unsubscribeRoom = null;
@@ -249,6 +253,11 @@ export function create() {
   fragment.appendChild(createComposer());
   fragment.appendChild(createActionSheet());
   container.replaceChildren(fragment);
+
+  if (unsubscribeCustomization) unsubscribeCustomization();
+  unsubscribeCustomization = Customization.subscribe((customization) => {
+    Customization.applyBackgroundClass(container, 'messages', customization.backgrounds?.messages);
+  });
 
   isBuilt = true;
 }
