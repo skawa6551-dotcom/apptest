@@ -141,6 +141,7 @@
   align-items: center;
   gap: var(--space-sm);
   width: 100%;
+  min-height: 4.5rem;
   padding: var(--space-md);
   border-radius: var(--radius-lg);
   background-color: var(--color-surface);
@@ -180,6 +181,9 @@
 .workspace-card-label {
   flex: 1 1 auto;
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ------------------------------------------------------------
