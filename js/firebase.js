@@ -419,18 +419,26 @@ export async function joinRoomWithCode(code, uid, displayName) {
  * （その間は何もしないno-op関数を購読解除関数として返す）。
  * @param {string} roomId
  * @param {(roomData: object) => void} callback
+ * @param {(error: Error) => void} [onError] - 購読自体がエラーで停止した際に呼ばれる
  * @returns {() => void} 購読解除関数
  */
-export function subscribeToRoom(roomId, callback) {
+export function subscribeToRoom(roomId, callback, onError) {
   let unsubscribeFn = () => {};
   let cancelled = false;
 
   loadFirebase().then(({ db, firestoreFns }) => {
     if (cancelled) return;
     const roomRef = firestoreFns.doc(db, 'rooms', roomId);
-    unsubscribeFn = firestoreFns.onSnapshot(roomRef, (snapshot) => {
-      if (snapshot.exists()) callback(snapshot.data());
-    });
+    unsubscribeFn = firestoreFns.onSnapshot(
+      roomRef,
+      (snapshot) => {
+        if (snapshot.exists()) callback(snapshot.data());
+      },
+      (error) => {
+        console.error('[firebase.js] ルームの購読でエラーが発生しました', error);
+        if (typeof onError === 'function') onError(error);
+      },
+    );
   });
 
   return () => {
@@ -506,9 +514,10 @@ export async function sendTextMessage(roomId, uid, clientId, text) {
  * SDKの読み込みが未完了の場合は、読み込み完了後に改めて購読を開始する。
  * @param {string} roomId
  * @param {(messages: object[]) => void} callback
+ * @param {(error: Error) => void} [onError] - 購読自体がエラーで停止した際に呼ばれる
  * @returns {() => void} 購読解除関数
  */
-export function subscribeToMessages(roomId, callback) {
+export function subscribeToMessages(roomId, callback, onError) {
   let unsubscribeFn = () => {};
   let cancelled = false;
 
@@ -521,13 +530,20 @@ export function subscribeToMessages(roomId, callback) {
       firestoreFns.limit(MESSAGE_LIST_LIMIT),
     );
 
-    unsubscribeFn = firestoreFns.onSnapshot(messagesQuery, (snapshot) => {
-      const messages = snapshot.docs.map((docSnapshot) => ({
-        id: docSnapshot.id,
-        ...docSnapshot.data(),
-      }));
-      callback(messages);
-    });
+    unsubscribeFn = firestoreFns.onSnapshot(
+      messagesQuery,
+      (snapshot) => {
+        const messages = snapshot.docs.map((docSnapshot) => ({
+          id: docSnapshot.id,
+          ...docSnapshot.data(),
+        }));
+        callback(messages);
+      },
+      (error) => {
+        console.error('[firebase.js] メッセージの購読でエラーが発生しました', error);
+        if (typeof onError === 'function') onError(error);
+      },
+    );
   });
 
   return () => {
