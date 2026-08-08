@@ -18,7 +18,6 @@ export const STORAGE_KEYS = Object.freeze({
   BIOMETRIC_ENABLED: 'biometric_enabled',
   CALENDAR_NOTES: 'calendar_notes',
   RECORDS_ARCHIVE: 'records_archive',
-  ARCHIVE_BACKGROUND: 'archive_background',
   CLIENT_ID: 'client_id',
   CURRENT_ROOM_ID: 'current_room_id',
   DISPLAY_NAME: 'display_name',
