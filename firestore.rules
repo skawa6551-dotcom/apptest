@@ -82,6 +82,13 @@ service cloud.firestore {
 
       // ケース1: 既存メンバーによる更新
       // （lastMessageAt/lastMessagePreviewの反映、customization変更等）
+      // 【Phase1.8で追加】通知機能のための
+      // memberProfiles.{uid}.pushRegistrations.{clientId}（端末ごとの
+      // 通知登録情報）・memberProfiles.{uid}.notificationContentEnabled
+      // （通知内容表示設定の共有コピー）も、フィールドを限定しないこの
+      // ルールの範囲内でそのまま書き込める。customizationフィールドと
+      // 同じ考え方（実用上の範囲での防御。冒頭のroomId/招待コードに
+      // 関するトレードオフの説明と同様）で、新規ルールは追加しない。
       allow update: if isSignedIn()
         && request.auth.uid in resource.data.memberIds;
 
@@ -163,4 +170,4 @@ service cloud.firestore {
       allow delete: if false;
     }
   }
-}わ
+}
