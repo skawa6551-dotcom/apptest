@@ -49,6 +49,20 @@ const PRESENCE_HEARTBEAT_MS = 20000;
 /** state:'online'でもlastSeenAtがこれより古ければオフライン扱いにする猶予（ms） */
 const PRESENCE_ONLINE_STALE_MS = 45000;
 
+/**
+ * この値（px）以内なら「最下部付近にいる」とみなし、新着到着時に自動スクロール
+ * する。これより上までスクロールして過去メッセージを読んでいる場合は、
+ * 新着が来ても自動では動かさない。
+ */
+const SCROLL_NEAR_BOTTOM_THRESHOLD_PX = 80;
+
+/**
+ * 絵文字のみで構成されたメッセージかどうかを判定する正規表現。
+ * 絵文字だけのメッセージは、通常の吹き出し（背景・パディング）を持たず、
+ * 大きな文字だけで表示する（一般的なメッセージアプリの挙動に合わせる）。
+ */
+const EMOJI_ONLY_PATTERN = /^(?:\s*\p{Extended_Pictographic}\uFE0F?\s*)+$/u;
+
 /** 長押しメニューのクイックリアクション候補 */
 const QUICK_REACTIONS = Object.freeze(['👍', '❤️', '😂', '😮', '😢', '🙏']);
 
@@ -145,6 +159,21 @@ function createHeader() {
   header.appendChild(lockButton);
 
   return header;
+}
+
+/**
+ * Firestoreの購読エラー時にだけ表示する、控えめな通知バナーを作る。
+ * 技術的なエラー内容は表示せず、自然な日本語の案内のみを出す。
+ * 通常は非表示（.is-open が付いたときだけ表示する）。
+ * @returns {HTMLElement}
+ */
+function createConnectionErrorBanner() {
+  const banner = document.createElement('p');
+  banner.id = 'messagesConnectionError';
+  banner.className = 'messages-connection-error';
+  banner.textContent = '通信が不安定なようです。しばらくすると自動的に復帰します。';
+  banner.setAttribute('aria-live', 'assertive');
+  return banner;
 }
 
 function createMessageList() {
@@ -249,6 +278,7 @@ export function create() {
 
   const fragment = document.createDocumentFragment();
   fragment.appendChild(createHeader());
+  fragment.appendChild(createConnectionErrorBanner());
   fragment.appendChild(createMessageList());
   fragment.appendChild(createComposer());
   fragment.appendChild(createActionSheet());
@@ -335,13 +365,14 @@ function createReactionsRow(reactions) {
  */
 function createMessageBubble(message, isNew) {
   const isOwn = message.senderId === currentUid;
+  const isEmojiOnly = EMOJI_ONLY_PATTERN.test(message.text ?? '');
 
   const row = document.createElement('div');
   row.className = `messages-row ${isOwn ? 'messages-row--own' : 'messages-row--other'}${isNew ? ' messages-row--enter' : ''}`;
   row.dataset.messageId = message.id;
 
   const bubble = document.createElement('div');
-  bubble.className = 'messages-bubble';
+  bubble.className = `messages-bubble${isEmojiOnly ? ' messages-bubble--emoji-only' : ''}`;
 
   const text = document.createElement('p');
   text.className = 'messages-bubble-text';
@@ -394,24 +425,50 @@ function createTypingIndicatorRow() {
 }
 
 /**
- * メッセージ一覧を再描画し、最下部までスクロールする。
+ * メッセージ一覧要素が、最下部付近（SCROLL_NEAR_BOTTOM_THRESHOLD_PX以内）に
+ * スクロールされているかどうかを返す。過去メッセージを読んでいる最中に
+ * 新着で強制的に最下部へ飛ばさないための判定に使う。
+ * @param {HTMLElement} listEl
+ * @returns {boolean}
+ */
+function isListNearBottom(listEl) {
+  return listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < SCROLL_NEAR_BOTTOM_THRESHOLD_PX;
+}
+
+/**
+ * メッセージ一覧を再描画する。
+ * 自動で最下部へスクロールするのは、以下のいずれかに該当する場合だけにする
+ * （それ以外＝過去メッセージを読んでいる最中は、現在のスクロール位置を維持する）：
+ *   ・再描画前の時点で、既に最下部付近にいた
+ *   ・今回新しく届いた最新メッセージが、自分が今送ったものである
+ *   ・この画面を開いて最初の描画である（knownMessageIdsが空だった）
  * 新規到着メッセージにだけ入場アニメーション用のクラスを付け、
  * 既存メッセージ（既読・リアクション更新等での再描画）はアニメーションしない。
  * 描画後、まだ自分が既読にしていない他者のメッセージがあれば既読を付ける。
  * @param {object[]} messageList
  */
 function renderMessages(messageList) {
-  latestMessages = messageList;
-
   const listEl = document.getElementById('messagesList');
-  if (!listEl) return;
+  if (!listEl) {
+    latestMessages = messageList;
+    return;
+  }
+
+  const isFirstRender = knownMessageIds.size === 0 && messageList.length > 0;
+  const wasNearBottom = isListNearBottom(listEl);
+
+  latestMessages = messageList;
 
   const fragment = document.createDocumentFragment();
   const currentIds = new Set();
+  let newestIsOwnAndNew = false;
 
-  messageList.forEach((message) => {
+  messageList.forEach((message, index) => {
     currentIds.add(message.id);
     const isNew = !knownMessageIds.has(message.id);
+    if (isNew && index === messageList.length - 1 && message.senderId === currentUid) {
+      newestIsOwnAndNew = true;
+    }
     fragment.appendChild(createMessageBubble(message, isNew));
   });
 
@@ -419,7 +476,10 @@ function renderMessages(messageList) {
   knownMessageIds = currentIds;
 
   updateTypingIndicatorDisplay();
-  listEl.scrollTop = listEl.scrollHeight;
+
+  if (isFirstRender || wasNearBottom || newestIsOwnAndNew) {
+    listEl.scrollTop = listEl.scrollHeight;
+  }
 
   if (Settings.isReadReceiptsEnabled()) {
     messageList.forEach((message) => {
@@ -460,8 +520,9 @@ function updateTypingIndicatorDisplay() {
 
   if (isOtherTyping()) {
     if (!existingRow) {
+      const wasNearBottom = isListNearBottom(listEl);
       listEl.appendChild(createTypingIndicatorRow());
-      listEl.scrollTop = listEl.scrollHeight;
+      if (wasNearBottom) listEl.scrollTop = listEl.scrollHeight;
     }
   } else if (existingRow) {
     existingRow.remove();
@@ -512,6 +573,18 @@ function computeStatusText() {
 function updateStatusLine() {
   const el = document.getElementById('messagesStatusLine');
   if (el) el.textContent = computeStatusText();
+}
+
+/** Firestoreの購読エラー発生時に、控えめな通知バナーを表示する。 */
+function showConnectionError() {
+  const banner = document.getElementById('messagesConnectionError');
+  if (banner) banner.classList.add('is-open');
+}
+
+/** 通知バナーを非表示にする（次に購読が正常に届いた時点で呼ぶ）。 */
+function hideConnectionError() {
+  const banner = document.getElementById('messagesConnectionError');
+  if (banner) banner.classList.remove('is-open');
 }
 
 /**
@@ -661,6 +734,50 @@ function stopPresence() {
 }
 
 // ------------------------------------------------------------
+// キーボード表示時の対応（iOS Safari）
+// ------------------------------------------------------------
+
+/**
+ * iOSのSafari／PWAはソフトウェアキーボード表示時にレイアウトビューポートの
+ * 高さを変えないため、position:fixed; inset:0で全画面表示している
+ * .messagesの下端が、そのままキーボードの下（画面外）に取り残されてしまい、
+ * 入力欄が隠れる。window.visualViewportの高さ変化を監視し、キーボード分の
+ * 高さをコンテナのpadding-bottomとして反映することで、常に見える位置に
+ * 入力欄を押し上げる。
+ */
+function handleViewportResize() {
+  const container = getContainer();
+  if (!container || !window.visualViewport) return;
+
+  const viewport = window.visualViewport;
+  const keyboardInset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+
+  container.style.paddingBottom = keyboardInset > 0 ? `${keyboardInset}px` : '';
+
+  // キーボードが開いた瞬間、直前まで最下部付近にいたのであれば、
+  // 入力欄の位置に合わせて改めて最下部までスクロールし直す。
+  const listEl = document.getElementById('messagesList');
+  if (listEl && isListNearBottom(listEl)) {
+    listEl.scrollTop = listEl.scrollHeight;
+  }
+}
+
+/** キーボード対応の監視を開始する（open()から呼ぶ）。 */
+function startKeyboardAvoidance() {
+  if (!window.visualViewport) return;
+  window.visualViewport.addEventListener('resize', handleViewportResize);
+}
+
+/** キーボード対応の監視を止め、押し上げ分のpaddingを元に戻す（close()から呼ぶ）。 */
+function stopKeyboardAvoidance() {
+  if (!window.visualViewport) return;
+  window.visualViewport.removeEventListener('resize', handleViewportResize);
+
+  const container = getContainer();
+  if (container) container.style.paddingBottom = '';
+}
+
+// ------------------------------------------------------------
 // 長押しアクション（リアクション／コピー／削除）
 // ------------------------------------------------------------
 
@@ -787,6 +904,8 @@ export async function open() {
 
   container.classList.add('is-open');
   container.setAttribute('aria-hidden', 'false');
+  hideConnectionError();
+  startKeyboardAvoidance();
 
   currentRoomId = Firebase.getLocalRoomId();
   if (!currentRoomId) {
@@ -798,8 +917,22 @@ export async function open() {
 
   stopSubscriptions();
   knownMessageIds = new Set();
-  unsubscribeMessages = Firebase.subscribeToMessages(currentRoomId, renderMessages);
-  unsubscribeRoom = Firebase.subscribeToRoom(currentRoomId, onRoomUpdate);
+  unsubscribeMessages = Firebase.subscribeToMessages(
+    currentRoomId,
+    (messages) => {
+      hideConnectionError();
+      renderMessages(messages);
+    },
+    () => showConnectionError(),
+  );
+  unsubscribeRoom = Firebase.subscribeToRoom(
+    currentRoomId,
+    (roomData) => {
+      hideConnectionError();
+      onRoomUpdate(roomData);
+    },
+    () => showConnectionError(),
+  );
 
   startPresence();
 }
@@ -810,6 +943,7 @@ export async function open() {
 export function close() {
   stopSubscriptions();
   stopPresence();
+  stopKeyboardAvoidance();
   clearLongPressTimer();
   closeActionSheet();
 
