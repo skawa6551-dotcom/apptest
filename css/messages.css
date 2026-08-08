@@ -103,6 +103,25 @@
 }
 
 /* ------------------------------------------------------------
+   接続エラーバナー（Firestoreの購読が失敗した時だけ表示）
+   ------------------------------------------------------------ */
+.messages-connection-error {
+  display: none;
+  flex-shrink: 0;
+  margin-bottom: var(--space-sm);
+  padding: var(--space-2xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  background-color: color-mix(in srgb, var(--color-error) 18%, var(--color-surface));
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.messages-connection-error.is-open {
+  display: block;
+}
+
+/* ------------------------------------------------------------
    メッセージ一覧
    ------------------------------------------------------------ */
 .messages-list {
@@ -182,6 +201,44 @@
   font-size: var(--font-size-md);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/*
+ * 絵文字だけのメッセージ（messages.jsが判定してクラスを付与）は、
+ * 一般的なメッセージアプリと同じく、吹き出しの背景・影を消して
+ * 絵文字自体を大きく見せる。時刻・既読は通常通り下に添える。
+ */
+.messages-row--own .messages-bubble.messages-bubble--emoji-only,
+.messages-row--other .messages-bubble.messages-bubble--emoji-only {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: var(--space-3xs) 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/*
+ * 自分側の吹き出しは通常、ゴールド背景を前提とした濃い文字色
+ * （--color-accent-contrast）を使っているが、絵文字だけの場合は
+ * 背景を消すため、通常の（明るい）文字色に上書きする。
+ */
+.messages-row--own .messages-bubble.messages-bubble--emoji-only {
+  color: var(--color-text-primary);
+}
+
+.messages-bubble--emoji-only .messages-receipt.is-read {
+  color: var(--color-accent);
+  text-shadow: none;
+}
+
+.messages-bubble--emoji-only .messages-bubble-text {
+  font-size: 2.5rem;
+  line-height: 1.2;
+}
+
+.messages-bubble--emoji-only .messages-bubble-footer {
+  padding-inline: var(--space-3xs);
 }
 
 .messages-bubble-footer {
