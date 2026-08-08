@@ -17,7 +17,7 @@
 // キャッシュの中身（対象ファイルや内容）を変更したら、この数値を
 // 上げるだけで古いキャッシュが自動的に破棄され、新しい内容に更新される。
 // ------------------------------------------------------------
-const CACHE_VERSION = 5;
+const CACHE_VERSION = 6;
 const CACHE_NAME = `calculator-0209-cache-v${CACHE_VERSION}`;
 
 // ------------------------------------------------------------
@@ -33,6 +33,9 @@ const CACHE_NAME = `calculator-0209-cache-v${CACHE_VERSION}`;
 // Phase1（メッセージ機能）追加に伴い、pairing.js/messages.js/
 // firebase.js/firebase-config.js/pairing.css/messages.cssを追加し、
 // CACHE_VERSIONをさらに引き上げている。
+// Phase1.6（Workspace共有カスタマイズ）追加に伴い、customization.jsを
+// 追加し、CACHE_VERSIONをv6へ引き上げている（このファイルの追加漏れが
+// Phase1.7で見つかったため、あわせて修正した）。
 // なお、Firebase SDK自体（https://www.gstatic.com/firebasejs/...）は
 // 他オリジンのため、このService Workerのfetchハンドラの対象外
 // （下記の同一オリジン判定で自動的に除外される）。ブラウザの通常の
@@ -69,6 +72,7 @@ const PRECACHE_URLS = Object.freeze([
   './js/firebase.js',
   './js/pairing.js',
   './js/messages.js',
+  './js/customization.js',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
   './assets/icons/icon-512-maskable.png',
