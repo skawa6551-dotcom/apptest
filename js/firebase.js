@@ -22,6 +22,7 @@
 // ============================================================
 
 import Storage, { STORAGE_KEYS } from './storage.js';
+import { vapidKey } from './firebase-config.js';
 
 // ------------------------------------------------------------
 // 定数
@@ -95,7 +96,7 @@ function loadFirebase() {
     const auth = authFns.getAuth(app);
     const db = firestoreFns.getFirestore(app);
 
-    firebaseState = { auth, db, authFns, firestoreFns };
+    firebaseState = { app, auth, db, authFns, firestoreFns };
     return firebaseState;
   })().catch((error) => {
     // 失敗時は次回呼び出しでもう一度読み込みを試せるよう、キャッシュをリセットする。
@@ -105,6 +106,123 @@ function loadFirebase() {
   });
 
   return loadPromise;
+}
+
+// ------------------------------------------------------------
+// Messaging（通知）
+//
+// 【方式について】
+// Firebase公式は現在、従来の getToken() から、Firebase Installation ID
+// （FID）を使う register()/onRegistered() 方式への移行を推奨している。
+// ただし、このアプリが読み込んでいるSDK_VERSION（app/auth/firestoreと
+// 共通）でregister()/onRegistered()が実際に使えるかどうかを、
+// ドキュメント上だけでは確証が持てなかったため、ここでは「推測で
+// 決め打ちしない」方針を取る：
+//   1. まずSDK_VERSIONのままfirebase-messaging.jsを読み込む
+//   2. 読み込んだモジュールに register/onRegistered が実際に
+//      存在するかを実行時に確認する
+//   3. 存在すればFID方式を使い、存在しなければその場でgetToken()
+//      （非推奨だが動作は保証されている）にフォールバックし、
+//      その旨をコンソールへ明示のログとして残す
+// これにより、SDK_VERSIONを更新すれば自動的にFID方式へ切り替わり、
+// 更新するまでは確実に動作する方式のまま使い続けられる。
+//
+// また、専用ファイル（firebase-messaging-sw.js）は作らず、既存の
+// service-worker.js（呼び出し元がnavigator.serviceWorker.readyから
+// 取得したregistrationをserviceWorkerRegistrationとして渡す）を
+// そのまま利用する。これはFirebase公式のAPIリファレンスに明記されている
+// 正式なオプションであり、Service Workerを1つに保つための設計判断。
+// ------------------------------------------------------------
+
+/** 読み込み済みのmessaging関連の関数群・インスタンス。未読み込みならnull。 */
+let messagingState = null;
+
+/** loadMessaging()の多重実行防止用キャッシュ */
+let messagingLoadPromise = null;
+
+/**
+ * Firebase Messaging SDKを読み込み、register/onRegisteredが実際に
+ * 使えるかどうかを判定する。何度呼んでも実際の読み込みは1回だけ。
+ * @returns {Promise<{
+ *   messaging: object,
+ *   fns: object,
+ *   supportsFid: boolean,
+ * }>}
+ */
+function loadMessaging() {
+  if (messagingState) return Promise.resolve(messagingState);
+  if (messagingLoadPromise) return messagingLoadPromise;
+
+  messagingLoadPromise = (async () => {
+    const { app } = await loadFirebase();
+    const fns = await import(`https://www.gstatic.com/firebasejs/${SDK_VERSION}/firebase-messaging.js`);
+    const messaging = fns.getMessaging(app);
+
+    // 実際にexportされているかどうかで判定する（バージョン番号を
+    // 見て推測するのではなく、実物を確認する）。
+    const supportsFid = typeof fns.register === 'function' && typeof fns.onRegistered === 'function';
+
+    if (!supportsFid) {
+      console.warn(
+        '[firebase.js] 現在のFirebase SDK（v' +
+          SDK_VERSION +
+          '）にはregister()/onRegistered()が見つからなかったため、' +
+          '非推奨のgetToken()方式にフォールバックします。',
+      );
+    }
+
+    messagingState = { messaging, fns, supportsFid };
+    return messagingState;
+  })().catch((error) => {
+    messagingLoadPromise = null;
+    console.error('[firebase.js] Firebase Messaging SDKの読み込みに失敗しました', error);
+    throw error;
+  });
+
+  return messagingLoadPromise;
+}
+
+/**
+ * このブラウザ／端末をプッシュ通知の送信対象として登録し、
+ * 識別子（FIDまたは登録トークン）を返す。
+ * @param {ServiceWorkerRegistration} swRegistration - 既存のservice-worker.jsのregistration
+ * @returns {Promise<{id: string, method: 'fid'|'token'}>}
+ */
+export async function registerForPush(swRegistration) {
+  const { fns, messaging, supportsFid } = await loadMessaging();
+
+  if (supportsFid) {
+    const id = await new Promise((resolve, reject) => {
+      const unsubscribe = fns.onRegistered(messaging, (installationId) => {
+        unsubscribe();
+        resolve(installationId);
+      });
+
+      fns.register(messaging, { vapidKey, serviceWorkerRegistration: swRegistration }).catch((error) => {
+        unsubscribe();
+        reject(error);
+      });
+    });
+
+    return { id, method: 'fid' };
+  }
+
+  // フォールバック（非推奨だが動作する）。
+  const token = await fns.getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
+  if (!token) {
+    throw new Error('通知の登録に失敗しました。');
+  }
+  return { id: token, method: 'token' };
+}
+
+/**
+ * アプリを開いている間（フォアグラウンド）に届いたメッセージを受け取る。
+ * @param {(payload: object) => void} callback
+ * @returns {Promise<void>}
+ */
+export async function onForegroundMessage(callback) {
+  const { fns, messaging } = await loadMessaging();
+  fns.onMessage(messaging, callback);
 }
 
 // ------------------------------------------------------------
@@ -687,6 +805,109 @@ export async function updateRoomCustomization(roomId, partial) {
   await firestoreFns.updateDoc(roomRef, updates);
 }
 
+// ------------------------------------------------------------
+// 通知登録の保存（複数端末対応）
+// memberProfiles.{uid}.pushRegistrations.{clientId} に、端末ごとの
+// 登録情報を保持する。1uid=1登録に固定せず、clientId単位で
+// 独立して管理することで、同じ人が複数端末を使っても互いに
+// 上書きしないようにする。
+// ------------------------------------------------------------
+
+/** Cloudflare Worker（通知送信の依頼先）のURL。 */
+const NOTIFICATION_WORKER_URL = 'https://calculator-0209-notifications.skawa6551.workers.dev';
+
+/**
+ * この端末の通知登録情報をFirestoreへ保存する。
+ * @param {string} roomId
+ * @param {string} uid
+ * @param {string} clientId
+ * @param {string} registrationId - FIDまたは登録トークン
+ * @param {'fid'|'token'} method
+ * @returns {Promise<void>}
+ */
+export async function savePushRegistration(roomId, uid, clientId, registrationId, method) {
+  const { db, firestoreFns } = await loadFirebase();
+  const roomRef = firestoreFns.doc(db, 'rooms', roomId);
+
+  await firestoreFns.updateDoc(roomRef, {
+    [`memberProfiles.${uid}.pushRegistrations.${clientId}`]: {
+      id: registrationId,
+      method,
+      enabled: true,
+      updatedAt: firestoreFns.serverTimestamp(),
+      platform: 'ios-pwa',
+    },
+  });
+}
+
+/**
+ * この端末の通知登録を無効化する（enabled: falseにするだけで、
+ * レコード自体は残す。Worker側が無効な登録を検知した際に
+ * 実際の削除を行う）。
+ * @param {string} roomId
+ * @param {string} uid
+ * @param {string} clientId
+ * @returns {Promise<void>}
+ */
+export async function disablePushRegistration(roomId, uid, clientId) {
+  const { db, firestoreFns } = await loadFirebase();
+  const roomRef = firestoreFns.doc(db, 'rooms', roomId);
+
+  await firestoreFns.updateDoc(roomRef, {
+    [`memberProfiles.${uid}.pushRegistrations.${clientId}.enabled`]: false,
+    [`memberProfiles.${uid}.pushRegistrations.${clientId}.updatedAt`]: firestoreFns.serverTimestamp(),
+  });
+}
+
+/**
+ * 「通知内容表示」設定を、送信側（Cloudflare Worker）が参照できる
+ * Firestore上にも複製保存する。ローカル（localStorage）の値が正の
+ * 情報源であることに変わりはなく、ここへは変更のたびに同期するだけ。
+ * @param {string} roomId
+ * @param {string} uid
+ * @param {boolean} enabled
+ * @returns {Promise<void>}
+ */
+export async function saveNotificationContentPreference(roomId, uid, enabled) {
+  const { db, firestoreFns } = await loadFirebase();
+  const roomRef = firestoreFns.doc(db, 'rooms', roomId);
+
+  await firestoreFns.updateDoc(roomRef, {
+    [`memberProfiles.${uid}.notificationContentEnabled`]: enabled,
+  });
+}
+
+/**
+ * メッセージ送信直後に、Cloudflare Workerへ「相手へ通知を送ってほしい」
+ * 依頼を1回だけ送る。Firebase IDトークンをAuthorizationヘッダーに
+ * 付け、Worker側でなりすましでないことを検証してもらう。
+ * 通知はあくまで補助的な機能のため、失敗してもメッセージ送信自体は
+ * 既に成功しているので、ここでの失敗は呼び出し元へそのまま伝播させる
+ * だけに留め、リトライ等はWorker側の責務とする。
+ * @param {string} roomId
+ * @param {string} messageId
+ * @returns {Promise<void>}
+ */
+export async function requestNotificationSend(roomId, messageId) {
+  const { auth } = await loadFirebase();
+  if (!auth.currentUser) return;
+
+  const idToken = await auth.currentUser.getIdToken();
+
+  const response = await fetch(NOTIFICATION_WORKER_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ roomId, messageId }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`通知の送信依頼に失敗しました (status: ${response.status})`);
+  }
+}
+
 const Firebase = {
   ensureSignedIn,
   getCurrentUid,
@@ -708,6 +929,12 @@ const Firebase = {
   updateTypingState,
   updatePresence,
   updateRoomCustomization,
+  registerForPush,
+  onForegroundMessage,
+  savePushRegistration,
+  disablePushRegistration,
+  saveNotificationContentPreference,
+  requestNotificationSend,
 };
 
 export default Firebase;
