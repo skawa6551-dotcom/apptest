@@ -1,0 +1,166 @@
+rules_version = '2';
+
+// ============================================================
+// Calculator 0209 — Firestore Security Rules (Phase1)
+//
+// 対象コレクション：
+//   /users/{uid}
+//   /rooms/{roomId}
+//   /rooms/{roomId}/messages/{messageId}
+//   /rooms/{roomId}/archive/{archiveId}  … Phase2まで書き込み不可のまま
+//   /inviteCodes/{code}
+//
+// 【重要】招待コードによる新規参加（ペアリング）の設計上のトレードオフ
+// -----------------------------------------------------------------
+// Firestoreのセキュリティルールは「そのドキュメントのパスに含まれる
+// 情報」しか直接は検証できないため、「/rooms/{roomId}への更新が、
+// 本当に正しい招待コードを知っている人からのものか」を、ルール側で
+// 厳密に検証することはできない（roomIdとinviteCodeのドキュメントIDは
+// 別のパスにあるため）。
+//
+// そのため、Phase1では以下の現実的な前提のもとに設計している：
+//   ・roomId（Firestoreの自動採番ID）は実質的に推測不可能な文字列であり、
+//     招待コード（/inviteCodes/{code}）を経由して読み取らない限り、
+//     第三者がroomIdを知る手段が無い
+//   ・招待コード自体も33種類の文字×6桁＝約13億通りの空間を持ち、
+//     10分で失効する
+// この2重の「知らなければ辿り着けない」性質を、実用上の防御としている。
+// 個人利用の小規模アプリとして妥当な水準と判断しているが、
+// 完全な保証ではない。より厳密にしたい場合は、Cloud Functions
+// （Blazeプラン）で参加処理をサーバー側に寄せる設計に将来切り替える
+// ことを推奨する（Phase1では現在のFirebaseプランの制約上、見送っている）。
+//
+// また、Phase1の参加ルールは「自分のuidをmemberIdsへ1件追加するだけ」
+// の差分のみを許可しており、招待コードのpurposeが'replace'
+// （メンバー交代）の場合の更新（他のuidをmemberIdsから除去する動き）
+// にはまだ対応していない。'replace'フローの実装はPhase4予定のため、
+// その際にこのルールも合わせて更新すること。
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // ------------------------------------------------------------
+    // /users/{uid}
+    // ------------------------------------------------------------
+    match /users/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+
+      allow create: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['displayName', 'roomIds', 'createdAt', 'schemaVersion'])
+        && request.resource.data.roomIds is list;
+
+      allow update: if isSignedIn() && request.auth.uid == uid;
+
+      allow delete: if false;
+    }
+
+    // ------------------------------------------------------------
+    // /rooms/{roomId}
+    // ------------------------------------------------------------
+    match /rooms/{roomId} {
+      // 既にメンバーの人はいつでも読める。
+      // それに加えて、招待コード経由でこれから参加しようとしている人
+      // （＝まだmemberIdsに入っていない人）も読めるようにする。
+      // joinRoomWithCode()のトランザクションは「参加する前にルームの
+      // 現在の状態を読む」必要があるため、この読み取り自体を
+      // 「既存メンバー限定」にしてしまうと参加処理自体が成立しない。
+      // roomId（Firestoreの自動採番ID）と招待コードの両方を知らない
+      // 限りこの読み取りには辿り着けないため、firestore.rules冒頭の
+      // コメントで説明したトレードオフの範囲内としている。
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.memberIds == [request.auth.uid]
+        && request.resource.data.status == 'pending';
+
+      // ケース1: 既存メンバーによる更新
+      // （lastMessageAt/lastMessagePreviewの反映、customization変更等）
+      allow update: if isSignedIn()
+        && request.auth.uid in resource.data.memberIds;
+
+      // ケース2: 招待コード経由での新規参加
+      // 自分がまだmemberIdsに含まれておらず、更新後も「自分のuidが
+      // 1件追加されただけ」の差分であることを要求する
+      // （上記コメント参照：'replace'には未対応）。
+      allow update: if isSignedIn()
+        && !(request.auth.uid in resource.data.memberIds)
+        && request.resource.data.memberIds == resource.data.memberIds.concat([request.auth.uid])
+        && request.resource.data.status == 'active';
+
+      allow delete: if false;
+
+      // -----------------------------
+      // /rooms/{roomId}/messages/{messageId}
+      // -----------------------------
+      match /messages/{messageId} {
+        allow read: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds;
+
+        allow create: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds
+          && request.resource.data.senderId == request.auth.uid;
+
+        // 既読表示・リアクション機能の追加に伴い、この2種類の更新だけを許可する。
+        // ・既読(readBy)：自分のuidを追加する形の変更のみ。他フィールドは不可
+        // ・リアクション(reactions)：reactionsフィールドのみ変更可能。
+        //   マップ内の「自分のキーしか変更していないか」まではルール側では
+        //   検証していない（2人用の個人利用アプリとしての実用的な範囲の
+        //   防御とする。firestore.rules冒頭のroomId/招待コードに関する
+        //   トレードオフの説明と同じ考え方）。
+        allow update: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds
+          && (
+            (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy'])
+              && request.auth.uid in request.resource.data.readBy)
+            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+          );
+
+        // 削除は「自分が送信したメッセージ」のみ許可する。
+        allow delete: if isSignedIn() && resource.data.senderId == request.auth.uid;
+      }
+
+      // -----------------------------
+      // /rooms/{roomId}/archive/{archiveId} … Phase2で使用開始
+      // -----------------------------
+      match /archive/{archiveId} {
+        // 実装（archive.jsのFirestore対応）より先にルールだけ緩めて
+        // 事故が起きるのを防ぐため、Phase1時点では明示的に禁止する。
+        allow read, write: if false;
+      }
+    }
+
+    // ------------------------------------------------------------
+    // /inviteCodes/{code}
+    // ------------------------------------------------------------
+    match /inviteCodes/{code} {
+      // コードの値そのものを知っている（＝ドキュメントパスを指定できる）
+      // 前提での読み取りのみを許可する。一覧取得（コレクション全体の
+      // クエリ）はクライアントSDKからは行わないため、影響はない。
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.used == false;
+
+      // 「未使用→使用済み」への変更のみ許可し、それ以外のフィールドは
+      // 一切変更させない。
+      allow update: if isSignedIn()
+        && resource.data.used == false
+        && request.resource.data.used == true
+        && request.resource.data.roomId == resource.data.roomId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.purpose == resource.data.purpose
+        && request.resource.data.replacesUid == resource.data.replacesUid
+        && request.resource.data.expiresAt == resource.data.expiresAt;
+
+      allow delete: if false;
+    }
+  }
+}わ
