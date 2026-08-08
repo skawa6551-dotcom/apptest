@@ -1,940 +1,2185 @@
 // ============================================================
+
 // firebase.js
+
 // アプリ全体で唯一 Firebase（Auth / Firestore）にアクセスするモジュール。
+
 // storage.jsがlocalStorageの唯一の窓口であるのと同じ考え方で、
+
 // 他のモジュール（pairing.js / messages.js）はFirebaseへ直接アクセスせず
+
 // 必ずこのファイルの関数を経由すること。DOM操作はここでは一切行わない。
+
 //
+
 // 【重要】Firebase SDKは意図的に動的import（遅延読み込み）にしている。
+
 // もし通常のimport文（静的import）でCDN（gstatic.com）から読み込むと、
+
 // ネットワーク不通や設定ミスでこのファイルの読み込み自体が失敗した際に、
+
 // router.js → app.js まで読み込み失敗が連鎖し、電卓本体まで含めた
+
 // アプリ全体が起動できなくなってしまう。
+
 // 実際にメッセージ機能を使う瞬間（ensureSignedIn()等の呼び出し時）に
+
 // 初めてSDKを読み込むことで、Firebase側で何が起きても電卓・Workspace・
+
 // カレンダー等の既存機能を巻き込まないようにしている。
+
 //
+
 // 設計書（Phase1）で定義したコレクション構成に対応する：
+
 //   /users/{uid}
+
 //   /rooms/{roomId}
+
 //   /rooms/{roomId}/messages/{messageId}
+
 //   /inviteCodes/{code}
+
 // ============================================================
 
 import Storage, { STORAGE_KEYS } from './storage.js';
-import { vapidKey } from './firebase-config.js';
+
+import { VAPID_KEY } from './firebase-config.js';
 
 // ------------------------------------------------------------
+
 // 定数
+
 // ------------------------------------------------------------
 
-/** Firebase JS SDKのバージョン。更新する場合はこの1箇所だけ変更すればよい。 */
 const SDK_VERSION = '10.12.2';
 
-/** 現在のドキュメントスキーマの世代。新規作成するドキュメントは常にこの値を書き込む。 */
 const SCHEMA_VERSION = 1;
 
-/** 招待コードの桁数 */
 const INVITE_CODE_LENGTH = 6;
 
-/** 招待コードの有効期限（ミリ秒）。発行から10分。 */
 const INVITE_CODE_TTL_MS = 10 * 60 * 1000;
 
-/**
- * 招待コードに使う文字集合。
- * '0'/'O'、'1'/'I' のような見間違えやすい文字はあらかじめ除外している。
- */
 const INVITE_CODE_CHARSET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
-/** 招待コード生成時、既存コードと衝突した場合の最大リトライ回数 */
 const INVITE_CODE_MAX_ATTEMPTS = 5;
 
-/** メッセージ購読時に一度に取得する最大件数（Phase1はページングなしの簡易実装） */
 const MESSAGE_LIST_LIMIT = 200;
 
-// ------------------------------------------------------------
-// 遅延初期化
+const NOTIFICATION_WORKER_URL =
+
+  'https://calculator-0209-notifications.skawa6551.workers.dev';
+
 // ------------------------------------------------------------
 
-/**
- * 読み込み済みのSDK関数群・appインスタンス等をまとめて保持する。
- * loadFirebase()完了後にのみ中身が入る。
- * @type {null | {
- *   auth: import('firebase/auth').Auth,
- *   db: import('firebase/firestore').Firestore,
- *   authFns: object,
- *   firestoreFns: object,
- * }}
- */
+// 遅延初期化
+
+// ------------------------------------------------------------
+
 let firebaseState = null;
 
-/** loadFirebase()の多重実行防止用キャッシュ（実行中/完了したPromiseを保持） */
 let loadPromise = null;
 
-/**
- * Firebase SDK（Auth / Firestore）を動的importで読み込み、初期化する。
- * 何度呼んでも実際の読み込み・初期化処理は1回しか走らない。
- * ネットワーク不通や設定不備で失敗した場合はエラーをそのまま投げる
- * （呼び出し元のensureSignedIn()等がそれをそのまま上位へ伝播させ、
- * pairing.js/messages.js側で「接続できませんでした」等の表示につなげる）。
- * @returns {Promise<{auth: object, db: object, authFns: object, firestoreFns: object}>}
- */
 function loadFirebase() {
+
   if (firebaseState) return Promise.resolve(firebaseState);
+
   if (loadPromise) return loadPromise;
 
   loadPromise = (async () => {
-    const [{ initializeApp }, authFns, firestoreFns, configModule] = await Promise.all([
-      import(`https://www.gstatic.com/firebasejs/${SDK_VERSION}/firebase-app.js`),
-      import(`https://www.gstatic.com/firebasejs/${SDK_VERSION}/firebase-auth.js`),
-      import(`https://www.gstatic.com/firebasejs/${SDK_VERSION}/firebase-firestore.js`),
-      import('./firebase-config.js'),
-    ]);
+
+    const [{ initializeApp }, authFns, firestoreFns, configModule] =
+
+      await Promise.all([
+
+        import(
+
+          `https://www.gstatic.com/firebasejs/${SDK_VERSION}/firebase-app.js`
+
+        ),
+
+        import(
+
+          `https://www.gstatic.com/firebasejs/${SDK_VERSION}/firebase-auth.js`
+
+        ),
+
+        import(
+
+          `https://www.gstatic.com/firebasejs/${SDK_VERSION}/firebase-firestore.js`
+
+        ),
+
+        import('./firebase-config.js'),
+
+      ]);
 
     const firebaseConfig = configModule.default;
+
     const app = initializeApp(firebaseConfig);
+
     const auth = authFns.getAuth(app);
+
     const db = firestoreFns.getFirestore(app);
 
-    firebaseState = { app, auth, db, authFns, firestoreFns };
+    firebaseState = {
+
+      app,
+
+      auth,
+
+      db,
+
+      authFns,
+
+      firestoreFns,
+
+    };
+
     return firebaseState;
+
   })().catch((error) => {
-    // 失敗時は次回呼び出しでもう一度読み込みを試せるよう、キャッシュをリセットする。
+
     loadPromise = null;
-    console.error('[firebase.js] Firebase SDKの読み込みに失敗しました', error);
+
+    console.error(
+
+      '[firebase.js] Firebase SDKの読み込みに失敗しました',
+
+      error,
+
+    );
+
     throw error;
+
   });
 
   return loadPromise;
+
 }
 
 // ------------------------------------------------------------
+
 // Messaging（通知）
-//
-// 【方式について】
-// Firebase公式は現在、従来の getToken() から、Firebase Installation ID
-// （FID）を使う register()/onRegistered() 方式への移行を推奨している。
-// ただし、このアプリが読み込んでいるSDK_VERSION（app/auth/firestoreと
-// 共通）でregister()/onRegistered()が実際に使えるかどうかを、
-// ドキュメント上だけでは確証が持てなかったため、ここでは「推測で
-// 決め打ちしない」方針を取る：
-//   1. まずSDK_VERSIONのままfirebase-messaging.jsを読み込む
-//   2. 読み込んだモジュールに register/onRegistered が実際に
-//      存在するかを実行時に確認する
-//   3. 存在すればFID方式を使い、存在しなければその場でgetToken()
-//      （非推奨だが動作は保証されている）にフォールバックし、
-//      その旨をコンソールへ明示のログとして残す
-// これにより、SDK_VERSIONを更新すれば自動的にFID方式へ切り替わり、
-// 更新するまでは確実に動作する方式のまま使い続けられる。
-//
-// また、専用ファイル（firebase-messaging-sw.js）は作らず、既存の
-// service-worker.js（呼び出し元がnavigator.serviceWorker.readyから
-// 取得したregistrationをserviceWorkerRegistrationとして渡す）を
-// そのまま利用する。これはFirebase公式のAPIリファレンスに明記されている
-// 正式なオプションであり、Service Workerを1つに保つための設計判断。
+
 // ------------------------------------------------------------
 
-/** 読み込み済みのmessaging関連の関数群・インスタンス。未読み込みならnull。 */
 let messagingState = null;
 
-/** loadMessaging()の多重実行防止用キャッシュ */
 let messagingLoadPromise = null;
 
-/**
- * Firebase Messaging SDKを読み込み、register/onRegisteredが実際に
- * 使えるかどうかを判定する。何度呼んでも実際の読み込みは1回だけ。
- * @returns {Promise<{
- *   messaging: object,
- *   fns: object,
- *   supportsFid: boolean,
- * }>}
- */
 function loadMessaging() {
+
   if (messagingState) return Promise.resolve(messagingState);
+
   if (messagingLoadPromise) return messagingLoadPromise;
 
   messagingLoadPromise = (async () => {
+
     const { app } = await loadFirebase();
-    const fns = await import(`https://www.gstatic.com/firebasejs/${SDK_VERSION}/firebase-messaging.js`);
+
+    const fns = await import(
+
+      `https://www.gstatic.com/firebasejs/${SDK_VERSION}/firebase-messaging.js`
+
+    );
+
     const messaging = fns.getMessaging(app);
 
-    // 実際にexportされているかどうかで判定する（バージョン番号を
-    // 見て推測するのではなく、実物を確認する）。
-    const supportsFid = typeof fns.register === 'function' && typeof fns.onRegistered === 'function';
+    const supportsFid =
+
+      typeof fns.register === 'function' &&
+
+      typeof fns.onRegistered === 'function';
 
     if (!supportsFid) {
+
       console.warn(
-        '[firebase.js] 現在のFirebase SDK（v' +
-          SDK_VERSION +
-          '）にはregister()/onRegistered()が見つからなかったため、' +
-          '非推奨のgetToken()方式にフォールバックします。',
+
+        `[firebase.js] Firebase SDK v${SDK_VERSION} では register()/onRegistered() が利用できないため getToken() を使用します。`,
+
       );
+
     }
 
-    messagingState = { messaging, fns, supportsFid };
+    messagingState = {
+
+      messaging,
+
+      fns,
+
+      supportsFid,
+
+    };
+
     return messagingState;
+
   })().catch((error) => {
+
     messagingLoadPromise = null;
-    console.error('[firebase.js] Firebase Messaging SDKの読み込みに失敗しました', error);
+
+    console.error(
+
+      '[firebase.js] Firebase Messaging SDKの読み込みに失敗しました',
+
+      error,
+
+    );
+
     throw error;
+
   });
 
   return messagingLoadPromise;
+
 }
 
-/**
- * このブラウザ／端末をプッシュ通知の送信対象として登録し、
- * 識別子（FIDまたは登録トークン）を返す。
- * @param {ServiceWorkerRegistration} swRegistration - 既存のservice-worker.jsのregistration
- * @returns {Promise<{id: string, method: 'fid'|'token'}>}
- */
 export async function registerForPush(swRegistration) {
+
   const { fns, messaging, supportsFid } = await loadMessaging();
 
   if (supportsFid) {
-    const id = await new Promise((resolve, reject) => {
-      const unsubscribe = fns.onRegistered(messaging, (installationId) => {
-        unsubscribe();
-        resolve(installationId);
-      });
 
-      fns.register(messaging, { vapidKey, serviceWorkerRegistration: swRegistration }).catch((error) => {
-        unsubscribe();
-        reject(error);
-      });
+    const id = await new Promise((resolve, reject) => {
+
+      let unsubscribe = () => {};
+
+      unsubscribe = fns.onRegistered(
+
+        messaging,
+
+        (installationId) => {
+
+          unsubscribe();
+
+          resolve(installationId);
+
+        },
+
+      );
+
+      fns
+
+        .register(messaging, {
+
+          vapidKey: VAPID_KEY,
+
+          serviceWorkerRegistration: swRegistration,
+
+        })
+
+        .catch((error) => {
+
+          unsubscribe();
+
+          reject(error);
+
+        });
+
     });
 
-    return { id, method: 'fid' };
+    return {
+
+      id,
+
+      method: 'fid',
+
+    };
+
   }
 
-  // フォールバック（非推奨だが動作する）。
-  const token = await fns.getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
+  const token = await fns.getToken(messaging, {
+
+    vapidKey: VAPID_KEY,
+
+    serviceWorkerRegistration: swRegistration,
+
+  });
+
   if (!token) {
+
     throw new Error('通知の登録に失敗しました。');
+
   }
-  return { id: token, method: 'token' };
+
+  return {
+
+    id: token,
+
+    method: 'token',
+
+  };
+
 }
 
-/**
- * アプリを開いている間（フォアグラウンド）に届いたメッセージを受け取る。
- * @param {(payload: object) => void} callback
- * @returns {Promise<void>}
- */
 export async function onForegroundMessage(callback) {
+
   const { fns, messaging } = await loadMessaging();
-  fns.onMessage(messaging, callback);
+
+  if (typeof callback !== 'function') return () => {};
+
+  return fns.onMessage(messaging, callback);
+
 }
 
 // ------------------------------------------------------------
+
 // 認証
+
 // ------------------------------------------------------------
 
-/** signInAnonymously()の多重発火防止用キャッシュ */
 let signInPromise = null;
 
-/**
- * 匿名認証でサインインする。既にサインイン済みならそのuidを返すだけで、
- * 何度呼んでも実際のサインイン処理は1回しか走らない。
- * SDKの読み込みに失敗した場合は、そのままエラーを投げる。
- * @returns {Promise<string>} uid
- */
 export async function ensureSignedIn() {
+
   const { auth, authFns } = await loadFirebase();
 
   if (auth.currentUser) return auth.currentUser.uid;
+
   if (signInPromise) return signInPromise;
 
   signInPromise = authFns
+
     .signInAnonymously(auth)
+
     .then((credential) => credential.user.uid)
+
     .catch((error) => {
+
       signInPromise = null;
+
       throw error;
+
     });
 
   return signInPromise;
+
 }
 
-/**
- * 現在サインイン中のuidを返す（未サインイン、またはSDK未読み込みならnull）。
- * @returns {string|null}
- */
 export function getCurrentUid() {
+
   if (!firebaseState) return null;
-  return firebaseState.auth.currentUser ? firebaseState.auth.currentUser.uid : null;
+
+  return firebaseState.auth.currentUser
+
+    ? firebaseState.auth.currentUser.uid
+
+    : null;
+
 }
 
 // ------------------------------------------------------------
-// clientId（端末識別子）／表示名（ローカルキャッシュ）
+
+// clientId / 表示名 / roomId
+
 // ------------------------------------------------------------
 
-/**
- * ローカルに保存された端末識別子（clientId）を取得する。
- * 無ければ生成してStorageへ保存する（以後その端末で使い回す）。
- * uid（＝アカウント）とは別物で、「どの端末から送ったか」を表す。
- * Firebase SDKの読み込みは不要なため、同期関数のまま提供する。
- * @returns {string}
- */
 export function getOrCreateClientId() {
-  const existing = Storage.get(STORAGE_KEYS.CLIENT_ID, null);
+
+  const existing = Storage.get(
+
+    STORAGE_KEYS.CLIENT_ID,
+
+    null,
+
+  );
+
   if (existing) return existing;
 
   const generated =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+
+    typeof crypto !== 'undefined' &&
+
+    typeof crypto.randomUUID === 'function'
+
       ? crypto.randomUUID()
-      : `client-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-  Storage.set(STORAGE_KEYS.CLIENT_ID, generated);
+      : `client-${Date.now()}-${Math.random()
+
+          .toString(36)
+
+          .slice(2)}`;
+
+  Storage.set(
+
+    STORAGE_KEYS.CLIENT_ID,
+
+    generated,
+
+  );
+
   return generated;
+
 }
 
-/**
- * ローカルに保存済みの表示名を取得する（無ければnull）。
- * @returns {string|null}
- */
 export function getLocalDisplayName() {
-  return Storage.get(STORAGE_KEYS.DISPLAY_NAME, null);
+
+  return Storage.get(
+
+    STORAGE_KEYS.DISPLAY_NAME,
+
+    null,
+
+  );
+
 }
 
-/**
- * 表示名をローカルへ保存する。
- * @param {string} displayName
- */
 export function saveLocalDisplayName(displayName) {
-  Storage.set(STORAGE_KEYS.DISPLAY_NAME, displayName);
+
+  Storage.set(
+
+    STORAGE_KEYS.DISPLAY_NAME,
+
+    displayName,
+
+  );
+
 }
 
-/**
- * 現在接続中のルームIDをローカルから取得する（無ければnull）。
- * @returns {string|null}
- */
 export function getLocalRoomId() {
-  return Storage.get(STORAGE_KEYS.CURRENT_ROOM_ID, null);
+
+  return Storage.get(
+
+    STORAGE_KEYS.CURRENT_ROOM_ID,
+
+    null,
+
+  );
+
 }
 
-/**
- * 現在接続中のルームIDをローカルへ保存する。
- * @param {string} roomId
- */
 export function saveLocalRoomId(roomId) {
-  Storage.set(STORAGE_KEYS.CURRENT_ROOM_ID, roomId);
+
+  Storage.set(
+
+    STORAGE_KEYS.CURRENT_ROOM_ID,
+
+    roomId,
+
+  );
+
 }
 
 // ------------------------------------------------------------
+
 // /users/{uid}
+
 // ------------------------------------------------------------
 
-/**
- * /users/{uid} ドキュメントを作成する。既に存在する場合は何もしない。
- * @param {string} uid
- * @param {string} displayName
- * @returns {Promise<void>}
- */
-export async function ensureUserProfile(uid, displayName) {
-  const { db, firestoreFns } = await loadFirebase();
-  const userRef = firestoreFns.doc(db, 'users', uid);
-  const snapshot = await firestoreFns.getDoc(userRef);
+export async function ensureUserProfile(
+
+  uid,
+
+  displayName,
+
+) {
+
+  const { db, firestoreFns } =
+
+    await loadFirebase();
+
+  const userRef = firestoreFns.doc(
+
+    db,
+
+    'users',
+
+    uid,
+
+  );
+
+  const snapshot =
+
+    await firestoreFns.getDoc(userRef);
+
   if (snapshot.exists()) return;
 
-  await firestoreFns.setDoc(userRef, {
-    displayName,
-    roomIds: [],
-    createdAt: firestoreFns.serverTimestamp(),
-    schemaVersion: SCHEMA_VERSION,
-  });
+  await firestoreFns.setDoc(
+
+    userRef,
+
+    {
+
+      displayName,
+
+      roomIds: [],
+
+      createdAt:
+
+        firestoreFns.serverTimestamp(),
+
+      schemaVersion: SCHEMA_VERSION,
+
+    },
+
+  );
+
 }
 
 // ------------------------------------------------------------
+
 // 招待コード／ペアリング
+
 // ------------------------------------------------------------
 
-/**
- * ランダムな招待コードを1つ生成する（文字の重複や衝突チェックは行わない、
- * 純粋な文字列生成だけを担当する）。
- * @returns {string}
- */
 function generateInviteCode() {
+
   let code = '';
-  for (let i = 0; i < INVITE_CODE_LENGTH; i += 1) {
-    const index = Math.floor(Math.random() * INVITE_CODE_CHARSET.length);
-    code += INVITE_CODE_CHARSET[index];
+
+  for (
+
+    let i = 0;
+
+    i < INVITE_CODE_LENGTH;
+
+    i += 1
+
+  ) {
+
+    const index = Math.floor(
+
+      Math.random() *
+
+        INVITE_CODE_CHARSET.length,
+
+    );
+
+    code +=
+
+      INVITE_CODE_CHARSET[index];
+
   }
+
   return code;
+
 }
 
-/**
- * /inviteCodes/{code} ドキュメントを作成する。
- * 生成したコードが既存ドキュメントと衝突していた場合は、
- * INVITE_CODE_MAX_ATTEMPTS回まで作り直す。
- * @param {object} db
- * @param {object} firestoreFns
- * @param {string} roomId
- * @param {string} uid
- * @param {'initial'|'reinvite'|'replace'} purpose
- * @param {string|null} replacesUid
- * @returns {Promise<string>} 発行できたコード
- */
-async function createInviteCodeDoc(db, firestoreFns, roomId, uid, purpose, replacesUid) {
-  for (let attempt = 0; attempt < INVITE_CODE_MAX_ATTEMPTS; attempt += 1) {
+async function createInviteCodeDoc(
+
+  db,
+
+  firestoreFns,
+
+  roomId,
+
+  uid,
+
+  purpose,
+
+  replacesUid,
+
+) {
+
+  for (
+
+    let attempt = 0;
+
+    attempt < INVITE_CODE_MAX_ATTEMPTS;
+
+    attempt += 1
+
+  ) {
+
     const code = generateInviteCode();
-    const codeRef = firestoreFns.doc(db, 'inviteCodes', code);
-    const existing = await firestoreFns.getDoc(codeRef);
+
+    const codeRef = firestoreFns.doc(
+
+      db,
+
+      'inviteCodes',
+
+      code,
+
+    );
+
+    const existing =
+
+      await firestoreFns.getDoc(codeRef);
+
     if (existing.exists()) continue;
 
-    await firestoreFns.setDoc(codeRef, {
-      roomId,
-      createdBy: uid,
-      createdAt: firestoreFns.serverTimestamp(),
-      expiresAt: firestoreFns.Timestamp.fromMillis(Date.now() + INVITE_CODE_TTL_MS),
-      used: false,
-      purpose,
-      replacesUid,
-    });
+    await firestoreFns.setDoc(
+
+      codeRef,
+
+      {
+
+        roomId,
+
+        createdBy: uid,
+
+        createdAt:
+
+          firestoreFns.serverTimestamp(),
+
+        expiresAt:
+
+          firestoreFns.Timestamp.fromMillis(
+
+            Date.now() +
+
+              INVITE_CODE_TTL_MS,
+
+          ),
+
+        used: false,
+
+        purpose,
+
+        replacesUid,
+
+      },
+
+    );
+
     return code;
+
   }
 
-  throw new Error('招待コードの発行に失敗しました。もう一度お試しください。');
+  throw new Error(
+
+    '招待コードの発行に失敗しました。もう一度お試しください。',
+
+  );
+
 }
 
-/**
- * 新しいルームを作成し、初回ペアリング用の招待コードを発行する。
- * @param {string} uid
- * @param {string} displayName
- * @returns {Promise<{roomId: string, code: string, expiresAt: Date}>}
- */
-export async function createRoomAndInviteCode(uid, displayName) {
-  const { db, firestoreFns } = await loadFirebase();
+export async function createRoomAndInviteCode(
 
-  const roomRef = firestoreFns.doc(firestoreFns.collection(db, 'rooms'));
+  uid,
+
+  displayName,
+
+) {
+
+  const { db, firestoreFns } =
+
+    await loadFirebase();
+
+  const roomRef =
+
+    firestoreFns.doc(
+
+      firestoreFns.collection(
+
+        db,
+
+        'rooms',
+
+      ),
+
+    );
+
   const roomId = roomRef.id;
 
-  await firestoreFns.setDoc(roomRef, {
-    status: 'pending',
-    schemaVersion: SCHEMA_VERSION,
-    memberIds: [uid],
-    formerMemberIds: [],
-    memberProfiles: {
-      [uid]: {
-        displayName,
-        avatarUrl: null,
-        accentColor: null,
-        status: 'active',
-        joinedAt: firestoreFns.serverTimestamp(),
-        leftAt: null,
+  await firestoreFns.setDoc(
+
+    roomRef,
+
+    {
+
+      status: 'pending',
+
+      schemaVersion: SCHEMA_VERSION,
+
+      memberIds: [uid],
+
+      formerMemberIds: [],
+
+      memberProfiles: {
+
+        [uid]: {
+
+          displayName,
+
+          avatarUrl: null,
+
+          accentColor: null,
+
+          status: 'active',
+
+          joinedAt:
+
+            firestoreFns.serverTimestamp(),
+
+          leftAt: null,
+
+        },
+
       },
+
+      createdBy: uid,
+
+      createdAt:
+
+        firestoreFns.serverTimestamp(),
+
+      lastMessageAt: null,
+
+      lastMessagePreview: null,
+
+      customization: {
+
+        workspaceTitle: null,
+
+        cards: {},
+
+        backgrounds: {},
+
+      },
+
     },
-    createdBy: uid,
-    createdAt: firestoreFns.serverTimestamp(),
-    lastMessageAt: null,
-    lastMessagePreview: null,
-    customization: {
-      workspaceTitle: null,
-      cards: {},
-      backgrounds: {},
+
+  );
+
+  const code =
+
+    await createInviteCodeDoc(
+
+      db,
+
+      firestoreFns,
+
+      roomId,
+
+      uid,
+
+      'initial',
+
+      null,
+
+    );
+
+  await firestoreFns.updateDoc(
+
+    firestoreFns.doc(
+
+      db,
+
+      'users',
+
+      uid,
+
+    ),
+
+    {
+
+      roomIds:
+
+        firestoreFns.arrayUnion(roomId),
+
     },
-  });
 
-  const code = await createInviteCodeDoc(db, firestoreFns, roomId, uid, 'initial', null);
+  );
 
-  await firestoreFns.updateDoc(firestoreFns.doc(db, 'users', uid), {
-    roomIds: firestoreFns.arrayUnion(roomId),
-  });
+  return {
 
-  return { roomId, code, expiresAt: new Date(Date.now() + INVITE_CODE_TTL_MS) };
+    roomId,
+
+    code,
+
+    expiresAt: new Date(
+
+      Date.now() +
+
+        INVITE_CODE_TTL_MS,
+
+    ),
+
+  };
+
 }
 
-/**
- * 招待コードを使ってルームへ参加する。
- * 'replace'目的のコードだった場合は、置き換え対象のuidをformerMemberIdsへ
- * 移す処理もあわせて行う。
- * すべての読み書きを1つのトランザクションにまとめ、複数人が同時に
- * 同じコードを使おうとした場合の競合を防ぐ。
- * @param {string} code
- * @param {string} uid
- * @param {string} displayName
- * @returns {Promise<string>} roomId
- */
-export async function joinRoomWithCode(code, uid, displayName) {
-  const { db, firestoreFns } = await loadFirebase();
-  const normalizedCode = code.trim().toUpperCase();
-  const codeRef = firestoreFns.doc(db, 'inviteCodes', normalizedCode);
+export async function joinRoomWithCode(
 
-  const roomId = await firestoreFns.runTransaction(db, async (transaction) => {
-    const codeSnap = await transaction.get(codeRef);
-    if (!codeSnap.exists()) {
-      throw new Error('招待コードが見つかりません。入力内容をご確認ください。');
-    }
+  code,
 
-    const codeData = codeSnap.data();
-    if (codeData.used) {
-      throw new Error('この招待コードは既に使用されています。');
-    }
-    if (codeData.expiresAt.toMillis() < Date.now()) {
-      throw new Error('この招待コードの有効期限が切れています。新しいコードを発行してもらってください。');
-    }
+  uid,
 
-    const roomRef = firestoreFns.doc(db, 'rooms', codeData.roomId);
-    const roomSnap = await transaction.get(roomRef);
-    if (!roomSnap.exists()) {
-      throw new Error('ルームが見つかりませんでした。');
-    }
+  displayName,
 
-    const roomData = roomSnap.data();
+) {
 
-    if (roomData.memberIds.includes(uid)) {
-      // 既に参加済み（同じコードを誤って2回使った等）。エラーにはせず成功扱いにする。
-      transaction.update(codeRef, { used: true });
-      return codeData.roomId;
-    }
+  const { db, firestoreFns } =
 
-    let finalMemberIds = [...roomData.memberIds, uid];
-    let finalFormerMemberIds = roomData.formerMemberIds ?? [];
-    const finalProfiles = {
-      ...roomData.memberProfiles,
-      [uid]: {
-        displayName,
-        avatarUrl: null,
-        accentColor: null,
-        status: 'active',
-        joinedAt: firestoreFns.serverTimestamp(),
-        leftAt: null,
-      },
-    };
+    await loadFirebase();
 
-    if (codeData.purpose === 'replace' && codeData.replacesUid) {
-      finalMemberIds = finalMemberIds.filter((memberId) => memberId !== codeData.replacesUid);
-      finalFormerMemberIds = [...finalFormerMemberIds, codeData.replacesUid];
-      if (finalProfiles[codeData.replacesUid]) {
-        finalProfiles[codeData.replacesUid] = {
-          ...finalProfiles[codeData.replacesUid],
-          status: 'replaced',
-          leftAt: firestoreFns.serverTimestamp(),
+  const normalizedCode =
+
+    code.trim().toUpperCase();
+
+  const codeRef = firestoreFns.doc(
+
+    db,
+
+    'inviteCodes',
+
+    normalizedCode,
+
+  );
+
+  const roomId =
+
+    await firestoreFns.runTransaction(
+
+      db,
+
+      async (transaction) => {
+
+        const codeSnap =
+
+          await transaction.get(
+
+            codeRef,
+
+          );
+
+        if (!codeSnap.exists()) {
+
+          throw new Error(
+
+            '招待コードが見つかりません。入力内容をご確認ください。',
+
+          );
+
+        }
+
+        const codeData =
+
+          codeSnap.data();
+
+        if (codeData.used) {
+
+          throw new Error(
+
+            'この招待コードは既に使用されています。',
+
+          );
+
+        }
+
+        if (
+
+          codeData.expiresAt.toMillis() <
+
+          Date.now()
+
+        ) {
+
+          throw new Error(
+
+            'この招待コードの有効期限が切れています。新しいコードを発行してもらってください。',
+
+          );
+
+        }
+
+        const roomRef =
+
+          firestoreFns.doc(
+
+            db,
+
+            'rooms',
+
+            codeData.roomId,
+
+          );
+
+        const roomSnap =
+
+          await transaction.get(
+
+            roomRef,
+
+          );
+
+        if (!roomSnap.exists()) {
+
+          throw new Error(
+
+            'ルームが見つかりませんでした。',
+
+          );
+
+        }
+
+        const roomData =
+
+          roomSnap.data();
+
+        if (
+
+          roomData.memberIds.includes(
+
+            uid,
+
+          )
+
+        ) {
+
+          transaction.update(
+
+            codeRef,
+
+            {
+
+              used: true,
+
+            },
+
+          );
+
+          return codeData.roomId;
+
+        }
+
+        let finalMemberIds = [
+
+          ...roomData.memberIds,
+
+          uid,
+
+        ];
+
+        let finalFormerMemberIds =
+
+          roomData.formerMemberIds ?? [];
+
+        const finalProfiles = {
+
+          ...roomData.memberProfiles,
+
+          [uid]: {
+
+            displayName,
+
+            avatarUrl: null,
+
+            accentColor: null,
+
+            status: 'active',
+
+            joinedAt:
+
+              firestoreFns.serverTimestamp(),
+
+            leftAt: null,
+
+          },
+
         };
-      }
-    }
 
-    transaction.update(roomRef, {
-      memberIds: finalMemberIds,
-      formerMemberIds: finalFormerMemberIds,
-      memberProfiles: finalProfiles,
-      status: 'active',
-    });
-    transaction.update(codeRef, { used: true });
+        if (
 
-    return codeData.roomId;
-  });
+          codeData.purpose ===
 
-  await firestoreFns.updateDoc(firestoreFns.doc(db, 'users', uid), {
-    roomIds: firestoreFns.arrayUnion(roomId),
-  });
+            'replace' &&
+
+          codeData.replacesUid
+
+        ) {
+
+          finalMemberIds =
+
+            finalMemberIds.filter(
+
+              (memberId) =>
+
+                memberId !==
+
+                codeData.replacesUid,
+
+            );
+
+          finalFormerMemberIds = [
+
+            ...finalFormerMemberIds,
+
+            codeData.replacesUid,
+
+          ];
+
+          if (
+
+            finalProfiles[
+
+              codeData.replacesUid
+
+            ]
+
+          ) {
+
+            finalProfiles[
+
+              codeData.replacesUid
+
+            ] = {
+
+              ...finalProfiles[
+
+                codeData.replacesUid
+
+              ],
+
+              status: 'replaced',
+
+              leftAt:
+
+                firestoreFns.serverTimestamp(),
+
+            };
+
+          }
+
+        }
+
+        transaction.update(
+
+          roomRef,
+
+          {
+
+            memberIds:
+
+              finalMemberIds,
+
+            formerMemberIds:
+
+              finalFormerMemberIds,
+
+            memberProfiles:
+
+              finalProfiles,
+
+            status: 'active',
+
+          },
+
+        );
+
+        transaction.update(
+
+          codeRef,
+
+          {
+
+            used: true,
+
+          },
+
+        );
+
+        return codeData.roomId;
+
+      },
+
+    );
+
+  await firestoreFns.updateDoc(
+
+    firestoreFns.doc(
+
+      db,
+
+      'users',
+
+      uid,
+
+    ),
+
+    {
+
+      roomIds:
+
+        firestoreFns.arrayUnion(
+
+          roomId,
+
+        ),
+
+    },
+
+  );
 
   return roomId;
+
 }
 
-/**
- * ルームドキュメントの変化を購読する（ペアリング成立の検知等に使う）。
- * SDKの読み込みが未完了の場合は、読み込み完了後に改めて購読を開始する
- * （その間は何もしないno-op関数を購読解除関数として返す）。
- * @param {string} roomId
- * @param {(roomData: object) => void} callback
- * @param {(error: Error) => void} [onError] - 購読自体がエラーで停止した際に呼ばれる
- * @returns {() => void} 購読解除関数
- */
-export function subscribeToRoom(roomId, callback, onError) {
+export function subscribeToRoom(
+
+  roomId,
+
+  callback,
+
+  onError,
+
+) {
+
   let unsubscribeFn = () => {};
+
   let cancelled = false;
 
-  loadFirebase().then(({ db, firestoreFns }) => {
-    if (cancelled) return;
-    const roomRef = firestoreFns.doc(db, 'rooms', roomId);
-    unsubscribeFn = firestoreFns.onSnapshot(
-      roomRef,
-      (snapshot) => {
-        if (snapshot.exists()) callback(snapshot.data());
-      },
-      (error) => {
-        console.error('[firebase.js] ルームの購読でエラーが発生しました', error);
-        if (typeof onError === 'function') onError(error);
-      },
-    );
-  });
+  loadFirebase().then(
+
+    ({ db, firestoreFns }) => {
+
+      if (cancelled) return;
+
+      const roomRef =
+
+        firestoreFns.doc(
+
+          db,
+
+          'rooms',
+
+          roomId,
+
+        );
+
+      unsubscribeFn =
+
+        firestoreFns.onSnapshot(
+
+          roomRef,
+
+          (snapshot) => {
+
+            if (snapshot.exists()) {
+
+              callback(
+
+                snapshot.data(),
+
+              );
+
+            }
+
+          },
+
+          (error) => {
+
+            console.error(
+
+              '[firebase.js] ルームの購読でエラーが発生しました',
+
+              error,
+
+            );
+
+            if (
+
+              typeof onError ===
+
+              'function'
+
+            ) {
+
+              onError(error);
+
+            }
+
+          },
+
+        );
+
+    },
+
+  );
 
   return () => {
+
     cancelled = true;
+
     unsubscribeFn();
+
   };
+
 }
 
 // ------------------------------------------------------------
+
 // メッセージ
+
 // ------------------------------------------------------------
 
-/**
- * 検索用キーワード配列を作る（Phase1の簡易実装：小文字化して空白で分割するだけ）。
- * 本格的な全文検索が必要になった場合は、外部検索サービス連携時にこの関数を
- * 差し替えるだけで済むよう、呼び出し側とは分離してある。
- * @param {string} text
- * @returns {string[]}
- */
 function buildSearchKeywords(text) {
+
   return text
+
     .toLowerCase()
+
     .split(/\s+/)
-    .filter((word) => word.length > 0)
+
+    .filter(
+
+      (word) =>
+
+        word.length > 0,
+
+    )
+
     .slice(0, 20);
+
 }
 
-/**
- * テキストメッセージを送信する。
- * 送信後、ルームの lastMessageAt / lastMessagePreview もあわせて更新する
- * （将来のルーム一覧表示のためのフィールドを、Phase1のうちから維持しておく）。
- * @param {string} roomId
- * @param {string} uid
- * @param {string} clientId
- * @param {string} text
- * @returns {Promise<void>}
- */
-export async function sendTextMessage(roomId, uid, clientId, text) {
-  const trimmed = typeof text === 'string' ? text.trim() : '';
-  if (trimmed === '') return;
+export async function sendTextMessage(
 
-  const { db, firestoreFns } = await loadFirebase();
-  const messagesRef = firestoreFns.collection(db, 'rooms', roomId, 'messages');
+  roomId,
 
-  await firestoreFns.addDoc(messagesRef, {
-    schemaVersion: SCHEMA_VERSION,
-    senderId: uid,
-    clientId,
-    type: 'text',
-    text: trimmed,
-    media: null,
-    location: null,
-    stickerId: null,
-    timestamp: firestoreFns.serverTimestamp(),
-    readBy: [uid],
-    reactions: {},
-    replyToMessageId: null,
-    editedAt: null,
-    deletedForEveryone: false,
-    deletedFor: [],
-    searchKeywords: buildSearchKeywords(trimmed),
-  });
+  uid,
 
-  const preview = trimmed.length > 40 ? `${trimmed.slice(0, 40)}…` : trimmed;
-  await firestoreFns.updateDoc(firestoreFns.doc(db, 'rooms', roomId), {
-    lastMessageAt: firestoreFns.serverTimestamp(),
-    lastMessagePreview: preview,
-  });
+  clientId,
+
+  text,
+
+) {
+
+  const trimmed =
+
+    typeof text === 'string'
+
+      ? text.trim()
+
+      : '';
+
+  if (trimmed === '') {
+
+    return null;
+
+  }
+
+  const { db, firestoreFns } =
+
+    await loadFirebase();
+
+  const messagesRef =
+
+    firestoreFns.collection(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'messages',
+
+    );
+
+  const messageRef =
+
+    await firestoreFns.addDoc(
+
+      messagesRef,
+
+      {
+
+        schemaVersion:
+
+          SCHEMA_VERSION,
+
+        senderId: uid,
+
+        clientId,
+
+        type: 'text',
+
+        text: trimmed,
+
+        media: null,
+
+        location: null,
+
+        stickerId: null,
+
+        timestamp:
+
+          firestoreFns.serverTimestamp(),
+
+        readBy: [uid],
+
+        reactions: {},
+
+        replyToMessageId: null,
+
+        editedAt: null,
+
+        deletedForEveryone:
+
+          false,
+
+        deletedFor: [],
+
+        searchKeywords:
+
+          buildSearchKeywords(
+
+            trimmed,
+
+          ),
+
+      },
+
+    );
+
+  const preview =
+
+    trimmed.length > 40
+
+      ? `${trimmed.slice(
+
+          0,
+
+          40,
+
+        )}…`
+
+      : trimmed;
+
+  await firestoreFns.updateDoc(
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+    ),
+
+    {
+
+      lastMessageAt:
+
+        firestoreFns.serverTimestamp(),
+
+      lastMessagePreview:
+
+        preview,
+
+    },
+
+  );
+
+  return messageRef.id;
+
 }
 
-/**
- * メッセージ一覧の変化を購読する（直近MESSAGE_LIST_LIMIT件、古い→新しい順）。
- * SDKの読み込みが未完了の場合は、読み込み完了後に改めて購読を開始する。
- * @param {string} roomId
- * @param {(messages: object[]) => void} callback
- * @param {(error: Error) => void} [onError] - 購読自体がエラーで停止した際に呼ばれる
- * @returns {() => void} 購読解除関数
- */
-export function subscribeToMessages(roomId, callback, onError) {
+export function subscribeToMessages(
+
+  roomId,
+
+  callback,
+
+  onError,
+
+) {
+
   let unsubscribeFn = () => {};
+
   let cancelled = false;
 
-  loadFirebase().then(({ db, firestoreFns }) => {
-    if (cancelled) return;
-    const messagesRef = firestoreFns.collection(db, 'rooms', roomId, 'messages');
-    const messagesQuery = firestoreFns.query(
-      messagesRef,
-      firestoreFns.orderBy('timestamp', 'asc'),
-      firestoreFns.limit(MESSAGE_LIST_LIMIT),
-    );
+  loadFirebase().then(
 
-    unsubscribeFn = firestoreFns.onSnapshot(
-      messagesQuery,
-      (snapshot) => {
-        const messages = snapshot.docs.map((docSnapshot) => ({
-          id: docSnapshot.id,
-          ...docSnapshot.data(),
-        }));
-        callback(messages);
-      },
-      (error) => {
-        console.error('[firebase.js] メッセージの購読でエラーが発生しました', error);
-        if (typeof onError === 'function') onError(error);
-      },
-    );
-  });
+    ({ db, firestoreFns }) => {
+
+      if (cancelled) return;
+
+      const messagesRef =
+
+        firestoreFns.collection(
+
+          db,
+
+          'rooms',
+
+          roomId,
+
+          'messages',
+
+        );
+
+      const messagesQuery =
+
+        firestoreFns.query(
+
+          messagesRef,
+
+          firestoreFns.orderBy(
+
+            'timestamp',
+
+            'asc',
+
+          ),
+
+          firestoreFns.limit(
+
+            MESSAGE_LIST_LIMIT,
+
+          ),
+
+        );
+
+      unsubscribeFn =
+
+        firestoreFns.onSnapshot(
+
+          messagesQuery,
+
+          (snapshot) => {
+
+            const messages =
+
+              snapshot.docs.map(
+
+                (docSnapshot) => ({
+
+                  id:
+
+                    docSnapshot.id,
+
+                  ...docSnapshot.data(),
+
+                }),
+
+              );
+
+            callback(messages);
+
+          },
+
+          (error) => {
+
+            console.error(
+
+              '[firebase.js] メッセージの購読でエラーが発生しました',
+
+              error,
+
+            );
+
+            if (
+
+              typeof onError ===
+
+              'function'
+
+            ) {
+
+              onError(error);
+
+            }
+
+          },
+
+        );
+
+    },
+
+  );
 
   return () => {
+
     cancelled = true;
+
     unsubscribeFn();
+
   };
+
 }
 
-/**
- * 指定したメッセージを「自分が既読にした」状態にする。
- * 既に自分のuidがreadByに含まれている場合は何もしない
- * （無駄な書き込みを避けるため、呼び出し側でも判定しているが念のためここでも確認する）。
- * @param {string} roomId
- * @param {string} messageId
- * @param {string} uid
- * @param {string[]} currentReadBy
- * @returns {Promise<void>}
- */
-export async function markMessageAsRead(roomId, messageId, uid, currentReadBy) {
-  if (Array.isArray(currentReadBy) && currentReadBy.includes(uid)) return;
+export async function markMessageAsRead(
 
-  const { db, firestoreFns } = await loadFirebase();
-  const messageRef = firestoreFns.doc(db, 'rooms', roomId, 'messages', messageId);
-  await firestoreFns.updateDoc(messageRef, {
-    readBy: firestoreFns.arrayUnion(uid),
-  });
+  roomId,
+
+  messageId,
+
+  uid,
+
+  currentReadBy,
+
+) {
+
+  if (
+
+    Array.isArray(currentReadBy) &&
+
+    currentReadBy.includes(uid)
+
+  ) {
+
+    return;
+
+  }
+
+  const { db, firestoreFns } =
+
+    await loadFirebase();
+
+  const messageRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'messages',
+
+      messageId,
+
+    );
+
+  await firestoreFns.updateDoc(
+
+    messageRef,
+
+    {
+
+      readBy:
+
+        firestoreFns.arrayUnion(
+
+          uid,
+
+        ),
+
+    },
+
+  );
+
 }
 
-/**
- * メッセージへの自分のリアクションを設定する。
- * 同じ絵文字を再度渡すとリアクションを取り消す（トグル）。
- * @param {string} roomId
- * @param {string} messageId
- * @param {string} uid
- * @param {string|null} emoji - nullで明示的に取り消す
- * @returns {Promise<void>}
- */
-export async function setMessageReaction(roomId, messageId, uid, emoji) {
-  const { db, firestoreFns } = await loadFirebase();
-  const messageRef = firestoreFns.doc(db, 'rooms', roomId, 'messages', messageId);
+export async function setMessageReaction(
+
+  roomId,
+
+  messageId,
+
+  uid,
+
+  emoji,
+
+) {
+
+  const { db, firestoreFns } =
+
+    await loadFirebase();
+
+  const messageRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'messages',
+
+      messageId,
+
+    );
 
   if (emoji === null) {
-    await firestoreFns.updateDoc(messageRef, {
-      [`reactions.${uid}`]: firestoreFns.deleteField(),
-    });
+
+    await firestoreFns.updateDoc(
+
+      messageRef,
+
+      {
+
+        [`reactions.${uid}`]:
+
+          firestoreFns.deleteField(),
+
+      },
+
+    );
+
     return;
+
   }
 
-  await firestoreFns.updateDoc(messageRef, {
-    [`reactions.${uid}`]: emoji,
-  });
+  await firestoreFns.updateDoc(
+
+    messageRef,
+
+    {
+
+      [`reactions.${uid}`]:
+
+        emoji,
+
+    },
+
+  );
+
 }
 
-/**
- * メッセージを削除する（自分が送信したメッセージのみ。ルール側でも強制する）。
- * @param {string} roomId
- * @param {string} messageId
- * @returns {Promise<void>}
- */
-export async function deleteMessage(roomId, messageId) {
-  const { db, firestoreFns } = await loadFirebase();
-  const messageRef = firestoreFns.doc(db, 'rooms', roomId, 'messages', messageId);
-  await firestoreFns.deleteDoc(messageRef);
+export async function deleteMessage(
+
+  roomId,
+
+  messageId,
+
+) {
+
+  const { db, firestoreFns } =
+
+    await loadFirebase();
+
+  const messageRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'messages',
+
+      messageId,
+
+    );
+
+  await firestoreFns.deleteDoc(
+
+    messageRef,
+
+  );
+
 }
 
-/**
- * 現在のルーム内で、自分が送信したメッセージをすべて削除する
- * （設定画面の「データ管理」から呼ぶ想定）。ルールの制約上、
- * 他人が送信したメッセージは削除できない。
- * @param {string} roomId
- * @param {string} uid
- * @returns {Promise<number>} 削除した件数
- */
-export async function deleteAllOwnMessages(roomId, uid) {
-  const { db, firestoreFns } = await loadFirebase();
-  const messagesRef = firestoreFns.collection(db, 'rooms', roomId, 'messages');
-  const ownMessagesQuery = firestoreFns.query(messagesRef, firestoreFns.where('senderId', '==', uid));
+export async function deleteAllOwnMessages(
 
-  const snapshot = await firestoreFns.getDocs(ownMessagesQuery);
-  await Promise.all(snapshot.docs.map((docSnapshot) => firestoreFns.deleteDoc(docSnapshot.ref)));
+  roomId,
+
+  uid,
+
+) {
+
+  const { db, firestoreFns } =
+
+    await loadFirebase();
+
+  const messagesRef =
+
+    firestoreFns.collection(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'messages',
+
+    );
+
+  const ownMessagesQuery =
+
+    firestoreFns.query(
+
+      messagesRef,
+
+      firestoreFns.where(
+
+        'senderId',
+
+        '==',
+
+        uid,
+
+      ),
+
+    );
+
+  const snapshot =
+
+    await firestoreFns.getDocs(
+
+      ownMessagesQuery,
+
+    );
+
+  await Promise.all(
+
+    snapshot.docs.map(
+
+      (docSnapshot) =>
+
+        firestoreFns.deleteDoc(
+
+          docSnapshot.ref,
+
+        ),
+
+    ),
+
+  );
 
   return snapshot.size;
+
 }
 
-/**
- * 入力中状態をルームドキュメントへ書き込む。
- * isTypingがfalseの場合はフィールド自体を削除する（サイズを抑えるため）。
- * @param {string} roomId
- * @param {string} uid
- * @param {boolean} isTyping
- * @returns {Promise<void>}
- */
-export async function updateTypingState(roomId, uid, isTyping) {
-  const { db, firestoreFns } = await loadFirebase();
-  const roomRef = firestoreFns.doc(db, 'rooms', roomId);
+// ------------------------------------------------------------
 
-  await firestoreFns.updateDoc(roomRef, {
-    [`typing.${uid}`]: isTyping ? firestoreFns.serverTimestamp() : firestoreFns.deleteField(),
-  });
-}
+// 入力中 / Presence
 
-/**
- * オンライン状態をルームドキュメントへ書き込む。
- * @param {string} roomId
- * @param {string} uid
- * @param {boolean} isOnline
- * @returns {Promise<void>}
- */
-export async function updatePresence(roomId, uid, isOnline) {
-  const { db, firestoreFns } = await loadFirebase();
-  const roomRef = firestoreFns.doc(db, 'rooms', roomId);
+// ------------------------------------------------------------
 
-  await firestoreFns.updateDoc(roomRef, {
-    [`presence.${uid}`]: {
-      state: isOnline ? 'online' : 'offline',
-      lastSeenAt: firestoreFns.serverTimestamp(),
+export async function updateTypingState(
+
+  roomId,
+
+  uid,
+
+  isTyping,
+
+) {
+
+  const { db, firestoreFns } =
+
+    await loadFirebase();
+
+  const roomRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+    );
+
+  await firestoreFns.updateDoc(
+
+    roomRef,
+
+    {
+
+      [`typing.${uid}`]:
+
+        isTyping
+
+          ? firestoreFns.serverTimestamp()
+
+          : firestoreFns.deleteField(),
+
     },
-  });
+
+  );
+
 }
 
-/**
- * ルームの customization フィールドを部分更新する。
- * partialのキーは 'workspaceTitle' のようなトップレベルのキーでも、
- * 'cards.messages.label' のようなドット区切りの深いパスでもよい
- * （Firestoreのフィールドパス記法をそのまま使えるため）。
- * どちらの場合も customization.（自動で先頭に付与） 配下だけを
- * 部分更新し、customization内の他のフィールドには一切触れない。
- * @param {string} roomId
- * @param {Object.<string, unknown>} partial
- * @returns {Promise<void>}
- */
-export async function updateRoomCustomization(roomId, partial) {
-  const { db, firestoreFns } = await loadFirebase();
-  const roomRef = firestoreFns.doc(db, 'rooms', roomId);
+export async function updatePresence(
+
+  roomId,
+
+  uid,
+
+  isOnline,
+
+) {
+
+  const { db, firestoreFns } =
+
+    await loadFirebase();
+
+  const roomRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+    );
+
+  await firestoreFns.updateDoc(
+
+    roomRef,
+
+    {
+
+      [`presence.${uid}`]: {
+
+        state: isOnline
+
+          ? 'online'
+
+          : 'offline',
+
+        lastSeenAt:
+
+          firestoreFns.serverTimestamp(),
+
+      },
+
+    },
+
+  );
+
+}
+
+// ------------------------------------------------------------
+
+// カスタマイズ
+
+// ------------------------------------------------------------
+
+export async function updateRoomCustomization(
+
+  roomId,
+
+  partial,
+
+) {
+
+  const { db, firestoreFns } =
+
+    await loadFirebase();
+
+  const roomRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+    );
 
   const updates = {};
-  Object.entries(partial).forEach(([path, value]) => {
-    updates[`customization.${path}`] = value;
-  });
 
-  await firestoreFns.updateDoc(roomRef, updates);
+  Object.entries(partial).forEach(
+
+    ([path, value]) => {
+
+      updates[
+
+        `customization.${path}`
+
+      ] = value;
+
+    },
+
+  );
+
+  await firestoreFns.updateDoc(
+
+    roomRef,
+
+    updates,
+
+  );
+
 }
 
 // ------------------------------------------------------------
-// 通知登録の保存（複数端末対応）
-// memberProfiles.{uid}.pushRegistrations.{clientId} に、端末ごとの
-// 登録情報を保持する。1uid=1登録に固定せず、clientId単位で
-// 独立して管理することで、同じ人が複数端末を使っても互いに
-// 上書きしないようにする。
+
+// 通知登録
+
 // ------------------------------------------------------------
 
-/** Cloudflare Worker（通知送信の依頼先）のURL。 */
-const NOTIFICATION_WORKER_URL = 'https://calculator-0209-notifications.skawa6551.workers.dev';
+export async function savePushRegistration(
 
-/**
- * この端末の通知登録情報をFirestoreへ保存する。
- * @param {string} roomId
- * @param {string} uid
- * @param {string} clientId
- * @param {string} registrationId - FIDまたは登録トークン
- * @param {'fid'|'token'} method
- * @returns {Promise<void>}
- */
-export async function savePushRegistration(roomId, uid, clientId, registrationId, method) {
-  const { db, firestoreFns } = await loadFirebase();
-  const roomRef = firestoreFns.doc(db, 'rooms', roomId);
+  roomId,
 
-  await firestoreFns.updateDoc(roomRef, {
-    [`memberProfiles.${uid}.pushRegistrations.${clientId}`]: {
-      id: registrationId,
-      method,
-      enabled: true,
-      updatedAt: firestoreFns.serverTimestamp(),
-      platform: 'ios-pwa',
+  uid,
+
+  clientId,
+
+  registrationId,
+
+  method,
+
+) {
+
+  const { db, firestoreFns } =
+
+    await loadFirebase();
+
+  const roomRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+    );
+
+  await firestoreFns.updateDoc(
+
+    roomRef,
+
+    {
+
+      [`memberProfiles.${uid}.pushRegistrations.${clientId}`]:
+
+        {
+
+          id: registrationId,
+
+          method,
+
+          enabled: true,
+
+          updatedAt:
+
+            firestoreFns.serverTimestamp(),
+
+          platform: 'ios-pwa',
+
+        },
+
     },
-  });
+
+  );
+
 }
 
-/**
- * この端末の通知登録を無効化する（enabled: falseにするだけで、
- * レコード自体は残す。Worker側が無効な登録を検知した際に
- * 実際の削除を行う）。
- * @param {string} roomId
- * @param {string} uid
- * @param {string} clientId
- * @returns {Promise<void>}
- */
-export async function disablePushRegistration(roomId, uid, clientId) {
-  const { db, firestoreFns } = await loadFirebase();
-  const roomRef = firestoreFns.doc(db, 'rooms', roomId);
+export async function disablePushRegistration(
 
-  await firestoreFns.updateDoc(roomRef, {
-    [`memberProfiles.${uid}.pushRegistrations.${clientId}.enabled`]: false,
-    [`memberProfiles.${uid}.pushRegistrations.${clientId}.updatedAt`]: firestoreFns.serverTimestamp(),
-  });
-}
+  roomId,
 
-/**
- * 「通知内容表示」設定を、送信側（Cloudflare Worker）が参照できる
- * Firestore上にも複製保存する。ローカル（localStorage）の値が正の
- * 情報源であることに変わりはなく、ここへは変更のたびに同期するだけ。
- * @param {string} roomId
- * @param {string} uid
- * @param {boolean} enabled
- * @returns {Promise<void>}
- */
-export async function saveNotificationContentPreference(roomId, uid, enabled) {
-  const { db, firestoreFns } = await loadFirebase();
-  const roomRef = firestoreFns.doc(db, 'rooms', roomId);
+  uid,
 
-  await firestoreFns.updateDoc(roomRef, {
-    [`memberProfiles.${uid}.notificationContentEnabled`]: enabled,
-  });
-}
+  clientId,
 
-/**
- * メッセージ送信直後に、Cloudflare Workerへ「相手へ通知を送ってほしい」
- * 依頼を1回だけ送る。Firebase IDトークンをAuthorizationヘッダーに
- * 付け、Worker側でなりすましでないことを検証してもらう。
- * 通知はあくまで補助的な機能のため、失敗してもメッセージ送信自体は
- * 既に成功しているので、ここでの失敗は呼び出し元へそのまま伝播させる
- * だけに留め、リトライ等はWorker側の責務とする。
- * @param {string} roomId
- * @param {string} messageId
- * @returns {Promise<void>}
- */
-export async function requestNotificationSend(roomId, messageId) {
-  const { auth } = await loadFirebase();
-  if (!auth.currentUser) return;
+) {
 
-  const idToken = await auth.currentUser.getIdToken();
+  const { db, firestoreFns } =
 
-  const response = await fetch(NOTIFICATION_WORKER_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${idToken}`,
+    await loadFirebase();
+
+  const roomRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+    );
+
+  await firestoreFns.updateDoc(
+
+    roomRef,
+
+    {
+
+      [`memberProfiles.${uid}.pushRegistrations.${clientId}.enabled`]:
+
+        false,
+
+      [`memberProfiles.${uid}.pushRegistrations.${clientId}.updatedAt`]:
+
+        firestoreFns.serverTimestamp(),
+
     },
-    body: JSON.stringify({ roomId, messageId }),
-  });
+
+  );
+
+}
+
+export async function saveNotificationContentPreference(
+
+  roomId,
+
+  uid,
+
+  enabled,
+
+) {
+
+  const { db, firestoreFns } =
+
+    await loadFirebase();
+
+  const roomRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+    );
+
+  await firestoreFns.updateDoc(
+
+    roomRef,
+
+    {
+
+      [`memberProfiles.${uid}.notificationContentEnabled`]:
+
+        enabled,
+
+    },
+
+  );
+
+}
+
+// ------------------------------------------------------------
+
+// Cloudflare Worker通知依頼
+
+// ------------------------------------------------------------
+
+export async function requestNotificationSend(
+
+  roomId,
+
+  messageId,
+
+) {
+
+  const { auth } =
+
+    await loadFirebase();
+
+  if (!auth.currentUser) {
+
+    return false;
+
+  }
+
+  const idToken =
+
+    await auth.currentUser.getIdToken();
+
+  const response = await fetch(
+
+    NOTIFICATION_WORKER_URL,
+
+    {
+
+      method: 'POST',
+
+      headers: {
+
+        'Content-Type':
+
+          'application/json',
+
+        Authorization:
+
+          `Bearer ${idToken}`,
+
+      },
+
+      body: JSON.stringify({
+
+        roomId,
+
+        messageId,
+
+      }),
+
+    },
+
+  );
 
   if (!response.ok) {
-    throw new Error(`通知の送信依頼に失敗しました (status: ${response.status})`);
+
+    throw new Error(
+
+      `通知の送信依頼に失敗しました (status: ${response.status})`,
+
+    );
+
   }
+
+  return true;
+
 }
 
+// ------------------------------------------------------------
+
+// default export
+
+// ------------------------------------------------------------
+
 const Firebase = {
+
   ensureSignedIn,
+
   getCurrentUid,
+
   getOrCreateClientId,
+
   getLocalDisplayName,
+
   saveLocalDisplayName,
+
   getLocalRoomId,
+
   saveLocalRoomId,
+
   ensureUserProfile,
+
   createRoomAndInviteCode,
+
   joinRoomWithCode,
+
   subscribeToRoom,
+
   sendTextMessage,
+
   subscribeToMessages,
+
   markMessageAsRead,
+
   setMessageReaction,
+
   deleteMessage,
+
   deleteAllOwnMessages,
+
   updateTypingState,
+
   updatePresence,
+
   updateRoomCustomization,
+
   registerForPush,
+
   onForegroundMessage,
+
   savePushRegistration,
+
   disablePushRegistration,
+
   saveNotificationContentPreference,
+
   requestNotificationSend,
+
 };
 
 export default Firebase;
