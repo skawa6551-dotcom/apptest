@@ -25,6 +25,7 @@ import Pairing from './pairing.js';
 import Messages from './messages.js';
 import Firebase from './firebase.js';
 import Customization from './customization.js';
+import Notifications from './notifications.js';
 
 // ------------------------------------------------------------
 // 定数
@@ -417,11 +418,12 @@ function renderSettings() {
   document.getElementById('autoLockDurationSelect').value = String(Settings.getAutoLockDurationMs());
   document.getElementById('archiveLockToggle').checked = Settings.isArchiveLockEnabled();
 
-  // ---- 通知（設定値のみ） ----
+  // ---- 通知（Phase1.8より実配信対応） ----
   document.getElementById('notificationsToggle').checked = Settings.isNotificationsEnabled();
   document.getElementById('notificationContentToggle').checked = Settings.isNotificationContentEnabled();
   document.getElementById('notificationSoundToggle').checked = Settings.isNotificationSoundEnabled();
   document.getElementById('notificationVibrationToggle').checked = Settings.isNotificationVibrationEnabled();
+  renderNotificationStatus();
 
   // ---- チャット設定 ----
   document.getElementById('readReceiptsToggle').checked = Settings.isReadReceiptsEnabled();
@@ -562,6 +564,33 @@ function renderStorageUsage() {
   const bytes = Storage.getUsageBytes();
   const kb = bytes / 1024;
   label.textContent = `約${kb.toFixed(1)} KB`;
+}
+
+/**
+ * 通知セクションの状態表示（説明文）と、ホーム画面未追加時の案内バナーを
+ * 現在の状態（standalone表示か・通知許可の状態）に合わせて更新する。
+ */
+function renderNotificationStatus() {
+  const hint = document.getElementById('notificationHomeScreenHint');
+  const statusLabel = document.getElementById('notificationStatusLabel');
+  if (!hint || !statusLabel) return;
+
+  const isStandalone = Notifications.isStandalonePwa();
+  hint.hidden = isStandalone;
+
+  if (!isStandalone) {
+    statusLabel.textContent = '新着メッセージの通知（ホーム画面に追加すると使えます）';
+    return;
+  }
+
+  const permission = Notifications.getPermissionState();
+  if (permission === 'denied') {
+    statusLabel.textContent = '通知がブロックされています。iPhoneの設定アプリから許可してください。';
+  } else if (permission === 'granted' && Settings.isNotificationsEnabled()) {
+    statusLabel.textContent = '新着メッセージの通知（有効）';
+  } else {
+    statusLabel.textContent = '新着メッセージの通知';
+  }
 }
 
 /**
@@ -1610,10 +1639,13 @@ function handleSettingsCheckboxChange(target) {
       Settings.setArchiveLockEnabled(checked);
       break;
     case 'notificationsToggle':
-      Settings.setNotificationsEnabled(checked);
+      handleNotificationsToggle(checked);
       break;
     case 'notificationContentToggle':
       Settings.setNotificationContentEnabled(checked);
+      Notifications.syncNotificationContentPreference(checked).catch((error) => {
+        console.warn('[app.js] 通知内容表示設定の同期に失敗しました', error);
+      });
       break;
     case 'notificationSoundToggle':
       Settings.setNotificationSoundEnabled(checked);
@@ -1719,6 +1751,38 @@ async function handleBiometricToggle(enabled) {
 
   // 登録に失敗・キャンセルされた場合は設定を保存せず、
   // 次のrender()でトグルの見た目を実際の設定値（false）に戻す。
+  render();
+}
+
+/**
+ * 「通知」トグルの変更を処理する。
+ * ONにする瞬間：ホーム画面への追加状態を確認→許可を取得→端末登録、
+ * という一連の流れをnotifications.js経由で行う。途中で失敗した場合は
+ * 設定を保存せず、次のrender()でトグルの見た目を実際の設定値（false）に
+ * 戻す（handleBiometricToggleと同じ考え方）。
+ * OFFにする瞬間：この端末の登録を無効化するだけで、設定はそのまま保存する。
+ * @param {boolean} enabled
+ */
+async function handleNotificationsToggle(enabled) {
+  if (!enabled) {
+    Settings.setNotificationsEnabled(false);
+    Notifications.disableRegistration().catch((error) => {
+      console.warn('[app.js] 通知登録の無効化に失敗しました', error);
+    });
+    renderNotificationStatus();
+    return;
+  }
+
+  try {
+    await Notifications.requestPermissionAndRegister();
+    Settings.setNotificationsEnabled(true);
+    renderNotificationStatus();
+    return;
+  } catch (error) {
+    console.warn('[app.js] 通知の許可取得に失敗しました', error);
+  }
+
+  // 失敗時は設定を保存せず、トグルの見た目を実際の設定値（false）に戻す。
   render();
 }
 
@@ -1879,6 +1943,35 @@ function registerServiceWorker() {
       console.warn('[app.js] Service Workerの登録に失敗しました', error);
     });
   });
+
+  navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+}
+
+/**
+ * service-worker.jsから届くpostMessageを処理する。
+ * ・通知タップ時：パスコード認証を経ずに直接開くことはできない
+ *   （既存のロック方式を維持するため）が、アプリ自体はフォアグラウンドへ
+ *   戻ってくるので、そのままWorkspace/Messagesへの遷移案内は行わず、
+ *   ユーザーが通常通りパスコードを入力して開く流れに委ねる。
+ *   ここでは将来の拡張（パスコード入力後に自動でメッセージ画面へ
+ *   遷移させる等）のための受け口として、受信のログのみ残す。
+ * ・購読変更時：notifications.js経由で再登録を試みる。
+ * @param {MessageEvent} event
+ */
+function handleServiceWorkerMessage(event) {
+  const message = event.data;
+  if (!message || typeof message.type !== 'string') return;
+
+  if (message.type === 'calculator-0209-notification-click') {
+    console.info('[app.js] 通知がタップされました', message.roomId);
+    return;
+  }
+
+  if (message.type === 'calculator-0209-push-subscription-changed') {
+    Notifications.syncRegistrationOnStartup().catch((error) => {
+      console.warn('[app.js] プッシュ購読変更後の再登録に失敗しました', error);
+    });
+  }
 }
 
 // ------------------------------------------------------------
@@ -2022,6 +2115,13 @@ async function init() {
     await runBiometricLockFlow();
 
     registerServiceWorker();
+
+    // 6. notifications: 既に許可済み・ONの場合は登録を同期し、
+    // アプリを開いている間に届く通知の受け口も用意する。
+    // 起動シーケンスの最後（電卓が完全に操作可能になった後）に行い、
+    // 万一失敗しても電卓本体の起動は妨げない。
+    Notifications.syncRegistrationOnStartup();
+    Notifications.initForegroundListener();
   } catch (error) {
     console.error('[app.js] 初期化中にエラーが発生しました', error);
     render();
