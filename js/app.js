@@ -3290,6 +3290,134 @@ function handleMessagesScreenClick(
 
 }
 
+// ============================================================
+
+// Photo
+
+// ============================================================
+
+function handleClosePhoto() {
+
+  Router.closePhoto();
+
+}
+
+function handleSelectPhoto() {
+
+  Photo.selectPhotos();
+
+}
+
+function handleOpenPhotoPreview(
+
+  target,
+
+) {
+
+  const photoUrl =
+
+    Photo.getPhotoUrlFromTarget(
+
+      target,
+
+    );
+
+  if (!photoUrl) {
+
+    return;
+
+  }
+
+  Photo.openPreview(
+
+    photoUrl,
+
+  );
+
+}
+
+function handleClosePhotoPreview() {
+
+  Photo.closePreview();
+
+}
+
+const PHOTO_ACTION_HANDLERS =
+
+  Object.freeze({
+
+    'close-photo':
+
+      handleClosePhoto,
+
+    'lock-now':
+
+      handleLockNow,
+
+    'select-photo':
+
+      handleSelectPhoto,
+
+    'close-photo-preview':
+
+      handleClosePhotoPreview,
+
+  });
+
+function handlePhotoScreenClick(
+
+  target,
+
+) {
+
+  const {
+
+    action,
+
+  } = target.dataset;
+
+  playFeedbackSound(
+
+    'tap',
+
+  );
+
+  playFeedbackVibration();
+
+  if (
+
+    action ===
+
+    'open-photo-preview'
+
+  ) {
+
+    handleOpenPhotoPreview(
+
+      target,
+
+    );
+
+    return;
+
+  }
+
+  const handler =
+
+    PHOTO_ACTION_HANDLERS[
+
+      action
+
+    ];
+
+  if (handler) {
+
+    handler();
+
+  }
+
+}
+
 function handleArchiveSearchInput(
 
   query,
