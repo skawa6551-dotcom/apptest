@@ -2327,6 +2327,38 @@ async function renderGallery() {
 
       await loadAllPhotos();
 
+    const allPhotos = [
+
+      ...sharedPhotos.map(
+
+        (photo) => ({
+
+          ...photo,
+
+          source:
+
+            'shared',
+
+        }),
+
+      ),
+
+      ...records.map(
+
+        (photo) => ({
+
+          ...photo,
+
+          source:
+
+            'local',
+
+        }),
+
+      ),
+
+    ]
+
     if (
 
       records.length === 0
