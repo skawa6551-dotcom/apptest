@@ -8,7 +8,7 @@
 
 // 今回の重要変更：
 
-// ・CACHE_VERSION を 11 に更新
+// ・CACHE_VERSION を 12 に更新
 
 // ・HTML / JS / CSS / JSON はネットワーク優先
 
@@ -34,7 +34,7 @@
 
 // ------------------------------------------------------------
 
-const CACHE_VERSION = 11;
+const CACHE_VERSION = 12;
 
 const CACHE_PREFIX =
 
