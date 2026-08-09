@@ -2526,7 +2526,7 @@ function handleWorkspaceScreenClick(
 
   }
 
-  // 写真／行きたい場所は
+  // 行きたい場所は
 
   // 現時点では未実装。
 
