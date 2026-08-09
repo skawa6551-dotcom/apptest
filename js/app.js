@@ -3362,6 +3362,18 @@ const PHOTO_ACTION_HANDLERS =
 
       handleClosePhotoPreview,
 
+    'delete-photo':
+
+      async (target) => {
+
+        await Photo.deletePhotoFromTarget(
+
+          target,
+
+        );
+
+      },
+
   });
 
 function handlePhotoScreenClick(
