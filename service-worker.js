@@ -74,6 +74,8 @@ const PRECACHE_URLS =
 
     './css/messages.css',
 
+'./css/photo.css',
+
     './js/app.js',
 
     './js/calculator.js',
