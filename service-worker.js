@@ -2,39 +2,39 @@
 
 // service-worker.js
 
-// Calculator 0209 のオフライン対応＋Push通知を担う Service Worker。
+// Calculator 0209
 
 //
 
-// 今回の重要変更：
+// ・オフライン対応
 
-// ・CACHE_VERSION を 12 に更新
+// ・Push通知
 
-// ・HTML / JS / CSS / JSON はネットワーク優先
+// ・GitHub Pages対応
 
-// ・GitHub Pages更新後の古いキャッシュ残留を防止
+// ・最新版コード優先
 
-// ・同一オリジンのアプリコードは最新版取得を優先
+// ・古いCalculatorキャッシュのみ削除
 
-// ・オフライン時のみ保存済みキャッシュへフォールバック
+// ・通知タップでもロック解除しない
 
 //
 
-// 通知タップだけでWorkspaceやMessagesへ直接アンロックしない。
-
-// Calculator画面を入口として既存のロック仕様を維持する。
+// CACHE_VERSION 13
 
 // ============================================================
 
 'use strict';
 
-// ------------------------------------------------------------
+// ============================================================
 
 // バージョン管理
 
-// ------------------------------------------------------------
+// ============================================================
 
-const CACHE_VERSION = 12;
+const CACHE_VERSION =
+
+  13;
 
 const CACHE_PREFIX =
 
@@ -44,11 +44,11 @@ const CACHE_NAME =
 
   `${CACHE_PREFIX}${CACHE_VERSION}`;
 
-// ------------------------------------------------------------
+// ============================================================
 
 // 事前キャッシュ
 
-// ------------------------------------------------------------
+// ============================================================
 
 const PRECACHE_URLS =
 
@@ -59,6 +59,12 @@ const PRECACHE_URLS =
     './index.html',
 
     './manifest.json',
+
+    // --------------------------------------------------------
+
+    // CSS
+
+    // --------------------------------------------------------
 
     './css/app.css',
 
@@ -78,7 +84,13 @@ const PRECACHE_URLS =
 
     './css/messages.css',
 
-'./css/photo.css',
+    './css/photo.css',
+
+    // --------------------------------------------------------
+
+    // JavaScript
+
+    // --------------------------------------------------------
 
     './js/app.js',
 
@@ -116,11 +128,17 @@ const PRECACHE_URLS =
 
     './js/messages.js',
 
-'./js/photo.js',
+    './js/photo.js',
 
     './js/customization.js',
 
     './js/notifications.js',
+
+    // --------------------------------------------------------
+
+    // Icons
+
+    // --------------------------------------------------------
 
     './assets/icons/icon-192.png',
 
@@ -134,17 +152,21 @@ const OFFLINE_FALLBACK_URL =
 
   './index.html';
 
-// ------------------------------------------------------------
+// ============================================================
 
 // install
 
-// ------------------------------------------------------------
+// ============================================================
 
 self.addEventListener(
 
   'install',
 
-  (event) => {
+  (
+
+    event,
+
+  ) => {
 
     event.waitUntil(
 
@@ -152,17 +174,27 @@ self.addEventListener(
 
     );
 
+    /*
+
+     * 新しいService Workerを
+
+     * waiting状態に残さず、
+
+     * 更新後すぐ使えるようにする。
+
+     */
+
     self.skipWaiting();
 
   },
 
 );
 
-// ------------------------------------------------------------
+// ============================================================
 
 // 主要ファイルをキャッシュ
 
-// ------------------------------------------------------------
+// ============================================================
 
 async function precacheAppShell() {
 
@@ -174,105 +206,109 @@ async function precacheAppShell() {
 
     );
 
-  try {
+  /*
 
-    await Promise.all(
+   * 1ファイル失敗しただけで
 
-      PRECACHE_URLS.map(
+   * Service Worker全体のinstallを
 
-        async (url) => {
+   * 失敗させない。
 
-          try {
+   */
 
-            const response =
+  await Promise.all(
 
-              await fetch(
+    PRECACHE_URLS.map(
 
-                url,
+      async (
 
-                {
+        url,
 
-                  cache:
+      ) => {
 
-                    'no-store',
+        try {
 
-                },
+          const response =
 
-              );
+            await fetch(
 
-            if (
+              url,
 
-              response &&
+              {
 
-              response.ok
+                cache:
 
-            ) {
+                  'no-store',
 
-              await cache.put(
-
-                url,
-
-                response.clone(),
-
-              );
-
-            } else {
-
-              console.warn(
-
-                `[service-worker] 事前キャッシュ取得失敗: ${url}`,
-
-              );
-
-            }
-
-          } catch (
-
-            error
-
-          ) {
-
-            console.warn(
-
-              `[service-worker] 事前キャッシュ中にエラー: ${url}`,
-
-              error,
+              },
 
             );
 
+          if (
+
+            response &&
+
+            response.ok
+
+          ) {
+
+            await cache.put(
+
+              url,
+
+              response.clone(),
+
+            );
+
+            return;
+
           }
 
-        },
+          console.warn(
 
-      ),
+            `[service-worker] 事前キャッシュ取得失敗: ${url}`,
 
-    );
+            response?.status ??
 
-  } catch (error) {
+              'unknown',
 
-    console.warn(
+          );
 
-      '[service-worker] 事前キャッシュ全体でエラーが発生しました',
+        } catch (error) {
 
-      error,
+          console.warn(
 
-    );
+            `[service-worker] 事前キャッシュ中にエラー: ${url}`,
 
-  }
+            error,
+
+          );
+
+        }
+
+      },
+
+    ),
+
+  );
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // activate
 
-// ------------------------------------------------------------
+// ============================================================
 
 self.addEventListener(
 
   'activate',
 
-  (event) => {
+  (
+
+    event,
+
+  ) => {
 
     event.waitUntil(
 
@@ -286,17 +322,39 @@ self.addEventListener(
 
 async function activateWorker() {
 
+  /*
+
+   * Calculator 0209が作った
+
+   * 古いバージョンのキャッシュだけ削除。
+
+   *
+
+   * 他のアプリや別用途のCache Storageは
+
+   * 削除しない。
+
+   */
+
   await deleteOutdatedCaches();
+
+  /*
+
+   * 開いているページを
+
+   * 新Service Workerの管理下へ移す。
+
+   */
 
   await self.clients.claim();
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
-// 古いキャッシュ削除
+// 古いCalculatorキャッシュ削除
 
-// ------------------------------------------------------------
+// ============================================================
 
 async function deleteOutdatedCaches() {
 
@@ -310,11 +368,21 @@ async function deleteOutdatedCaches() {
 
       cacheNames.filter(
 
-        (name) =>
+        (
+
+          name,
+
+        ) =>
+
+          name.startsWith(
+
+            CACHE_PREFIX,
+
+          ) &&
 
           name !==
 
-          CACHE_NAME,
+            CACHE_NAME,
 
       );
 
@@ -322,7 +390,11 @@ async function deleteOutdatedCaches() {
 
       outdated.map(
 
-        (name) =>
+        (
+
+          name,
+
+        ) =>
 
           caches.delete(
 
@@ -348,19 +420,27 @@ async function deleteOutdatedCaches() {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // fetch
 
-// ------------------------------------------------------------
+// ============================================================
 
 self.addEventListener(
 
   'fetch',
 
-  (event) => {
+  (
 
-    const { request } =
+    event,
+
+  ) => {
+
+    const {
+
+      request,
+
+    } =
 
       event;
 
@@ -378,9 +458,13 @@ self.addEventListener(
 
     /*
 
-     * Firebase等の外部オリジンは
+     * Firebase Storage、
 
-     * Service Worker側でキャッシュしない。
+     * Firestore、
+
+     * CDN等の外部オリジンは
+
+     * Service Workerではキャッシュしない。
 
      */
 
@@ -412,11 +496,11 @@ self.addEventListener(
 
 );
 
-// ------------------------------------------------------------
+// ============================================================
 
 // GETリクエスト処理
 
-// ------------------------------------------------------------
+// ============================================================
 
 async function handleFetch(
 
@@ -468,9 +552,15 @@ async function handleFetch(
 
   /*
 
-   * HTML / JS / CSS / JSON は
+   * HTML / JavaScript / CSS / JSON
 
-   * 必ずネットワーク優先。
+   *
+
+   * GitHub Pages更新後に
+
+   * 古いファイルを使い続けないよう、
+
+   * ネットワーク優先。
 
    */
 
@@ -486,7 +576,9 @@ async function handleFetch(
 
   /*
 
-   * 画像等はキャッシュ優先。
+   * アイコン等の静的画像は
+
+   * キャッシュ優先。
 
    */
 
@@ -498,11 +590,11 @@ async function handleFetch(
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // ネットワーク優先
 
-// ------------------------------------------------------------
+// ============================================================
 
 async function networkFirst(
 
@@ -536,21 +628,35 @@ async function networkFirst(
 
     ) {
 
-      const cache =
+      try {
 
-        await caches.open(
+        const cache =
 
-          CACHE_NAME,
+          await caches.open(
+
+            CACHE_NAME,
+
+          );
+
+        await cache.put(
+
+          request,
+
+          networkResponse.clone(),
 
         );
 
-      await cache.put(
+      } catch (cacheError) {
 
-        request,
+        console.warn(
 
-        networkResponse.clone(),
+          '[service-worker] ネットワーク取得後のキャッシュ保存に失敗しました',
 
-      );
+          cacheError,
+
+        );
+
+      }
 
     }
 
@@ -584,11 +690,11 @@ async function networkFirst(
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // キャッシュ優先
 
-// ------------------------------------------------------------
+// ============================================================
 
 async function cacheFirst(
 
@@ -648,7 +754,11 @@ async function cacheFirst(
 
         .catch(
 
-          (error) => {
+          (
+
+            error,
+
+          ) => {
 
             console.warn(
 
@@ -680,11 +790,11 @@ async function cacheFirst(
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // オフラインフォールバック
 
-// ------------------------------------------------------------
+// ============================================================
 
 async function respondWithOfflineFallback(
 
@@ -701,6 +811,14 @@ async function respondWithOfflineFallback(
     networkError,
 
   );
+
+  /*
+
+   * ページ遷移の場合だけ
+
+   * index.htmlへフォールバック。
+
+   */
 
   if (
 
@@ -726,13 +844,23 @@ async function respondWithOfflineFallback(
 
   }
 
+  /*
+
+   * JavaScriptや画像を
+
+   * HTMLで代用しない。
+
+   */
+
   return new Response(
 
     'オフラインのため、このリソースを取得できませんでした。',
 
     {
 
-      status: 503,
+      status:
+
+        503,
 
       statusText:
 
@@ -754,17 +882,21 @@ async function respondWithOfflineFallback(
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // Push通知
 
-// ------------------------------------------------------------
+// ============================================================
 
 self.addEventListener(
 
   'push',
 
-  (event) => {
+  (
+
+    event,
+
+  ) => {
 
     event.waitUntil(
 
@@ -780,125 +912,365 @@ self.addEventListener(
 
 );
 
+// ============================================================
+
+// Push payload取得
+
+// ============================================================
+
+function readPushPayload(
+
+  event,
+
+) {
+
+  if (
+
+    !event.data
+
+  ) {
+
+    return {};
+
+  }
+
+  try {
+
+    return event.data.json() ??
+
+      {};
+
+  } catch (jsonError) {
+
+    try {
+
+      const text =
+
+        event.data.text();
+
+      if (!text) {
+
+        return {};
+
+      }
+
+      return {
+
+        body:
+
+          text,
+
+      };
+
+    } catch (textError) {
+
+      console.warn(
+
+        '[service-worker] Pushデータを解析できませんでした',
+
+        jsonError,
+
+        textError,
+
+      );
+
+      return {};
+
+    }
+
+  }
+
+}
+
+// ============================================================
+
+// Push payload正規化
+
+// ============================================================
+
+function normalizePushPayload(
+
+  rawPayload,
+
+) {
+
+  const payload =
+
+    rawPayload &&
+
+    typeof rawPayload ===
+
+      'object'
+
+      ? rawPayload
+
+      : {};
+
+  /*
+
+   * Firebase Messagingでは、
+
+   *
+
+   * {
+
+   *   notification: {...},
+
+   *   data: {...}
+
+   * }
+
+   *
+
+   * のように届く場合がある。
+
+   *
+
+   * 独自Pushでは
+
+   * title/body/roomId等が
+
+   * 直下にある場合も許容。
+
+   */
+
+  const notification =
+
+    payload.notification &&
+
+    typeof payload.notification ===
+
+      'object'
+
+      ? payload.notification
+
+      : {};
+
+  const data =
+
+    payload.data &&
+
+    typeof payload.data ===
+
+      'object'
+
+      ? payload.data
+
+      : {};
+
+  const title =
+
+    firstNonEmptyString(
+
+      payload.title,
+
+      notification.title,
+
+      data.title,
+
+      'Calculator',
+
+    );
+
+  const body =
+
+    firstNonEmptyString(
+
+      payload.body,
+
+      notification.body,
+
+      data.body,
+
+      '新しいメッセージがあります',
+
+    );
+
+  const roomId =
+
+    firstNullableString(
+
+      payload.roomId,
+
+      data.roomId,
+
+    );
+
+  const messageId =
+
+    firstNullableString(
+
+      payload.messageId,
+
+      data.messageId,
+
+    );
+
+  const senderId =
+
+    firstNullableString(
+
+      payload.senderId,
+
+      data.senderId,
+
+    );
+
+  const explicitTag =
+
+    firstNullableString(
+
+      payload.tag,
+
+      notification.tag,
+
+      data.tag,
+
+    );
+
+  const tag =
+
+    explicitTag ||
+
+    (
+
+      messageId
+
+        ? `message-${messageId}`
+
+        : 'calculator-0209-message'
+
+    );
+
+  return {
+
+    title,
+
+    body,
+
+    roomId,
+
+    messageId,
+
+    senderId,
+
+    tag,
+
+  };
+
+}
+
+// ============================================================
+
+// 文字列取得補助
+
+// ============================================================
+
+function firstNonEmptyString(
+
+  ...values
+
+) {
+
+  for (
+
+    const value of
+
+    values
+
+  ) {
+
+    if (
+
+      typeof value ===
+
+        'string' &&
+
+      value.trim() !==
+
+        ''
+
+    ) {
+
+      return value.trim();
+
+    }
+
+  }
+
+  return '';
+
+}
+
+function firstNullableString(
+
+  ...values
+
+) {
+
+  for (
+
+    const value of
+
+    values
+
+  ) {
+
+    if (
+
+      typeof value ===
+
+        'string' &&
+
+      value.trim() !==
+
+        ''
+
+    ) {
+
+      return value.trim();
+
+    }
+
+  }
+
+  return null;
+
+}
+
+// ============================================================
+
+// Pushイベント処理
+
+// ============================================================
+
 async function handlePushEvent(
 
   event,
 
 ) {
 
-  let payload = {};
+  const rawPayload =
 
-  try {
+    readPushPayload(
 
-    if (event.data) {
+      event,
 
-      payload =
+    );
 
-        event.data.json();
+  const payload =
 
-    }
+    normalizePushPayload(
 
-  } catch (error) {
+      rawPayload,
 
-    try {
-
-      payload = {
-
-        body:
-
-          event.data?.text?.() ??
-
-          '',
-
-      };
-
-    } catch {
-
-      payload = {};
-
-    }
-
-  }
-
-  const title =
-
-    typeof payload.title ===
-
-      'string' &&
-
-    payload.title.trim() !==
-
-      ''
-
-      ? payload.title
-
-      : 'Calculator';
-
-  const body =
-
-    typeof payload.body ===
-
-      'string' &&
-
-    payload.body.trim() !==
-
-      ''
-
-      ? payload.body
-
-      : '新しいメッセージがあります';
-
-  const roomId =
-
-    typeof payload.roomId ===
-
-      'string'
-
-      ? payload.roomId
-
-      : null;
-
-  const messageId =
-
-    typeof payload.messageId ===
-
-      'string'
-
-      ? payload.messageId
-
-      : null;
-
-  const senderId =
-
-    typeof payload.senderId ===
-
-      'string'
-
-      ? payload.senderId
-
-      : null;
-
-  const tag =
-
-    typeof payload.tag ===
-
-      'string' &&
-
-    payload.tag.trim() !==
-
-      ''
-
-      ? payload.tag
-
-      : messageId
-
-        ? `message-${messageId}`
-
-        : 'calculator-0209-message';
+    );
 
   const notificationOptions = {
 
-    body,
+    body:
+
+      payload.body,
 
     icon:
 
@@ -908,7 +1280,9 @@ async function handlePushEvent(
 
       './assets/icons/icon-192.png',
 
-    tag,
+    tag:
+
+      payload.tag,
 
     renotify:
 
@@ -920,11 +1294,27 @@ async function handlePushEvent(
 
     data: {
 
-      roomId,
+      roomId:
 
-      messageId,
+        payload.roomId,
 
-      senderId,
+      messageId:
+
+        payload.messageId,
+
+      senderId:
+
+        payload.senderId,
+
+      /*
+
+       * 通知タップ後も
+
+       * Workspace / Messagesへ直接入れず、
+
+       * Calculatorを入口にする。
+
+       */
 
       url:
 
@@ -938,7 +1328,7 @@ async function handlePushEvent(
 
     await self.registration.showNotification(
 
-      title,
+      payload.title,
 
       notificationOptions,
 
@@ -958,17 +1348,21 @@ async function handlePushEvent(
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // 通知タップ
 
-// ------------------------------------------------------------
+// ============================================================
 
 self.addEventListener(
 
   'notificationclick',
 
-  (event) => {
+  (
+
+    event,
+
+  ) => {
 
     event.notification.close();
 
@@ -986,6 +1380,12 @@ self.addEventListener(
 
 );
 
+// ============================================================
+
+// 通知タップ処理
+
+// ============================================================
+
 async function handleNotificationClick(
 
   notification,
@@ -1001,6 +1401,14 @@ async function handleNotificationClick(
       self.registration.scope,
 
     ).href;
+
+  const scopeUrl =
+
+    new URL(
+
+      self.registration.scope,
+
+    );
 
   const notificationData =
 
@@ -1024,6 +1432,22 @@ async function handleNotificationClick(
 
       });
 
+    /*
+
+     * GitHub Pagesでは
+
+     * github.ioというorigin自体は
+
+     * 他リポジトリと共通になる。
+
+     *
+
+     * originだけでなく
+
+     * Service Workerのscope内かも確認する。
+
+     */
+
     for (
 
       const client of
@@ -1032,97 +1456,131 @@ async function handleNotificationClick(
 
     ) {
 
-      const clientUrl =
+      let clientUrl;
 
-        new URL(
+      try {
 
-          client.url,
+        clientUrl =
 
-        );
+          new URL(
 
-      const target =
+            client.url,
 
-        new URL(
+          );
 
-          targetUrl,
+      } catch {
+
+        continue;
+
+      }
+
+      const sameOrigin =
+
+        clientUrl.origin ===
+
+        scopeUrl.origin;
+
+      const insideScope =
+
+        client.url.startsWith(
+
+          self.registration.scope,
 
         );
 
       if (
 
-        clientUrl.origin ===
+        !sameOrigin ||
 
-        target.origin
+        !insideScope
 
       ) {
 
-        try {
+        continue;
 
-          client.postMessage({
+      }
 
-            type:
+      /*
 
-              'calculator-0209-notification-click',
+       * 通知情報はアプリへ渡すが、
 
-            roomId:
+       * app.js側では直接アンロックしない。
 
-              notificationData.roomId ??
+       */
 
-              null,
+      try {
 
-            messageId:
+        client.postMessage({
 
-              notificationData.messageId ??
+          type:
 
-              null,
+            'calculator-0209-notification-click',
 
-            senderId:
+          roomId:
 
-              notificationData.senderId ??
+            notificationData.roomId ??
 
-              null,
+            null,
 
-          });
+          messageId:
 
-        } catch (
+            notificationData.messageId ??
 
-          messageError
+            null,
 
-        ) {
+          senderId:
 
-          console.warn(
+            notificationData.senderId ??
 
-            '[service-worker] 通知タップ情報の送信に失敗しました',
+            null,
 
-            messageError,
+        });
 
-          );
+      } catch (messageError) {
 
-        }
+        console.warn(
 
-        if (
+          '[service-worker] 通知タップ情報の送信に失敗しました',
 
-          typeof client.focus ===
+          messageError,
 
-          'function'
+        );
 
-        ) {
+      }
 
-          return client.focus();
+      if (
 
-        }
+        typeof client.focus ===
+
+        'function'
+
+      ) {
+
+        await client.focus();
+
+        return;
 
       }
 
     }
 
+    /*
+
+     * 開いているアプリがない場合だけ
+
+     * Calculator画面を新規表示。
+
+     */
+
     if (
 
-      self.clients.openWindow
+      typeof self.clients.openWindow ===
+
+        'function'
 
     ) {
 
-      return self.clients.openWindow(
+      await self.clients.openWindow(
 
         targetUrl,
 
@@ -1142,21 +1600,23 @@ async function handleNotificationClick(
 
   }
 
-  return undefined;
-
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // Push購読変更
 
-// ------------------------------------------------------------
+// ============================================================
 
 self.addEventListener(
 
   'pushsubscriptionchange',
 
-  (event) => {
+  (
+
+    event,
+
+  ) => {
 
     event.waitUntil(
 
@@ -1172,6 +1632,12 @@ self.addEventListener(
 
 );
 
+// ============================================================
+
+// Push購読変更処理
+
+// ============================================================
+
 async function handlePushSubscriptionChange(
 
   event,
@@ -1182,7 +1648,9 @@ async function handlePushSubscriptionChange(
 
     const applicationServerKey =
 
-      event.oldSubscription?.options
+      event.oldSubscription
+
+        ?.options
 
         ?.applicationServerKey;
 
@@ -1194,11 +1662,13 @@ async function handlePushSubscriptionChange(
 
     /*
 
-     * ブラウザ側で新しい購読が自動生成されなかった場合、
+     * ブラウザ側で新しい購読が
 
-     * 旧購読からapplicationServerKeyを取得できれば
+     * 自動生成されなかった場合、
 
-     * 再購読を試みる。
+     * 旧購読のapplicationServerKeyを
+
+     * 使用して再購読を試す。
 
      */
 
@@ -1228,11 +1698,7 @@ async function handlePushSubscriptionChange(
 
             });
 
-      } catch (
-
-        subscribeError
-
-      ) {
+      } catch (subscribeError) {
 
         console.warn(
 
@@ -1248,25 +1714,11 @@ async function handlePushSubscriptionChange(
 
     /*
 
-     * Service Worker自身からFirestoreへ直接書き込まず、
+     * Service Workerから直接Firestoreへ
 
-     * 開いているアプリへ購読変更を通知する。
+     * 書き込まず、
 
-     *
-
-     * app.js側では
-
-     * calculator-0209-push-subscription-changed
-
-     * または
-
-     * PUSH_SUBSCRIPTION_CHANGED
-
-     * を受信すると
-
-     * Notifications.syncRegistrationOnStartup()
-
-     * を実行する。
+     * アプリ側へ同期要求を送る。
 
      */
 
@@ -1300,37 +1752,35 @@ async function handlePushSubscriptionChange(
 
     };
 
-    clientList.forEach(
+    for (
 
-      (client) => {
+      const client of
 
-        try {
+      clientList
 
-          client.postMessage(
+    ) {
 
-            message,
+      try {
 
-          );
+        client.postMessage(
 
-        } catch (
+          message,
 
-          messageError
+        );
 
-        ) {
+      } catch (messageError) {
 
-          console.warn(
+        console.warn(
 
-            '[service-worker] Push購読変更の通知に失敗しました',
+          '[service-worker] Push購読変更の通知に失敗しました',
 
-            messageError,
+          messageError,
 
-          );
+        );
 
-        }
+      }
 
-      },
-
-    );
+    }
 
   } catch (error) {
 
@@ -1346,17 +1796,21 @@ async function handlePushSubscriptionChange(
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // Service Workerへのメッセージ
 
-// ------------------------------------------------------------
+// ============================================================
 
 self.addEventListener(
 
   'message',
 
-  (event) => {
+  (
+
+    event,
+
+  ) => {
 
     const message =
 
@@ -1376,6 +1830,12 @@ self.addEventListener(
 
     }
 
+    // --------------------------------------------------------
+
+    // 即時更新
+
+    // --------------------------------------------------------
+
     if (
 
       message.type ===
@@ -1389,6 +1849,12 @@ self.addEventListener(
       return;
 
     }
+
+    // --------------------------------------------------------
+
+    // Calculatorキャッシュ削除
+
+    // --------------------------------------------------------
 
     if (
 
@@ -1410,11 +1876,11 @@ self.addEventListener(
 
 );
 
-/**
+// ============================================================
 
- * このアプリが作成したキャッシュを削除する。
+// Calculatorキャッシュ削除
 
- */
+// ============================================================
 
 async function clearAppCaches() {
 
@@ -1428,7 +1894,11 @@ async function clearAppCaches() {
 
       cacheNames.filter(
 
-        (cacheName) =>
+        (
+
+          cacheName,
+
+        ) =>
 
           cacheName.startsWith(
 
@@ -1442,7 +1912,11 @@ async function clearAppCaches() {
 
       targets.map(
 
-        (cacheName) =>
+        (
+
+          cacheName,
+
+        ) =>
 
           caches.delete(
 
@@ -1468,11 +1942,11 @@ async function clearAppCaches() {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // Service Worker起動確認
 
-// ------------------------------------------------------------
+// ============================================================
 
 console.info(
 
