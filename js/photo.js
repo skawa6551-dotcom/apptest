@@ -3727,6 +3727,8 @@ export async function open() {
 
   clearStatus();
 
+ await startSharedPhotoSubscription();
+
   await renderGallery();
 
 }
