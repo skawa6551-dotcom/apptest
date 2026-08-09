@@ -2,25 +2,19 @@
 
 // photo.js
 
-// Workspace内「写真」画面
+// Calculator 0209
+
+// 写真画面
 
 //
 
-// ・写真画面DOM生成
+// iPhone対策：
 
-// ・写真選択
+// ＋ボタンはJavaScriptでfile inputをclickしない。
 
-// ・写真一覧表示
+// <label for="photoFileInput"> を使い、
 
-// ・写真拡大表示
-
-// ・背景カスタマイズ
-
-//
-
-// 写真データの共有保存は後続工程で実装する。
-
-// 現段階では選択した写真を端末メモリ上で表示する。
+// iOSへ直接写真選択操作を渡す。
 
 // ============================================================
 
@@ -36,6 +30,10 @@ const CONTAINER_ID =
 
   'photo';
 
+const FILE_INPUT_ID =
+
+  'photoFileInput';
+
 // ------------------------------------------------------------
 
 // 状態
@@ -50,21 +48,13 @@ let unsubscribeCustomization =
 
   null;
 
-/**
-
- * 現在作成しているObject URL。
-
- * 写真一覧を削除する際に解放する。
-
- */
-
 const photoObjectUrls =
 
   new Set();
 
 // ============================================================
 
-// コンテナ
+// コンテナ取得
 
 // ============================================================
 
@@ -77,6 +67,12 @@ function getContainer() {
   );
 
 }
+
+// ============================================================
+
+// コンテナ作成
+
+// ============================================================
 
 function createContainer() {
 
@@ -134,7 +130,11 @@ function createHeader() {
 
     'photo-header';
 
+  // ----------------------------------------------------------
+
   // 戻る
+
+  // ----------------------------------------------------------
 
   const backButton =
 
@@ -160,7 +160,7 @@ function createHeader() {
 
     'aria-label',
 
-    '戻る',
+    'Workspaceへ戻る',
 
   );
 
@@ -168,7 +168,11 @@ function createHeader() {
 
     '‹';
 
+  // ----------------------------------------------------------
+
   // タイトル
+
+  // ----------------------------------------------------------
 
   const title =
 
@@ -186,7 +190,11 @@ function createHeader() {
 
     '写真';
 
+  // ----------------------------------------------------------
+
   // ロック
+
+  // ----------------------------------------------------------
 
   const lockButton =
 
@@ -244,6 +252,54 @@ function createHeader() {
 
 // ============================================================
 
+// 写真選択input
+
+// ============================================================
+
+function createFileInput() {
+
+  const input =
+
+    document.createElement(
+
+      'input',
+
+    );
+
+  input.type =
+
+    'file';
+
+  input.id =
+
+    FILE_INPUT_ID;
+
+  input.className =
+
+    'photo-file-input';
+
+  input.accept =
+
+    'image/*';
+
+  input.multiple =
+
+    true;
+
+  input.setAttribute(
+
+    'aria-label',
+
+    '写真を選択',
+
+  );
+
+  return input;
+
+}
+
+// ============================================================
+
 // 上部カード
 
 // ============================================================
@@ -261,6 +317,12 @@ function createIntro() {
   intro.className =
 
     'photo-intro';
+
+  // ----------------------------------------------------------
+
+  // 左側テキスト
+
+  // ----------------------------------------------------------
 
   const textWrap =
 
@@ -318,29 +380,51 @@ function createIntro() {
 
   );
 
-  // ＋ボタン
+  // ----------------------------------------------------------
 
-  const addButton =
+  // 写真追加
+
+  //
+
+  // 重要：
+
+  // buttonではなくlabelを使用する。
+
+  //
+
+  // for="photoFileInput" により、
+
+  // JavaScriptの click() を使わず
+
+  // iPhoneの写真選択を直接起動する。
+
+  // ----------------------------------------------------------
+
+  const addLabel =
 
     document.createElement(
 
-      'button',
+      'label',
 
     );
 
-  addButton.type =
-
-    'button';
-
-  addButton.className =
+  addLabel.className =
 
     'photo-add-btn';
 
-  addButton.dataset.action =
+  addLabel.htmlFor =
 
-    'select-photo';
+    FILE_INPUT_ID;
 
-  addButton.setAttribute(
+  addLabel.setAttribute(
+
+    'role',
+
+    'button',
+
+  );
+
+  addLabel.setAttribute(
 
     'aria-label',
 
@@ -348,7 +432,15 @@ function createIntro() {
 
   );
 
-  addButton.textContent =
+  addLabel.setAttribute(
+
+    'tabindex',
+
+    '0',
+
+  );
+
+  addLabel.textContent =
 
     '＋';
 
@@ -360,7 +452,7 @@ function createIntro() {
 
   intro.appendChild(
 
-    addButton,
+    addLabel,
 
   );
 
@@ -370,55 +462,7 @@ function createIntro() {
 
 // ============================================================
 
-// 写真選択input
-
-// ============================================================
-
-function createFileInput() {
-
-  const input =
-
-    document.createElement(
-
-      'input',
-
-    );
-
-  input.type =
-
-    'file';
-
-  input.id =
-
-    'photoFileInput';
-
-  input.className =
-
-    'photo-file-input';
-
-  input.accept =
-
-    'image/*';
-
-  input.multiple =
-
-    true;
-
-  input.setAttribute(
-
-    'aria-label',
-
-    '写真を選択',
-
-  );
-
-  return input;
-
-}
-
-// ============================================================
-
-// メイン領域
+// 写真一覧メイン
 
 // ============================================================
 
@@ -436,8 +480,6 @@ function createMain() {
 
     'photo-main';
 
-  // 写真一覧
-
   const gallery =
 
     document.createElement(
@@ -453,8 +495,6 @@ function createMain() {
   gallery.className =
 
     'photo-gallery';
-
-  // 空状態
 
   gallery.appendChild(
 
@@ -474,7 +514,7 @@ function createMain() {
 
 // ============================================================
 
-// 空状態
+// 写真0枚表示
 
 // ============================================================
 
@@ -576,7 +616,7 @@ function createEmptyState() {
 
 // ============================================================
 
-// 写真カード
+// 写真カード生成
 
 // ============================================================
 
@@ -740,37 +780,7 @@ function updateEmptyState() {
 
 // ============================================================
 
-// 写真選択
-
-// ============================================================
-
-export function selectPhotos() {
-
-  const input =
-
-    document.getElementById(
-
-      'photoFileInput',
-
-    );
-
-  if (!input) {
-
-    return;
-
-  }
-
-  input.value =
-
-    '';
-
-  input.click();
-
-}
-
-// ============================================================
-
-// 選択写真追加
+// 選択された写真を追加
 
 // ============================================================
 
@@ -841,6 +851,134 @@ export function addSelectedPhotos(
   );
 
   updateEmptyState();
+
+}
+
+// ============================================================
+
+// file inputイベント
+
+// ============================================================
+
+function registerFileInputListener() {
+
+  const input =
+
+    document.getElementById(
+
+      FILE_INPUT_ID,
+
+    );
+
+  if (!input) {
+
+    return;
+
+  }
+
+  input.addEventListener(
+
+    'change',
+
+    () => {
+
+      if (
+
+        !input.files ||
+
+        input.files.length === 0
+
+      ) {
+
+        return;
+
+      }
+
+      addSelectedPhotos(
+
+        input.files,
+
+      );
+
+      /*
+
+       * 同じ写真を続けて選んだ場合でも
+
+       * changeイベントが再発火できるよう
+
+       * 選択後にvalueを空へ戻す。
+
+       */
+
+      input.value =
+
+        '';
+
+    },
+
+  );
+
+}
+
+// ============================================================
+
+// キーボードで＋を操作
+
+// ============================================================
+
+function registerAddLabelKeyboard() {
+
+  const addLabel =
+
+    document.querySelector(
+
+      '.photo-add-btn',
+
+    );
+
+  if (!addLabel) {
+
+    return;
+
+  }
+
+  addLabel.addEventListener(
+
+    'keydown',
+
+    (event) => {
+
+      if (
+
+        event.key !== 'Enter' &&
+
+        event.key !== ' '
+
+      ) {
+
+        return;
+
+      }
+
+      event.preventDefault();
+
+      const input =
+
+        document.getElementById(
+
+          FILE_INPUT_ID,
+
+        );
+
+      if (input) {
+
+        input.click();
+
+      }
+
+    },
+
+  );
 
 }
 
@@ -1102,58 +1240,6 @@ export function getPhotoUrlFromTarget(
 
 // ============================================================
 
-// file inputイベント
-
-// ============================================================
-
-function registerFileInputListener() {
-
-  const input =
-
-    document.getElementById(
-
-      'photoFileInput',
-
-    );
-
-  if (!input) {
-
-    return;
-
-  }
-
-  input.addEventListener(
-
-    'change',
-
-    () => {
-
-      if (
-
-        !input.files ||
-
-        input.files.length === 0
-
-      ) {
-
-        return;
-
-      }
-
-      addSelectedPhotos(
-
-        input.files,
-
-      );
-
-    },
-
-  );
-
-}
-
-// ============================================================
-
 // 背景反映
 
 // ============================================================
@@ -1189,18 +1275,6 @@ function renderBackground() {
     presetId,
 
   );
-
-}
-
-// ============================================================
-
-// 外部から背景再反映
-
-// ============================================================
-
-export function refreshCustomization() {
-
-  renderBackground();
 
 }
 
@@ -1328,9 +1402,11 @@ export function create() {
 
   );
 
-  renderBackground();
-
   registerFileInputListener();
+
+  registerAddLabelKeyboard();
+
+  renderBackground();
 
   if (
 
@@ -1461,6 +1537,54 @@ export function isOpen() {
       )
 
     : false;
+
+}
+
+// ============================================================
+
+// 互換用
+
+//
+
+// app.js側に以前の
+
+// Photo.selectPhotos()
+
+// が残っていてもエラーにならないようにする。
+
+// ただしiPhoneでは＋labelから直接選択する。
+
+// ============================================================
+
+export function selectPhotos() {
+
+  const input =
+
+    document.getElementById(
+
+      FILE_INPUT_ID,
+
+    );
+
+  if (!input) {
+
+    return;
+
+  }
+
+  input.click();
+
+}
+
+// ============================================================
+
+// 外部から背景再反映
+
+// ============================================================
+
+export function refreshCustomization() {
+
+  renderBackground();
 
 }
 
