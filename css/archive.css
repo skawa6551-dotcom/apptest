@@ -1,301 +1,599 @@
 /* ============================================================
-   archive.css
-   Workspace内「Archive」画面専用のスタイル。
-   記録を振り返るための、落ち着いた高級感のあるライブラリ画面。
 
-   背景プリセット（archive-bg--*）は、Phase1.6よりWorkspace/メッセージ/
-   カレンダー等と共通の背景プリセット名（customization.jsの
-   BACKGROUND_PRESETS）に統一した。'default'は元々のBlack & Gold基調の
-   見た目そのものなので、専用クラスは持たせず無指定のままにしている。
-   プリセット固有の色はapp.cssの共有トークンではなく、このファイル内に
-   閉じた固定値として持たせる（テーマ切り替え＝app.cssのCSS変数とは
-   別レイヤーの機能のため）。
-   それ以外の余白・角丸・影・モーション・Safe Area等はすべて app.css の
-   CSS変数を使う。
-   app.css / calculator.css / settings.css / workspace.css /
-   records.css / calendar.css には触れない。
+   archive.css
+
+   Workspace内「Archive」画面専用のスタイル。
+
    ============================================================ */
 
 .archive {
+
   position: fixed;
+
   inset: 0;
+
   z-index: calc(var(--z-lock) + 10);
 
   display: none;
+
   visibility: hidden;
+
   flex-direction: column;
 
   color: var(--color-text-primary);
 
+  /*
+
+   * 重要：
+
+   * default背景でも必ず画面全体を不透明にする。
+
+   * これが無いと背後のCalculatorが透けて見える。
+
+   */
+
+  background:
+
+    radial-gradient(
+
+      circle at 50% -10%,
+
+      rgba(201, 169, 106, 0.1),
+
+      transparent 42%
+
+    ),
+
+    linear-gradient(
+
+      180deg,
+
+      #090807 0%,
+
+      #0b0b0f 48%,
+
+      #050505 100%
+
+    );
+
+  background-color: #0b0b0f;
+
   overflow: auto;
+
   -webkit-overflow-scrolling: touch;
+
   overscroll-behavior: contain;
 
   opacity: 0;
+
   pointer-events: none;
-  transition: opacity var(--duration-base) var(--easing-standard);
+
+  transition:
+
+    opacity var(--duration-base) var(--easing-standard);
 
   padding-top: max(var(--space-md), var(--safe-top));
+
   padding-bottom: max(var(--space-md), var(--safe-bottom));
+
   padding-left: max(var(--space-md), var(--safe-left));
+
   padding-right: max(var(--space-md), var(--safe-right));
+
 }
 
 .archive.is-open {
+
   display: flex;
+
   visibility: visible;
+
   opacity: 1;
+
   pointer-events: auto;
+
 }
 
 /* ------------------------------------------------------------
-   背景プリセット（'default'は無指定＝既定の見た目のため専用クラス無し）
+
+   背景プリセット
+
    ------------------------------------------------------------ */
+
 .archive.archive-bg--navy {
-  background: linear-gradient(180deg, #05070d 0%, #0d1a2e 100%);
+
+  background:
+
+    linear-gradient(
+
+      180deg,
+
+      #05070d 0%,
+
+      #0d1a2e 100%
+
+    );
+
+  background-color: #0d1a2e;
+
 }
 
 .archive.archive-bg--black-glass {
-  background: linear-gradient(180deg, #101214 0%, #24272b 100%);
+
+  background:
+
+    linear-gradient(
+
+      180deg,
+
+      #101214 0%,
+
+      #24272b 100%
+
+    );
+
+  background-color: #101214;
+
 }
 
 .archive.archive-bg--abstract {
-  background: linear-gradient(160deg, #140a07 0%, #241506 45%, #0a0d14 100%);
+
+  background:
+
+    linear-gradient(
+
+      160deg,
+
+      #140a07 0%,
+
+      #241506 45%,
+
+      #0a0d14 100%
+
+    );
+
+  background-color: #0a0d14;
+
 }
 
 /* ------------------------------------------------------------
-   ヘッダー：戻るボタン＋タイトル＋ロックボタン
+
+   ヘッダー
+
    ------------------------------------------------------------ */
+
 .archive-header {
+
   display: flex;
+
   align-items: center;
+
   gap: var(--space-sm);
+
   flex-shrink: 0;
+
   padding-bottom: var(--space-sm);
+
 }
 
 .archive-title {
+
   flex: 1 1 auto;
+
   min-width: 0;
+
   font-size: var(--font-size-lg);
+
   font-weight: 700;
+
   letter-spacing: 0.04em;
+
 }
 
 /* ------------------------------------------------------------
+
    検索欄
+
    ------------------------------------------------------------ */
+
 .archive-search {
+
   flex-shrink: 0;
+
   padding-bottom: var(--space-sm);
+
 }
 
 .archive-search-input {
+
   width: 100%;
-  padding: var(--space-2xs) var(--space-sm);
+
+  padding:
+
+    var(--space-2xs)
+
+    var(--space-sm);
+
   border: none;
+
   border-radius: var(--radius-full);
+
   background-color: var(--color-surface);
+
   color: var(--color-text-primary);
+
   font-size: var(--font-size-md);
+
   font-family: inherit;
+
 }
 
 .archive-search-input::placeholder {
+
   color: var(--color-text-secondary);
+
 }
 
 /* ------------------------------------------------------------
-   背景プリセット選択UI
+
+   背景選択
+
    ------------------------------------------------------------ */
+
 .archive-bg-picker {
+
   display: flex;
+
   gap: var(--space-sm);
+
   padding-bottom: var(--space-md);
+
 }
 
 .archive-bg-swatch {
+
   width: 2.25rem;
+
   height: 2.25rem;
+
   border-radius: var(--radius-full);
+
   border: 2px solid transparent;
-  transition: transform var(--duration-fast) var(--easing-standard),
+
+  transition:
+
+    transform var(--duration-fast) var(--easing-standard),
+
     border-color var(--duration-fast) var(--easing-standard);
+
 }
 
 .archive-bg-swatch:active {
+
   transform: scale(0.92);
+
 }
 
 .archive-bg-swatch.active {
+
   border-color: var(--color-accent);
+
 }
 
 .archive-bg-swatch--default {
-  background: linear-gradient(135deg, #050505 0%, #171008 100%);
+
+  background:
+
+    linear-gradient(
+
+      135deg,
+
+      #050505 0%,
+
+      #171008 100%
+
+    );
+
 }
 
 .archive-bg-swatch--navy {
-  background: linear-gradient(135deg, #05070d 0%, #0d1a2e 100%);
+
+  background:
+
+    linear-gradient(
+
+      135deg,
+
+      #05070d 0%,
+
+      #0d1a2e 100%
+
+    );
+
 }
 
 .archive-bg-swatch--black-glass {
-  background: linear-gradient(135deg, #101214 0%, #24272b 100%);
+
+  background:
+
+    linear-gradient(
+
+      135deg,
+
+      #101214 0%,
+
+      #24272b 100%
+
+    );
+
 }
 
 .archive-bg-swatch--abstract {
-  background: linear-gradient(135deg, #140a07 0%, #241506 45%, #0a0d14 100%);
+
+  background:
+
+    linear-gradient(
+
+      135deg,
+
+      #140a07 0%,
+
+      #241506 45%,
+
+      #0a0d14 100%
+
+    );
+
 }
 
 /* ------------------------------------------------------------
+
    記録一覧
+
    ------------------------------------------------------------ */
+
 .archive-list {
+
   flex: 1 1 auto;
+
   min-height: 0;
+
   margin: 0;
+
   padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
+
   padding-bottom: var(--space-lg);
+
+  list-style: none;
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: var(--space-sm);
+
 }
 
-/*
- * [hidden]属性が付いている間は必ず非表示にする。
- * display: flex の指定はブラウザ標準の[hidden]{display:none}より
- * 優先されてしまうため、ここで明示的に上書きする
- * （pairing.cssの.pairing-panel[hidden]と同じ理由）。
- */
 .archive-list[hidden] {
-  display: none;
+
+  display: none !important;
+
 }
 
 .archive-entry {
+
   padding: var(--space-md);
+
   border-radius: var(--radius-lg);
-  background-color: rgba(255, 255, 255, 0.05);
+
+  background-color:
+
+    rgba(255, 255, 255, 0.05);
+
   backdrop-filter: blur(var(--blur-glass));
+
   -webkit-backdrop-filter: blur(var(--blur-glass));
+
   box-shadow: var(--shadow-elevated);
+
 }
 
 .archive-entry-date {
+
+  margin:
+
+    0
+
+    0
+
+    var(--space-3xs)
+
+    0;
+
   font-size: var(--font-size-sm);
+
   color: var(--color-accent);
-  margin: 0 0 var(--space-3xs) 0;
+
 }
 
 .archive-entry-text {
-  font-size: var(--font-size-md);
-  color: var(--color-text-primary);
-  white-space: pre-wrap;
-  word-break: break-word;
+
   margin: 0;
+
+  font-size: var(--font-size-md);
+
+  color: var(--color-text-primary);
+
+  white-space: pre-wrap;
+
+  word-break: break-word;
+
 }
 
 .archive-empty-state {
+
   flex: 1 1 auto;
+
   display: flex;
+
   align-items: center;
+
   justify-content: center;
-  text-align: center;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-md);
+
   padding: var(--space-lg);
+
+  text-align: center;
+
+  color: var(--color-text-secondary);
+
+  font-size: var(--font-size-md);
+
 }
 
 .archive-empty-state[hidden] {
-  display: none;
+
+  display: none !important;
+
 }
 
 /* ------------------------------------------------------------
-   #archiveContent（検索欄・背景ピッカー・一覧・空表示のラッパー）
-   .archive自体のflexレイアウトをそのまま子要素へ引き継がせるため、
-   ラッパー自身はボックスとして存在しない display:contents にする。
+
+   Archive Content
+
    ------------------------------------------------------------ */
+
 .archive-content {
+
   display: contents;
+
 }
 
-/*
- * [hidden]属性が付いている間は必ず非表示にする。display:contentsの上に
- * さらに上書きが必要なため、他の[hidden]対応と同じ理由でここに明記する。
- */
 .archive-content[hidden] {
-  display: none;
+
+  display: none !important;
+
 }
 
 /* ------------------------------------------------------------
-   Archiveロック用パスコード認証パネル
-   workspace.cssの鑑賞モード認証パネルと同じ考え方の、画面中央寄せの
-   グラスパネル。通常は非表示（.is-openが付いたときだけ表示する）。
+
+   Archiveロック
+
    ------------------------------------------------------------ */
+
 .archive-auth {
+
   display: none;
+
   flex-direction: column;
+
   align-items: stretch;
+
   gap: var(--space-md);
+
   flex: 1 1 auto;
+
   justify-content: center;
+
   max-width: 22rem;
+
   margin: 0 auto;
+
   width: 100%;
+
 }
 
 .archive-auth.is-open {
+
   display: flex;
+
 }
 
 .archive-auth-message {
+
   text-align: center;
+
   font-size: var(--font-size-md);
+
   color: var(--color-text-secondary);
+
 }
 
 .archive-auth-input {
+
   width: 100%;
+
   padding: var(--space-sm);
+
   border: none;
+
   border-radius: var(--radius-lg);
+
   background-color: var(--color-surface);
+
   color: var(--color-text-primary);
+
   font-size: var(--font-size-lg);
+
   font-family: inherit;
+
   text-align: center;
+
   letter-spacing: 0.3em;
+
 }
 
 .archive-auth-error {
+
   text-align: center;
+
   font-size: var(--font-size-sm);
+
   color: var(--color-error);
+
 }
 
 .archive-auth-actions {
+
   display: flex;
+
   gap: var(--space-sm);
+
 }
 
 .archive-auth-btn {
+
   flex: 1 1 0;
+
   padding: var(--space-sm);
+
   border-radius: var(--radius-full);
+
   font-weight: 700;
-  transition: transform var(--duration-fast) var(--easing-standard);
+
+  transition:
+
+    transform var(--duration-fast) var(--easing-standard);
+
 }
 
 .archive-auth-btn:active {
+
   transform: scale(0.97);
+
 }
 
 .archive-auth-btn--cancel {
+
   background-color: var(--color-surface-strong);
+
   color: var(--color-text-primary);
+
 }
 
 .archive-auth-btn--confirm {
+
   background-color: var(--color-accent);
+
   color: var(--color-accent-contrast);
+
 }
