@@ -8,13 +8,17 @@
 
 //
 
-// iPhone対策：
+// ・iPhoneで写真選択
 
-// ＋ボタンはJavaScriptでfile inputをclickしない。
+// ・IndexedDBへ写真保存
 
-// <label for="photoFileInput"> を使い、
+// ・アプリ再起動後も写真を復元
 
-// iOSへ直接写真選択操作を渡す。
+// ・写真一覧表示
+
+// ・写真プレビュー
+
+// ・背景カスタマイズ
 
 // ============================================================
 
@@ -22,7 +26,7 @@ import Customization from './customization.js';
 
 // ------------------------------------------------------------
 
-// 定数
+// 画面定数
 
 // ------------------------------------------------------------
 
@@ -33,6 +37,24 @@ const CONTAINER_ID =
 const FILE_INPUT_ID =
 
   'photoFileInput';
+
+// ------------------------------------------------------------
+
+// IndexedDB定数
+
+// ------------------------------------------------------------
+
+const DB_NAME =
+
+  'calculator-0209-photo-db';
+
+const DB_VERSION =
+
+  1;
+
+const PHOTO_STORE_NAME =
+
+  'photos';
 
 // ------------------------------------------------------------
 
@@ -48,9 +70,565 @@ let unsubscribeCustomization =
 
   null;
 
-const photoObjectUrls =
+let databasePromise =
+
+  null;
+
+const activeObjectUrls =
 
   new Set();
+
+// ============================================================
+
+// IndexedDB
+
+// ============================================================
+
+function openDatabase() {
+
+  if (databasePromise) {
+
+    return databasePromise;
+
+  }
+
+  databasePromise =
+
+    new Promise(
+
+      (resolve, reject) => {
+
+        if (
+
+          !('indexedDB' in window)
+
+        ) {
+
+          reject(
+
+            new Error(
+
+              'IndexedDBが利用できません。',
+
+            ),
+
+          );
+
+          return;
+
+        }
+
+        const request =
+
+          indexedDB.open(
+
+            DB_NAME,
+
+            DB_VERSION,
+
+          );
+
+        request.onupgradeneeded =
+
+          () => {
+
+            const db =
+
+              request.result;
+
+            if (
+
+              !db.objectStoreNames.contains(
+
+                PHOTO_STORE_NAME,
+
+              )
+
+            ) {
+
+              const store =
+
+                db.createObjectStore(
+
+                  PHOTO_STORE_NAME,
+
+                  {
+
+                    keyPath:
+
+                      'id',
+
+                  },
+
+                );
+
+              store.createIndex(
+
+                'createdAt',
+
+                'createdAt',
+
+                {
+
+                  unique:
+
+                    false,
+
+                },
+
+              );
+
+            }
+
+          };
+
+        request.onsuccess =
+
+          () => {
+
+            resolve(
+
+              request.result,
+
+            );
+
+          };
+
+        request.onerror =
+
+          () => {
+
+            reject(
+
+              request.error ??
+
+              new Error(
+
+                '写真データベースを開けませんでした。',
+
+              ),
+
+            );
+
+          };
+
+        request.onblocked =
+
+          () => {
+
+            console.warn(
+
+              '[photo.js] IndexedDBの更新がブロックされています',
+
+            );
+
+          };
+
+      },
+
+    );
+
+  return databasePromise;
+
+}
+
+// ============================================================
+
+// IndexedDB共通処理
+
+// ============================================================
+
+async function runStoreTransaction(
+
+  mode,
+
+  callback,
+
+) {
+
+  const db =
+
+    await openDatabase();
+
+  return new Promise(
+
+    (resolve, reject) => {
+
+      const transaction =
+
+        db.transaction(
+
+          PHOTO_STORE_NAME,
+
+          mode,
+
+        );
+
+      const store =
+
+        transaction.objectStore(
+
+          PHOTO_STORE_NAME,
+
+        );
+
+      let result;
+
+      try {
+
+        result =
+
+          callback(
+
+            store,
+
+            transaction,
+
+          );
+
+      } catch (error) {
+
+        reject(
+
+          error,
+
+        );
+
+        return;
+
+      }
+
+      transaction.oncomplete =
+
+        () => {
+
+          resolve(
+
+            result,
+
+          );
+
+        };
+
+      transaction.onerror =
+
+        () => {
+
+          reject(
+
+            transaction.error ??
+
+            new Error(
+
+              '写真データの処理に失敗しました。',
+
+            ),
+
+          );
+
+        };
+
+      transaction.onabort =
+
+        () => {
+
+          reject(
+
+            transaction.error ??
+
+            new Error(
+
+              '写真データの処理が中断されました。',
+
+            ),
+
+          );
+
+        };
+
+    },
+
+  );
+
+}
+
+// ============================================================
+
+// ID生成
+
+// ============================================================
+
+function createPhotoId() {
+
+  if (
+
+    'crypto' in window &&
+
+    typeof crypto.randomUUID ===
+
+      'function'
+
+  ) {
+
+    return crypto.randomUUID();
+
+  }
+
+  return [
+
+    Date.now(),
+
+    Math.random()
+
+      .toString(36)
+
+      .slice(2),
+
+  ].join('-');
+
+}
+
+// ============================================================
+
+// 写真保存
+
+// ============================================================
+
+async function savePhotoFile(
+
+  file,
+
+) {
+
+  if (
+
+    !(file instanceof File)
+
+  ) {
+
+    return null;
+
+  }
+
+  if (
+
+    !file.type.startsWith(
+
+      'image/',
+
+    )
+
+  ) {
+
+    return null;
+
+  }
+
+  const record = {
+
+    id:
+
+      createPhotoId(),
+
+    name:
+
+      file.name ||
+
+      'photo',
+
+    type:
+
+      file.type ||
+
+      'image/jpeg',
+
+    size:
+
+      file.size,
+
+    createdAt:
+
+      Date.now(),
+
+    blob:
+
+      file,
+
+  };
+
+  await runStoreTransaction(
+
+    'readwrite',
+
+    (store) => {
+
+      store.put(
+
+        record,
+
+      );
+
+    },
+
+  );
+
+  return record;
+
+}
+
+// ============================================================
+
+// 全写真取得
+
+// ============================================================
+
+async function loadAllPhotos() {
+
+  const db =
+
+    await openDatabase();
+
+  return new Promise(
+
+    (resolve, reject) => {
+
+      const transaction =
+
+        db.transaction(
+
+          PHOTO_STORE_NAME,
+
+          'readonly',
+
+        );
+
+      const store =
+
+        transaction.objectStore(
+
+          PHOTO_STORE_NAME,
+
+        );
+
+      const request =
+
+        store.getAll();
+
+      request.onsuccess =
+
+        () => {
+
+          const records =
+
+            Array.isArray(
+
+              request.result,
+
+            )
+
+              ? request.result
+
+              : [];
+
+          records.sort(
+
+            (a, b) =>
+
+              b.createdAt -
+
+              a.createdAt,
+
+          );
+
+          resolve(
+
+            records,
+
+          );
+
+        };
+
+      request.onerror =
+
+        () => {
+
+          reject(
+
+            request.error ??
+
+            new Error(
+
+              '保存写真の読み込みに失敗しました。',
+
+            ),
+
+          );
+
+        };
+
+    },
+
+  );
+
+}
+
+// ============================================================
+
+// 写真削除
+
+// ============================================================
+
+async function deletePhotoById(
+
+  photoId,
+
+) {
+
+  if (!photoId) {
+
+    return;
+
+  }
+
+  await runStoreTransaction(
+
+    'readwrite',
+
+    (store) => {
+
+      store.delete(
+
+        photoId,
+
+      );
+
+    },
+
+  );
+
+}
+
+// ============================================================
+
+// 全写真削除
+
+// ============================================================
+
+async function deleteAllPhotoRecords() {
+
+  await runStoreTransaction(
+
+    'readwrite',
+
+    (store) => {
+
+      store.clear();
+
+    },
+
+  );
+
+}
 
 // ============================================================
 
@@ -130,12 +708,6 @@ function createHeader() {
 
     'photo-header';
 
-  // ----------------------------------------------------------
-
-  // 戻る
-
-  // ----------------------------------------------------------
-
   const backButton =
 
     document.createElement(
@@ -168,12 +740,6 @@ function createHeader() {
 
     '‹';
 
-  // ----------------------------------------------------------
-
-  // タイトル
-
-  // ----------------------------------------------------------
-
   const title =
 
     document.createElement(
@@ -189,12 +755,6 @@ function createHeader() {
   title.textContent =
 
     '写真';
-
-  // ----------------------------------------------------------
-
-  // ロック
-
-  // ----------------------------------------------------------
 
   const lockButton =
 
@@ -318,12 +878,6 @@ function createIntro() {
 
     'photo-intro';
 
-  // ----------------------------------------------------------
-
-  // 左側テキスト
-
-  // ----------------------------------------------------------
-
   const textWrap =
 
     document.createElement(
@@ -380,25 +934,15 @@ function createIntro() {
 
   );
 
-  // ----------------------------------------------------------
+  /*
 
-  // 写真追加
+   * iPhone対策：
 
-  //
+   * JavaScriptのinput.click()ではなく
 
-  // 重要：
+   * label for="photoFileInput" を使う。
 
-  // buttonではなくlabelを使用する。
-
-  //
-
-  // for="photoFileInput" により、
-
-  // JavaScriptの click() を使わず
-
-  // iPhoneの写真選択を直接起動する。
-
-  // ----------------------------------------------------------
+   */
 
   const addLabel =
 
@@ -462,7 +1006,7 @@ function createIntro() {
 
 // ============================================================
 
-// 写真一覧メイン
+// メイン領域
 
 // ============================================================
 
@@ -496,12 +1040,6 @@ function createMain() {
 
     'photo-gallery';
 
-  gallery.appendChild(
-
-    createEmptyState(),
-
-  );
-
   main.appendChild(
 
     gallery,
@@ -514,7 +1052,7 @@ function createMain() {
 
 // ============================================================
 
-// 写真0枚表示
+// 空状態
 
 // ============================================================
 
@@ -616,25 +1154,135 @@ function createEmptyState() {
 
 // ============================================================
 
-// 写真カード生成
+// ローディング表示
+
+// ============================================================
+
+function createLoadingState() {
+
+  const loading =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  loading.id =
+
+    'photoLoadingState';
+
+  loading.className =
+
+    'photo-loading';
+
+  const spinner =
+
+    document.createElement(
+
+      'span',
+
+    );
+
+  spinner.className =
+
+    'photo-loading-spinner';
+
+  spinner.setAttribute(
+
+    'aria-hidden',
+
+    'true',
+
+  );
+
+  const text =
+
+    document.createElement(
+
+      'span',
+
+    );
+
+  text.textContent =
+
+    '写真を読み込み中…';
+
+  loading.appendChild(
+
+    spinner,
+
+  );
+
+  loading.appendChild(
+
+    text,
+
+  );
+
+  return loading;
+
+}
+
+// ============================================================
+
+// Object URL管理
+
+// ============================================================
+
+function revokeAllObjectUrls() {
+
+  activeObjectUrls.forEach(
+
+    (url) => {
+
+      try {
+
+        URL.revokeObjectURL(
+
+          url,
+
+        );
+
+      } catch (error) {
+
+        console.warn(
+
+          '[photo.js] Object URLの解放に失敗しました',
+
+          error,
+
+        );
+
+      }
+
+    },
+
+  );
+
+  activeObjectUrls.clear();
+
+}
+
+// ============================================================
+
+// 写真カード
 
 // ============================================================
 
 function createPhotoCard(
 
-  file,
+  record,
 
 ) {
 
   if (
 
-    !(file instanceof File) ||
+    !record ||
 
-    !file.type.startsWith(
+    !record.id ||
 
-      'image/',
-
-    )
+    !(record.blob instanceof Blob)
 
   ) {
 
@@ -646,11 +1294,11 @@ function createPhotoCard(
 
     URL.createObjectURL(
 
-      file,
+      record.blob,
 
     );
 
-  photoObjectUrls.add(
+  activeObjectUrls.add(
 
     objectUrl,
 
@@ -680,13 +1328,17 @@ function createPhotoCard(
 
     objectUrl;
 
+  card.dataset.photoId =
+
+    record.id;
+
   card.setAttribute(
 
     'aria-label',
 
-    file.name
+    record.name
 
-      ? `${file.name}を開く`
+      ? `${record.name}を開く`
 
       : '写真を開く',
 
@@ -710,7 +1362,7 @@ function createPhotoCard(
 
   image.alt =
 
-    file.name ||
+    record.name ||
 
     '写真';
 
@@ -718,9 +1370,77 @@ function createPhotoCard(
 
     'lazy';
 
+  const date =
+
+    document.createElement(
+
+      'span',
+
+    );
+
+  date.className =
+
+    'photo-card-date';
+
+  date.textContent =
+
+    formatPhotoDate(
+
+      record.createdAt,
+
+    );
+
+  const deleteButton =
+
+    document.createElement(
+
+      'button',
+
+    );
+
+  deleteButton.type =
+
+    'button';
+
+  deleteButton.className =
+
+    'photo-delete-btn';
+
+  deleteButton.dataset.action =
+
+    'delete-photo';
+
+  deleteButton.dataset.photoId =
+
+    record.id;
+
+  deleteButton.setAttribute(
+
+    'aria-label',
+
+    'この写真を削除',
+
+  );
+
+  deleteButton.textContent =
+
+    '×';
+
   card.appendChild(
 
     image,
+
+  );
+
+  card.appendChild(
+
+    date,
+
+  );
+
+  card.appendChild(
+
+    deleteButton,
 
   );
 
@@ -730,65 +1450,69 @@ function createPhotoCard(
 
 // ============================================================
 
-// 空状態更新
+// 日付表示
 
 // ============================================================
 
-function updateEmptyState() {
+function formatPhotoDate(
 
-  const gallery =
+  timestamp,
 
-    document.getElementById(
+) {
 
-      'photoGallery',
+  const date =
 
-    );
+    new Date(
 
-  const empty =
+      Number(timestamp) ||
 
-    document.getElementById(
-
-      'photoEmptyState',
+      Date.now(),
 
     );
 
-  if (
+  const year =
 
-    !gallery ||
+    date.getFullYear();
 
-    !empty
+  const month =
 
-  ) {
+    String(
 
-    return;
+      date.getMonth() + 1,
 
-  }
+    ).padStart(
 
-  const hasPhoto =
+      2,
 
-    gallery.querySelector(
+      '0',
 
-      '.photo-card',
+    );
 
-    ) !== null;
+  const day =
 
-  empty.hidden =
+    String(
 
-    hasPhoto;
+      date.getDate(),
+
+    ).padStart(
+
+      2,
+
+      '0',
+
+    );
+
+  return `${year}.${month}.${day}`;
 
 }
 
 // ============================================================
 
-// 選択された写真を追加
+// ギャラリー描画
 
 // ============================================================
 
-export function addSelectedPhotos(
-
-  files,
-
-) {
+async function renderGallery() {
 
   const gallery =
 
@@ -798,11 +1522,171 @@ export function addSelectedPhotos(
 
     );
 
+  if (!gallery) {
+
+    return;
+
+  }
+
+  gallery.replaceChildren(
+
+    createLoadingState(),
+
+  );
+
+  revokeAllObjectUrls();
+
+  try {
+
+    const records =
+
+      await loadAllPhotos();
+
+    if (
+
+      records.length === 0
+
+    ) {
+
+      gallery.replaceChildren(
+
+        createEmptyState(),
+
+      );
+
+      return;
+
+    }
+
+    const fragment =
+
+      document.createDocumentFragment();
+
+    records.forEach(
+
+      (record) => {
+
+        const card =
+
+          createPhotoCard(
+
+            record,
+
+          );
+
+        if (card) {
+
+          fragment.appendChild(
+
+            card,
+
+          );
+
+        }
+
+      },
+
+    );
+
+    gallery.replaceChildren(
+
+      fragment,
+
+    );
+
+  } catch (error) {
+
+    console.error(
+
+      '[photo.js] 写真一覧の読み込みに失敗しました',
+
+      error,
+
+    );
+
+    const errorState =
+
+      document.createElement(
+
+        'div',
+
+      );
+
+    errorState.className =
+
+      'photo-empty';
+
+    const title =
+
+      document.createElement(
+
+        'p',
+
+      );
+
+    title.className =
+
+      'photo-empty-title';
+
+    title.textContent =
+
+      '写真を読み込めませんでした';
+
+    const description =
+
+      document.createElement(
+
+        'p',
+
+      );
+
+    description.className =
+
+      'photo-empty-text';
+
+    description.textContent =
+
+      'アプリを開き直してもう一度お試しください';
+
+    errorState.appendChild(
+
+      title,
+
+    );
+
+    errorState.appendChild(
+
+      description,
+
+    );
+
+    gallery.replaceChildren(
+
+      errorState,
+
+    );
+
+  }
+
+}
+
+// ============================================================
+
+// 写真選択後の保存
+
+// ============================================================
+
+async function handleSelectedFiles(
+
+  files,
+
+) {
+
   if (
 
-    !gallery ||
+    !files ||
 
-    !files
+    files.length === 0
 
   ) {
 
@@ -810,47 +1694,67 @@ export function addSelectedPhotos(
 
   }
 
-  const fragment =
+  const imageFiles =
 
-    document.createDocumentFragment();
+    Array.from(
 
-  Array.from(
+      files,
 
-    files,
+    ).filter(
 
-  ).forEach(
+      (file) =>
 
-    (file) => {
+        file instanceof File &&
 
-      const card =
+        file.type.startsWith(
 
-        createPhotoCard(
+          'image/',
 
-          file,
+        ),
 
-        );
+    );
 
-      if (card) {
+  if (
 
-        fragment.appendChild(
+    imageFiles.length === 0
 
-          card,
+  ) {
 
-        );
+    return;
 
-      }
+  }
 
-    },
+  try {
 
-  );
+    for (
 
-  gallery.appendChild(
+      const file of
 
-    fragment,
+      imageFiles
 
-  );
+    ) {
 
-  updateEmptyState();
+      await savePhotoFile(
+
+        file,
+
+      );
+
+    }
+
+    await renderGallery();
+
+  } catch (error) {
+
+    console.error(
+
+      '[photo.js] 写真の保存に失敗しました',
+
+      error,
+
+    );
+
+  }
 
 }
 
@@ -880,39 +1784,29 @@ function registerFileInputListener() {
 
     'change',
 
-    () => {
+    async () => {
 
-      if (
+      const files =
 
-        !input.files ||
+        input.files
 
-        input.files.length === 0
+          ? Array.from(
 
-      ) {
+              input.files,
 
-        return;
+            )
 
-      }
-
-      addSelectedPhotos(
-
-        input.files,
-
-      );
-
-      /*
-
-       * 同じ写真を続けて選んだ場合でも
-
-       * changeイベントが再発火できるよう
-
-       * 選択後にvalueを空へ戻す。
-
-       */
+          : [];
 
       input.value =
 
         '';
+
+      await handleSelectedFiles(
+
+        files,
+
+      );
 
     },
 
@@ -922,7 +1816,7 @@ function registerFileInputListener() {
 
 // ============================================================
 
-// キーボードで＋を操作
+// ＋ラベルのキーボード操作
 
 // ============================================================
 
@@ -950,9 +1844,13 @@ function registerAddLabelKeyboard() {
 
       if (
 
-        event.key !== 'Enter' &&
+        event.key !==
 
-        event.key !== ' '
+          'Enter' &&
+
+        event.key !==
+
+          ' '
 
       ) {
 
@@ -1066,6 +1964,22 @@ function createViewer() {
 
     '選択した写真';
 
+  const date =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  date.id =
+
+    'photoViewerDate';
+
+  date.className =
+
+    'photo-viewer-date';
+
   viewer.appendChild(
 
     closeButton,
@@ -1075,6 +1989,12 @@ function createViewer() {
   viewer.appendChild(
 
     image,
+
+  );
+
+  viewer.appendChild(
+
+    date,
 
   );
 
@@ -1158,6 +2078,56 @@ export function openPreview(
 
 // ============================================================
 
+// プレビュー日付
+
+// ============================================================
+
+function setPreviewDateFromTarget(
+
+  target,
+
+) {
+
+  const dateLabel =
+
+    document.getElementById(
+
+      'photoViewerDate',
+
+    );
+
+  if (!dateLabel) {
+
+    return;
+
+  }
+
+  const card =
+
+    target.closest(
+
+      '.photo-card',
+
+    );
+
+  const cardDate =
+
+    card?.querySelector(
+
+      '.photo-card-date',
+
+    );
+
+  dateLabel.textContent =
+
+    cardDate?.textContent ??
+
+    '';
+
+}
+
+// ============================================================
+
 // プレビューを閉じる
 
 // ============================================================
@@ -1177,6 +2147,14 @@ export function closePreview() {
     document.getElementById(
 
       'photoViewerImage',
+
+    );
+
+  const dateLabel =
+
+    document.getElementById(
+
+      'photoViewerDate',
 
     );
 
@@ -1208,11 +2186,19 @@ export function closePreview() {
 
   }
 
+  if (dateLabel) {
+
+    dateLabel.textContent =
+
+      '';
+
+  }
+
 }
 
 // ============================================================
 
-// 写真URL取得
+// ターゲットから写真URL取得
 
 // ============================================================
 
@@ -1232,9 +2218,135 @@ export function getPhotoUrlFromTarget(
 
   }
 
-  return target.dataset.photoUrl ??
+  const card =
+
+    target.closest(
+
+      '.photo-card',
+
+    );
+
+  return card?.dataset.photoUrl ??
 
     '';
+
+}
+
+// ============================================================
+
+// ターゲットから写真ID取得
+
+// ============================================================
+
+export function getPhotoIdFromTarget(
+
+  target,
+
+) {
+
+  if (
+
+    !(target instanceof HTMLElement)
+
+  ) {
+
+    return '';
+
+  }
+
+  const owner =
+
+    target.closest(
+
+      '[data-photo-id]',
+
+    );
+
+  return owner?.dataset.photoId ??
+
+    '';
+
+}
+
+// ============================================================
+
+// プレビューをターゲットから開く
+
+// ============================================================
+
+export function openPreviewFromTarget(
+
+  target,
+
+) {
+
+  const objectUrl =
+
+    getPhotoUrlFromTarget(
+
+      target,
+
+    );
+
+  if (!objectUrl) {
+
+    return;
+
+  }
+
+  setPreviewDateFromTarget(
+
+    target,
+
+  );
+
+  openPreview(
+
+    objectUrl,
+
+  );
+
+}
+
+// ============================================================
+
+// 写真1枚削除
+
+// ============================================================
+
+export async function deletePhoto(
+
+  photoId,
+
+) {
+
+  if (!photoId) {
+
+    return;
+
+  }
+
+  try {
+
+    await deletePhotoById(
+
+      photoId,
+
+    );
+
+    await renderGallery();
+
+  } catch (error) {
+
+    console.error(
+
+      '[photo.js] 写真の削除に失敗しました',
+
+      error,
+
+    );
+
+  }
 
 }
 
@@ -1275,70 +2387,6 @@ function renderBackground() {
     presetId,
 
   );
-
-}
-
-// ============================================================
-
-// 写真一覧クリア
-
-// ============================================================
-
-export function clearPhotos() {
-
-  closePreview();
-
-  photoObjectUrls.forEach(
-
-    (url) => {
-
-      try {
-
-        URL.revokeObjectURL(
-
-          url,
-
-        );
-
-      } catch (error) {
-
-        console.warn(
-
-          '[photo.js] Object URLの解放に失敗しました',
-
-          error,
-
-        );
-
-      }
-
-    },
-
-  );
-
-  photoObjectUrls.clear();
-
-  const gallery =
-
-    document.getElementById(
-
-      'photoGallery',
-
-    );
-
-  if (!gallery) {
-
-    return;
-
-  }
-
-  gallery.replaceChildren(
-
-    createEmptyState(),
-
-  );
-
-  updateEmptyState();
 
 }
 
@@ -1474,6 +2522,8 @@ export function open() {
 
     0;
 
+  renderGallery();
+
 }
 
 // ============================================================
@@ -1542,17 +2592,7 @@ export function isOpen() {
 
 // ============================================================
 
-// 互換用
-
-//
-
-// app.js側に以前の
-
-// Photo.selectPhotos()
-
-// が残っていてもエラーにならないようにする。
-
-// ただしiPhoneでは＋labelから直接選択する。
+// 互換用：写真選択
 
 // ============================================================
 
@@ -1578,13 +2618,79 @@ export function selectPhotos() {
 
 // ============================================================
 
-// 外部から背景再反映
+// 全写真削除
+
+// ============================================================
+
+export async function clearPhotos() {
+
+  try {
+
+    closePreview();
+
+    await deleteAllPhotoRecords();
+
+    revokeAllObjectUrls();
+
+    await renderGallery();
+
+  } catch (error) {
+
+    console.error(
+
+      '[photo.js] 全写真の削除に失敗しました',
+
+      error,
+
+    );
+
+  }
+
+}
+
+// ============================================================
+
+// 背景再反映
 
 // ============================================================
 
 export function refreshCustomization() {
 
   renderBackground();
+
+}
+
+// ============================================================
+
+// app.js側から削除操作を呼ぶための公開関数
+
+// ============================================================
+
+export async function deletePhotoFromTarget(
+
+  target,
+
+) {
+
+  const photoId =
+
+    getPhotoIdFromTarget(
+
+      target,
+
+    );
+
+  if (!photoId) {
+
+    return;
+
+  }
+
+  await deletePhoto(
+
+    photoId,
+
+  );
 
 }
 
@@ -1606,13 +2712,19 @@ const Photo = {
 
   selectPhotos,
 
-  addSelectedPhotos,
-
   openPreview,
+
+  openPreviewFromTarget,
 
   closePreview,
 
   getPhotoUrlFromTarget,
+
+  getPhotoIdFromTarget,
+
+  deletePhoto,
+
+  deletePhotoFromTarget,
 
   clearPhotos,
 
