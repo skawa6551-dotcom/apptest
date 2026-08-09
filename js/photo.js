@@ -8,11 +8,11 @@
 
 //
 
-// ・iPhoneから写真を選択
+// ・iPhoneから写真選択
 
-// ・IndexedDBへ写真保存
+// ・ArrayBufferでIndexedDB保存
 
-// ・アプリ再起動後も写真を復元
+// ・アプリ再起動後も復元
 
 // ・写真一覧表示
 
@@ -20,15 +20,9 @@
 
 // ・写真削除
 
+// ・保存状態表示
+
 // ・背景カスタマイズ
-
-//
-
-// iPhone対策：
-
-// ・写真選択は label for="photoFileInput" を使用
-
-// ・file.type が空でも保存対象にする
 
 // ============================================================
 
@@ -48,9 +42,13 @@ const FILE_INPUT_ID =
 
   'photoFileInput';
 
+const STATUS_ID =
+
+  'photoStatus';
+
 // ------------------------------------------------------------
 
-// IndexedDB定数
+// IndexedDB
 
 // ------------------------------------------------------------
 
@@ -60,7 +58,7 @@ const DB_NAME =
 
 const DB_VERSION =
 
-  1;
+  2;
 
 const PHOTO_STORE_NAME =
 
@@ -76,17 +74,67 @@ let isBuilt =
 
   false;
 
-let unsubscribeCustomization =
+let databasePromise =
 
   null;
 
-let databasePromise =
+let unsubscribeCustomization =
 
   null;
 
 const activeObjectUrls =
 
   new Set();
+
+// ============================================================
+
+// ステータス表示
+
+// ============================================================
+
+function setStatus(
+
+  message,
+
+  type = 'normal',
+
+) {
+
+  const status =
+
+    document.getElementById(
+
+      STATUS_ID,
+
+    );
+
+  if (!status) {
+
+    return;
+
+  }
+
+  status.textContent =
+
+    message ?? '';
+
+  status.dataset.status =
+
+    type;
+
+}
+
+function clearStatus() {
+
+  setStatus(
+
+    '',
+
+    'normal',
+
+  );
+
+}
 
 // ============================================================
 
@@ -110,13 +158,7 @@ function openDatabase() {
 
         if (
 
-          !(
-
-            'indexedDB' in
-
-            window
-
-          )
+          !('indexedDB' in window)
 
         ) {
 
@@ -154,7 +196,7 @@ function openDatabase() {
 
             if (
 
-              !db.objectStoreNames.contains(
+              db.objectStoreNames.contains(
 
                 PHOTO_STORE_NAME,
 
@@ -162,39 +204,45 @@ function openDatabase() {
 
             ) {
 
-              const store =
+              db.deleteObjectStore(
 
-                db.createObjectStore(
+                PHOTO_STORE_NAME,
 
-                  PHOTO_STORE_NAME,
+              );
 
-                  {
+            }
 
-                    keyPath:
+            const store =
 
-                      'id',
+              db.createObjectStore(
 
-                  },
-
-                );
-
-              store.createIndex(
-
-                'createdAt',
-
-                'createdAt',
+                PHOTO_STORE_NAME,
 
                 {
 
-                  unique:
+                  keyPath:
 
-                    false,
+                    'id',
 
                 },
 
               );
 
-            }
+            store.createIndex(
+
+              'createdAt',
+
+              'createdAt',
+
+              {
+
+                unique:
+
+                  false,
+
+              },
+
+            );
 
           };
 
@@ -254,7 +302,7 @@ function openDatabase() {
 
             console.warn(
 
-              '[photo.js] IndexedDBの更新がブロックされています',
+              '[photo.js] IndexedDB更新がブロックされています',
 
             );
 
@@ -270,7 +318,7 @@ function openDatabase() {
 
 // ============================================================
 
-// 写真ID生成
+// ID生成
 
 // ============================================================
 
@@ -278,7 +326,7 @@ function createPhotoId() {
 
   if (
 
-    'crypto' in window &&
+    window.crypto &&
 
     typeof crypto.randomUUID ===
 
@@ -290,19 +338,85 @@ function createPhotoId() {
 
   }
 
-  return [
+  return `${Date.now()}-${Math.random()
 
-    Date.now(),
+    .toString(36)
 
-    Math.random()
+    .slice(2)}`;
 
-      .toString(36)
+}
 
-      .slice(2),
+// ============================================================
 
-  ].join(
+// File / Blob → ArrayBuffer
 
-    '-',
+// ============================================================
+
+function blobToArrayBuffer(
+
+  blob,
+
+) {
+
+  if (
+
+    blob &&
+
+    typeof blob.arrayBuffer ===
+
+      'function'
+
+  ) {
+
+    return blob.arrayBuffer();
+
+  }
+
+  return new Promise(
+
+    (resolve, reject) => {
+
+      const reader =
+
+        new FileReader();
+
+      reader.onload =
+
+        () => {
+
+          resolve(
+
+            reader.result,
+
+          );
+
+        };
+
+      reader.onerror =
+
+        () => {
+
+          reject(
+
+            reader.error ??
+
+            new Error(
+
+              '写真データを読み込めませんでした。',
+
+            ),
+
+          );
+
+        };
+
+      reader.readAsArrayBuffer(
+
+        blob,
+
+      );
+
+    },
 
   );
 
@@ -310,7 +424,7 @@ function createPhotoId() {
 
 // ============================================================
 
-// 写真1枚を保存
+// 写真1枚保存
 
 // ============================================================
 
@@ -320,23 +434,43 @@ async function savePhotoFile(
 
 ) {
 
-  /*
+  if (!file) {
 
-   * iPhoneでは写真選択時に
+    throw new Error(
 
-   * file.type が空文字になる場合があるため、
+      '写真データがありません。',
 
-   * MIMEタイプだけでは弾かない。
+    );
 
-   */
+  }
+
+  setStatus(
+
+    '保存中…',
+
+    'saving',
+
+  );
+
+  const buffer =
+
+    await blobToArrayBuffer(
+
+      file,
+
+    );
 
   if (
 
-    !(file instanceof File)
+    !(buffer instanceof ArrayBuffer)
 
   ) {
 
-    return null;
+    throw new Error(
+
+      '写真データの変換に失敗しました。',
+
+    );
 
   }
 
@@ -352,15 +486,25 @@ async function savePhotoFile(
 
     name:
 
-      file.name ||
+      typeof file.name ===
 
-      'photo',
+        'string'
+
+        ? file.name
+
+        : 'photo',
 
     type:
 
-      file.type ||
+      typeof file.type ===
 
-      'image/jpeg',
+        'string' &&
+
+      file.type
+
+        ? file.type
+
+        : 'image/jpeg',
 
     size:
 
@@ -368,15 +512,13 @@ async function savePhotoFile(
 
         file.size,
 
-      ) || 0,
+      ) || buffer.byteLength,
 
     createdAt:
 
       Date.now(),
 
-    blob:
-
-      file,
+    buffer,
 
   };
 
@@ -420,7 +562,7 @@ async function savePhotoFile(
 
             new Error(
 
-              '写真の保存に失敗しました。',
+              '写真保存に失敗しました。',
 
             ),
 
@@ -450,7 +592,7 @@ async function savePhotoFile(
 
             new Error(
 
-              '写真の保存に失敗しました。',
+              '写真保存に失敗しました。',
 
             ),
 
@@ -468,7 +610,7 @@ async function savePhotoFile(
 
             new Error(
 
-              '写真の保存が中断されました。',
+              '写真保存が中断されました。',
 
             ),
 
@@ -484,7 +626,7 @@ async function savePhotoFile(
 
 // ============================================================
 
-// 保存済み写真をすべて取得
+// 保存済み写真取得
 
 // ============================================================
 
@@ -572,7 +714,7 @@ async function loadAllPhotos() {
 
             new Error(
 
-              '保存写真の読み込みに失敗しました。',
+              '写真一覧を読み込めませんでした。',
 
             ),
 
@@ -588,7 +730,7 @@ async function loadAllPhotos() {
 
 // ============================================================
 
-// 写真1枚を削除
+// 写真削除
 
 // ============================================================
 
@@ -648,7 +790,7 @@ async function deletePhotoById(
 
             new Error(
 
-              '写真の削除に失敗しました。',
+              '写真削除に失敗しました。',
 
             ),
 
@@ -674,95 +816,7 @@ async function deletePhotoById(
 
             new Error(
 
-              '写真の削除に失敗しました。',
-
-            ),
-
-          );
-
-        };
-
-    },
-
-  );
-
-}
-
-// ============================================================
-
-// 全写真を削除
-
-// ============================================================
-
-async function deleteAllPhotoRecords() {
-
-  const db =
-
-    await openDatabase();
-
-  return new Promise(
-
-    (resolve, reject) => {
-
-      const transaction =
-
-        db.transaction(
-
-          PHOTO_STORE_NAME,
-
-          'readwrite',
-
-        );
-
-      const store =
-
-        transaction.objectStore(
-
-          PHOTO_STORE_NAME,
-
-        );
-
-      const request =
-
-        store.clear();
-
-      request.onerror =
-
-        () => {
-
-          reject(
-
-            request.error ??
-
-            new Error(
-
-              '全写真の削除に失敗しました。',
-
-            ),
-
-          );
-
-        };
-
-      transaction.oncomplete =
-
-        () => {
-
-          resolve();
-
-        };
-
-      transaction.onerror =
-
-        () => {
-
-          reject(
-
-            transaction.error ??
-
-            new Error(
-
-              '全写真の削除に失敗しました。',
+              '写真削除に失敗しました。',
 
             ),
 
@@ -1082,11 +1136,11 @@ function createIntro() {
 
   /*
 
-   * iPhone対策：
+   * iPhoneでは
 
-   * JavaScriptのinput.click()ではなく
+   * input.click()だけに頼らず、
 
-   * label for="photoFileInput" を使う。
+   * labelとfile inputを直接関連付ける。
 
    */
 
@@ -1147,6 +1201,58 @@ function createIntro() {
   );
 
   return intro;
+
+}
+
+// ============================================================
+
+// 保存状態表示
+
+// ============================================================
+
+function createStatus() {
+
+  const status =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  status.id =
+
+    STATUS_ID;
+
+  status.className =
+
+    'photo-status';
+
+  status.setAttribute(
+
+    'role',
+
+    'status',
+
+  );
+
+  status.setAttribute(
+
+    'aria-live',
+
+    'polite',
+
+  );
+
+  status.dataset.status =
+
+    'normal';
+
+  status.textContent =
+
+    '';
+
+  return status;
 
 }
 
@@ -1300,7 +1406,7 @@ function createEmptyState() {
 
 // ============================================================
 
-// ローディング表示
+// ローディング
 
 // ============================================================
 
@@ -1412,6 +1518,86 @@ function revokeAllObjectUrls() {
 
 // ============================================================
 
+// 保存データ → Blob
+
+// ============================================================
+
+function createBlobFromRecord(
+
+  record,
+
+) {
+
+  if (!record) {
+
+    return null;
+
+  }
+
+  /*
+
+   * 新方式：
+
+   * ArrayBufferからBlobを作る。
+
+   */
+
+  if (
+
+    record.buffer instanceof
+
+      ArrayBuffer
+
+  ) {
+
+    return new Blob(
+
+      [
+
+        record.buffer,
+
+      ],
+
+      {
+
+        type:
+
+          record.type ||
+
+          'image/jpeg',
+
+      },
+
+    );
+
+  }
+
+  /*
+
+   * 古い方式のデータが残っていた場合にも
+
+   * 一応対応する。
+
+   */
+
+  if (
+
+    record.blob instanceof
+
+      Blob
+
+  ) {
+
+    return record.blob;
+
+  }
+
+  return null;
+
+}
+
+// ============================================================
+
 // 写真カード生成
 
 // ============================================================
@@ -1426,11 +1612,31 @@ function createPhotoCard(
 
     !record ||
 
-    !record.id ||
-
-    !(record.blob instanceof Blob)
+    !record.id
 
   ) {
+
+    return null;
+
+  }
+
+  const blob =
+
+    createBlobFromRecord(
+
+      record,
+
+    );
+
+  if (!blob) {
+
+    console.warn(
+
+      '[photo.js] 写真Blobを生成できませんでした',
+
+      record.id,
+
+    );
 
     return null;
 
@@ -1440,7 +1646,7 @@ function createPhotoCard(
 
     URL.createObjectURL(
 
-      record.blob,
+      blob,
 
     );
 
@@ -1650,7 +1856,11 @@ function formatPhotoDate(
 
     new Date(
 
-      Number(timestamp) ||
+      Number(
+
+        timestamp,
+
+      ) ||
 
       Date.now(),
 
@@ -1748,6 +1958,10 @@ async function renderGallery() {
 
       document.createDocumentFragment();
 
+    let renderedCount =
+
+      0;
+
     records.forEach(
 
       (record) => {
@@ -1768,11 +1982,31 @@ async function renderGallery() {
 
           );
 
+          renderedCount +=
+
+            1;
+
         }
 
       },
 
     );
+
+    if (
+
+      renderedCount === 0
+
+    ) {
+
+      gallery.replaceChildren(
+
+        createEmptyState(),
+
+      );
+
+      return;
+
+    }
 
     gallery.replaceChildren(
 
@@ -1787,6 +2021,14 @@ async function renderGallery() {
       '[photo.js] 写真一覧の読み込みに失敗しました',
 
       error,
+
+    );
+
+    setStatus(
+
+      '写真を読み込めませんでした',
+
+      'error',
 
     );
 
@@ -1876,15 +2118,23 @@ async function handleSelectedFiles(
 
   ) {
 
+    setStatus(
+
+      '写真が選択されませんでした',
+
+      'error',
+
+    );
+
     return;
 
   }
 
   /*
 
-   * iPhone対策：
+   * iPhoneではFile判定が不安定になる場合があるため、
 
-   * file.type が空でも File であれば保存対象にする。
+   * instanceof File では絞り込まない。
 
    */
 
@@ -1898,7 +2148,11 @@ async function handleSelectedFiles(
 
       (file) =>
 
-        file instanceof File,
+        file &&
+
+        typeof file.size ===
+
+          'number',
 
     );
 
@@ -1908,11 +2162,23 @@ async function handleSelectedFiles(
 
   ) {
 
+    setStatus(
+
+      '写真データを取得できませんでした',
+
+      'error',
+
+    );
+
     return;
 
   }
 
   try {
+
+    let savedCount =
+
+      0;
 
     for (
 
@@ -1922,23 +2188,69 @@ async function handleSelectedFiles(
 
     ) {
 
+      setStatus(
+
+        `${savedCount + 1}/${imageFiles.length} 保存中…`,
+
+        'saving',
+
+      );
+
       await savePhotoFile(
 
         file,
 
       );
 
+      savedCount +=
+
+        1;
+
     }
 
     await renderGallery();
+
+    setStatus(
+
+      savedCount === 1
+
+        ? '写真を保存しました'
+
+        : `${savedCount}枚の写真を保存しました`,
+
+      'success',
+
+    );
+
+    window.setTimeout(
+
+      () => {
+
+        clearStatus();
+
+      },
+
+      2500,
+
+    );
 
   } catch (error) {
 
     console.error(
 
-      '[photo.js] 写真の保存に失敗しました',
+      '[photo.js] 写真保存処理に失敗しました',
 
       error,
+
+    );
+
+    setStatus(
+
+      error?.message ||
+
+      '写真の保存に失敗しました',
+
+      'error',
 
     );
 
@@ -1964,6 +2276,12 @@ function registerFileInputListener() {
 
   if (!input) {
 
+    console.warn(
+
+      '[photo.js] photoFileInputが見つかりません',
+
+    );
+
     return;
 
   }
@@ -1972,31 +2290,49 @@ function registerFileInputListener() {
 
     'change',
 
-    async () => {
+    async (event) => {
+
+      const target =
+
+        event.target;
 
       const files =
 
-        input.files
+        target?.files
 
           ? Array.from(
 
-              input.files,
+              target.files,
 
             )
 
           : [];
 
+      console.info(
+
+        '[photo.js] 写真選択 change',
+
+        files.length,
+
+      );
+
       /*
 
-       * 同じ写真を連続で選んでも
+       * ファイル一覧を先に変数へコピーしてから
 
-       * changeイベントが発火できるようにする。
+       * inputを空にする。
+
+       * これで同じ写真も再選択できる。
 
        */
 
-      input.value =
+      if (target) {
 
-        '';
+        target.value =
+
+          '';
+
+      }
 
       await handleSelectedFiles(
 
@@ -2012,7 +2348,7 @@ function registerFileInputListener() {
 
 // ============================================================
 
-// ＋ラベルのキーボード操作
+// ＋ボタンのキーボード操作
 
 // ============================================================
 
@@ -2532,6 +2868,26 @@ export async function deletePhoto(
 
     await renderGallery();
 
+    setStatus(
+
+      '写真を削除しました',
+
+      'success',
+
+    );
+
+    window.setTimeout(
+
+      () => {
+
+        clearStatus();
+
+      },
+
+      1800,
+
+    );
+
   } catch (error) {
 
     console.error(
@@ -2539,6 +2895,14 @@ export async function deletePhoto(
       '[photo.js] 写真の削除に失敗しました',
 
       error,
+
+    );
+
+    setStatus(
+
+      '写真の削除に失敗しました',
+
+      'error',
 
     );
 
@@ -2596,50 +2960,6 @@ export async function deletePhotoFromTarget(
 
 // ============================================================
 
-// 全写真削除
-
-// ============================================================
-
-export async function deleteAllPhotos() {
-
-  const confirmed =
-
-    window.confirm(
-
-      '保存している写真をすべて削除しますか？',
-
-    );
-
-  if (!confirmed) {
-
-    return;
-
-  }
-
-  try {
-
-    closePreview();
-
-    await deleteAllPhotoRecords();
-
-    await renderGallery();
-
-  } catch (error) {
-
-    console.error(
-
-      '[photo.js] 全写真の削除に失敗しました',
-
-      error,
-
-    );
-
-  }
-
-}
-
-// ============================================================
-
 // 写真選択
 
 // ============================================================
@@ -2658,7 +2978,15 @@ export function selectPhotos() {
 
     console.warn(
 
-      '[photo.js] 写真選択inputが見つかりません',
+      '[photo.js] photoFileInputが見つかりません',
+
+    );
+
+    setStatus(
+
+      '写真選択を開始できませんでした',
+
+      'error',
 
     );
 
@@ -2697,12 +3025,6 @@ function applyBackground() {
     cached?.backgrounds?.photo ??
 
     'default';
-
-  /*
-
-   * 過去に付けた背景クラスを削除。
-
-   */
 
   Array.from(
 
@@ -2776,7 +3098,7 @@ function subscribeCustomization() {
 
     typeof unsubscribe ===
 
-    'function'
+      'function'
 
   ) {
 
@@ -2836,6 +3158,10 @@ export function build() {
 
     createIntro();
 
+  const status =
+
+    createStatus();
+
   const main =
 
     createMain();
@@ -2859,6 +3185,12 @@ export function build() {
   container.appendChild(
 
     intro,
+
+  );
+
+  container.appendChild(
+
+    status,
 
   );
 
@@ -2892,6 +3224,30 @@ export function build() {
 
 // ============================================================
 
+// Router互換 create
+
+// ============================================================
+
+export function create() {
+
+  return build();
+
+}
+
+// ============================================================
+
+// 初期化
+
+// ============================================================
+
+export function init() {
+
+  return build();
+
+}
+
+// ============================================================
+
 // 写真画面を開く
 
 // ============================================================
@@ -2917,6 +3273,8 @@ export async function open() {
   );
 
   applyBackground();
+
+  clearStatus();
 
   await renderGallery();
 
@@ -2960,7 +3318,7 @@ export function close() {
 
 // ============================================================
 
-// 写真画面表示状態
+// 表示状態
 
 // ============================================================
 
@@ -3006,30 +3364,6 @@ export async function refresh() {
 
 // ============================================================
 
-// Router互換用 create
-
-// ============================================================
-
-export function create() {
-
-  return build();
-
-}
-
-// ============================================================
-
-// 初期化
-
-// ============================================================
-
-export function init() {
-
-  return build();
-
-}
-
-// ============================================================
-
 // 破棄
 
 // ============================================================
@@ -3044,7 +3378,7 @@ export function destroy() {
 
     typeof unsubscribeCustomization ===
 
-    'function'
+      'function'
 
   ) {
 
@@ -3067,6 +3401,10 @@ export function destroy() {
   }
 
   unsubscribeCustomization =
+
+    null;
+
+  databasePromise =
 
     null;
 
@@ -3110,7 +3448,7 @@ const Photo = {
 
   deletePhotoFromTarget,
 
-  deleteAllPhotos,
+  destroy,
 
 };
 
