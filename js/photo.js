@@ -103,6 +103,70 @@ let sharedPhotos = [];
 
 // ============================================================
 
+// Firebase共有写真 初期化
+
+// ============================================================
+
+async function initializeSharedPhotoContext() {
+
+  try {
+
+    const roomId =
+
+      Firebase.getLocalRoomId();
+
+    if (!roomId) {
+
+      currentRoomId = null;
+
+      currentUid = null;
+
+      return false;
+
+    }
+
+    const uid =
+
+      await Firebase.ensureSignedIn();
+
+    if (!uid) {
+
+      currentRoomId = null;
+
+      currentUid = null;
+
+      return false;
+
+    }
+
+    currentRoomId = roomId;
+
+    currentUid = uid;
+
+    return true;
+
+  } catch (error) {
+
+    console.error(
+
+      '[photo.js] Firebase共有写真の初期化に失敗しました',
+
+      error,
+
+    );
+
+    currentRoomId = null;
+
+    currentUid = null;
+
+    return false;
+
+  }
+
+}
+
+// ============================================================
+
 // ステータス表示
 
 // ============================================================
