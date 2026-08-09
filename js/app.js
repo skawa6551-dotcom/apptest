@@ -60,6 +60,8 @@ import Customization from './customization.js';
 
 import Notifications from './notifications.js';
 
+import Photo from './photo.js';
+
 // ============================================================
 
 // 定数
