@@ -2625,11 +2625,33 @@ async function handleSelectedFiles(
 
       );
 
-      await savePhotoFile(
+            if (
 
-        file,
+        currentRoomId &&
 
-      );
+        currentUid
+
+      ) {
+
+        await Firebase.uploadRoomPhoto(
+
+          currentRoomId,
+
+          currentUid,
+
+          file,
+
+        );
+
+      } else {
+
+        await savePhotoFile(
+
+          file,
+
+        );
+
+      }
 
       savedCount +=
 
