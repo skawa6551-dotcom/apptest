@@ -40,7 +40,7 @@
 
 // ------------------------------------------------------------
 
-const CACHE_VERSION = 7;
+const CACHE_VERSION = 8;
 
 const CACHE_NAME = `calculator-0209-cache-v${CACHE_VERSION}`;
 
@@ -140,14 +140,6 @@ self.addEventListener('install', (event) => {
 
 });
 
-/**
-
- * 主要ファイルをキャッシュする。
-
- * addAll()失敗時は、取得可能なファイルだけ個別に保存する。
-
- */
-
 async function precacheAppShell() {
 
   const cache = await caches.open(CACHE_NAME);
@@ -230,12 +222,6 @@ self.addEventListener('activate', (event) => {
 
 });
 
-/**
-
- * 現在のCACHE_NAME以外を削除する。
-
- */
-
 async function deleteOutdatedCaches() {
 
   try {
@@ -310,12 +296,6 @@ self.addEventListener('fetch', (event) => {
 
 });
 
-/**
-
- * キャッシュ優先 → ネットワーク → オフラインフォールバック。
-
- */
-
 async function handleFetch(request) {
 
   const cachedResponse =
@@ -389,12 +369,6 @@ async function handleFetch(request) {
   }
 
 }
-
-/**
-
- * ネットワーク失敗時のフォールバック。
-
- */
 
 async function respondWithOfflineFallback(
 
@@ -472,34 +446,6 @@ self.addEventListener('push', (event) => {
 
 });
 
-/**
-
- * Pushイベントを処理して通知を表示する。
-
- *
-
- * Worker側から送られるpayloadは以下を想定：
-
- *
-
- * {
-
- *   title: "Calculator",
-
- *   body: "新しいメッセージがあります",
-
- *   roomId: "...",
-
- *   messageId: "...",
-
- *   senderId: "...",
-
- *   tag: "message-..."
-
- * }
-
- */
-
 async function handlePushEvent(event) {
 
   let payload = {};
@@ -508,7 +454,9 @@ async function handlePushEvent(event) {
 
     if (event.data) {
 
-      payload = event.data.json();
+      payload =
+
+        event.data.json();
 
     }
 
@@ -630,7 +578,9 @@ async function handlePushEvent(event) {
 
       senderId,
 
-      url: './index.html',
+      url:
+
+        './index.html',
 
     },
 
@@ -688,24 +638,6 @@ self.addEventListener(
 
 );
 
-/**
-
- * 通知タップ時：
-
- *
-
- * 1. 既にアプリが開いていればフォーカス
-
- * 2. 開いていなければCalculatorを起動
-
- *
-
- * セキュリティ上、通知タップだけでWorkspace/Messagesへ
-
- * 直接遷移しない。
-
- */
-
 async function handleNotificationClick(
 
   notification,
@@ -728,9 +660,13 @@ async function handleNotificationClick(
 
       await self.clients.matchAll({
 
-        type: 'window',
+        type:
 
-        includeUncontrolled: true,
+          'window',
+
+        includeUncontrolled:
+
+          true,
 
       });
 
@@ -738,11 +674,19 @@ async function handleNotificationClick(
 
       const clientUrl =
 
-        new URL(client.url);
+        new URL(
+
+          client.url,
+
+        );
 
       const target =
 
-        new URL(targetUrl);
+        new URL(
+
+          targetUrl,
+
+        );
 
       if (
 
@@ -820,28 +764,6 @@ self.addEventListener(
 
 );
 
-/**
-
- * Push購読がOS/ブラウザ側で変更されたことを
-
- * 開いているアプリへ通知する。
-
- *
-
- * Firebase Messaging側の再登録処理はページ側の
-
- * notifications.js → syncRegistrationOnStartup()
-
- * で行う。
-
- *
-
- * Service Worker単独ではFirebase Authのuid等を
-
- * 安全に取得できないため、ここでFirestoreを直接更新しない。
-
- */
-
 async function handlePushSubscriptionChange() {
 
   try {
@@ -850,23 +772,29 @@ async function handlePushSubscriptionChange() {
 
       await self.clients.matchAll({
 
-        type: 'window',
+        type:
 
-        includeUncontrolled: true,
+          'window',
+
+        includeUncontrolled:
+
+          true,
 
       });
 
     await Promise.all(
 
-      clientList.map((client) =>
+      clientList.map(
 
-        client.postMessage({
+        (client) =>
 
-          type:
+          client.postMessage({
 
-            'PUSH_SUBSCRIPTION_CHANGED',
+            type:
 
-        }),
+              'PUSH_SUBSCRIPTION_CHANGED',
+
+          }),
 
       ),
 
