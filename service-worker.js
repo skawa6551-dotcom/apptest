@@ -36,9 +36,13 @@
 
 const CACHE_VERSION = 11;
 
+const CACHE_PREFIX =
+
+  'calculator-0209-cache-v';
+
 const CACHE_NAME =
 
-  `calculator-0209-cache-v${CACHE_VERSION}`;
+  `${CACHE_PREFIX}${CACHE_VERSION}`;
 
 // ------------------------------------------------------------
 
