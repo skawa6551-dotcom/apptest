@@ -27,6 +27,7 @@
 // ============================================================
 
 import Customization from './customization.js';
+import Firebase from './firebase.js';
 
 // ------------------------------------------------------------
 
