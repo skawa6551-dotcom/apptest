@@ -4464,7 +4464,7 @@ function handleDocumentClick(
 
   }
 
-  if (
+    if (
 
     currentScreen ===
 
@@ -4473,6 +4473,24 @@ function handleDocumentClick(
   ) {
 
     handleMessagesScreenClick(
+
+      target,
+
+    );
+
+    return;
+
+  }
+
+  if (
+
+    currentScreen ===
+
+    Router.Screen.PHOTO
+
+  ) {
+
+    handlePhotoScreenClick(
 
       target,
 
