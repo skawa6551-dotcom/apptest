@@ -1,324 +1,200 @@
-// ============================================================
+export async function registerForPush(
 
-// firebase.js
+  swRegistration,
 
-// アプリ全体で唯一 Firebase（Auth / Firestore）にアクセスするモジュール。
+) {
 
-// storage.jsがlocalStorageの唯一の窓口であるのと同じ考え方で、
+  const {
 
-// 他のモジュール（pairing.js / messages.js）はFirebaseへ直接アクセスせず
+    fns,
 
-// 必ずこのファイルの関数を経由すること。DOM操作はここでは一切行わない。
+    messaging,
 
-//
+    supportsFid,
 
-// 【重要】Firebase SDKは意図的に動的import（遅延読み込み）にしている。
+  } =
 
-// もし通常のimport文（静的import）でCDN（gstatic.com）から読み込むと、
-
-// ネットワーク不通や設定ミスでこのファイルの読み込み自体が失敗した際に、
-
-// router.js → app.js まで読み込み失敗が連鎖し、電卓本体まで含めた
-
-// アプリ全体が起動できなくなってしまう。
-
-// 実際にメッセージ機能を使う瞬間（ensureSignedIn()等の呼び出し時）に
-
-// 初めてSDKを読み込むことで、Firebase側で何が起きても電卓・Workspace・
-
-// カレンダー等の既存機能を巻き込まないようにしている。
-
-//
-
-// 設計書（Phase1）で定義したコレクション構成に対応する：
-
-//   /users/{uid}
-
-//   /rooms/{roomId}
-
-//   /rooms/{roomId}/messages/{messageId}
-
-//   /inviteCodes/{code}
-
-// ============================================================
-
-import Storage, { STORAGE_KEYS } from './storage.js';
-
-import { VAPID_KEY } from './firebase-config.js';
-
-// ------------------------------------------------------------
-
-// 定数
-
-// ------------------------------------------------------------
-
-const SDK_VERSION = '10.12.2';
-
-const SCHEMA_VERSION = 1;
-
-const INVITE_CODE_LENGTH = 6;
-
-const INVITE_CODE_TTL_MS = 10 * 60 * 1000;
-
-const INVITE_CODE_CHARSET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-
-const INVITE_CODE_MAX_ATTEMPTS = 5;
-
-const MESSAGE_LIST_LIMIT = 200;
-
-const NOTIFICATION_WORKER_URL =
-
-  'https://calculator-0209-notifications.skawa6551.workers.dev';
-
-// ------------------------------------------------------------
-
-// 遅延初期化
-
-// ------------------------------------------------------------
-
-let firebaseState = null;
-
-let loadPromise = null;
-
-function loadFirebase() {
-
-  if (firebaseState) return Promise.resolve(firebaseState);
-
-  if (loadPromise) return loadPromise;
-
-  loadPromise = (async () => {
-
-    const [{ initializeApp }, authFns, firestoreFns, configModule] =
-
-      await Promise.all([
-
-        import(
-
-          `https://www.gstatic.com/firebasejs/${SDK_VERSION}/firebase-app.js`
-
-        ),
-
-        import(
-
-          `https://www.gstatic.com/firebasejs/${SDK_VERSION}/firebase-auth.js`
-
-        ),
-
-        import(
-
-          `https://www.gstatic.com/firebasejs/${SDK_VERSION}/firebase-firestore.js`
-
-        ),
-
-        import('./firebase-config.js'),
-
-      ]);
-
-    const firebaseConfig = configModule.default;
-
-    const app = initializeApp(firebaseConfig);
-
-    const auth = authFns.getAuth(app);
-
-    const db = firestoreFns.getFirestore(app);
-
-    firebaseState = {
-
-      app,
-
-      auth,
-
-      db,
-
-      authFns,
-
-      firestoreFns,
-
-    };
-
-    return firebaseState;
-
-  })().catch((error) => {
-
-    loadPromise = null;
-
-    console.error(
-
-      '[firebase.js] Firebase SDKの読み込みに失敗しました',
-
-      error,
-
-    );
-
-    throw error;
-
-  });
-
-  return loadPromise;
-
-}
-
-// ------------------------------------------------------------
-
-// Messaging（通知）
-
-// ------------------------------------------------------------
-
-let messagingState = null;
-
-let messagingLoadPromise = null;
-
-function loadMessaging() {
-
-  if (messagingState) return Promise.resolve(messagingState);
-
-  if (messagingLoadPromise) return messagingLoadPromise;
-
-  messagingLoadPromise = (async () => {
-
-    const { app } = await loadFirebase();
-
-    const fns = await import(
-
-      `https://www.gstatic.com/firebasejs/${SDK_VERSION}/firebase-messaging.js`
-
-    );
-
-    const messaging = fns.getMessaging(app);
-
-    const supportsFid =
-
-      typeof fns.register === 'function' &&
-
-      typeof fns.onRegistered === 'function';
-
-    if (!supportsFid) {
-
-      console.warn(
-
-        `[firebase.js] Firebase SDK v${SDK_VERSION} では register()/onRegistered() が利用できないため getToken() を使用します。`,
-
-      );
-
-    }
-
-    messagingState = {
-
-      messaging,
-
-      fns,
-
-      supportsFid,
-
-    };
-
-    return messagingState;
-
-  })().catch((error) => {
-
-    messagingLoadPromise = null;
-
-    console.error(
-
-      '[firebase.js] Firebase Messaging SDKの読み込みに失敗しました',
-
-      error,
-
-    );
-
-    throw error;
-
-  });
-
-  return messagingLoadPromise;
-
-}
-
-export async function registerForPush(swRegistration) {
-
-  const { fns, messaging, supportsFid } = await loadMessaging();
+    await loadMessaging();
 
   if (supportsFid) {
 
-    const id = await new Promise((resolve, reject) => {
+    const id =
 
-      let unsubscribe = () => {};
+      await new Promise(
 
-      unsubscribe = fns.onRegistered(
+        (
 
-        messaging,
+          resolve,
 
-        (installationId) => {
+          reject,
 
-          unsubscribe();
+        ) => {
 
-          resolve(installationId);
+          let unsubscribe =
+
+            () => {};
+
+          unsubscribe =
+
+            fns.onRegistered(
+
+              messaging,
+
+              (
+
+                installationId,
+
+              ) => {
+
+                unsubscribe();
+
+                resolve(
+
+                  installationId,
+
+                );
+
+              },
+
+            );
+
+          fns
+
+            .register(
+
+              messaging,
+
+              {
+
+                vapidKey:
+
+                  VAPID_KEY,
+
+                serviceWorkerRegistration:
+
+                  swRegistration,
+
+              },
+
+            )
+
+            .catch(
+
+              (error) => {
+
+                unsubscribe();
+
+                reject(
+
+                  error,
+
+                );
+
+              },
+
+            );
 
         },
 
       );
 
-      fns
-
-        .register(messaging, {
-
-          vapidKey: VAPID_KEY,
-
-          serviceWorkerRegistration: swRegistration,
-
-        })
-
-        .catch((error) => {
-
-          unsubscribe();
-
-          reject(error);
-
-        });
-
-    });
-
     return {
 
       id,
 
-      method: 'fid',
+      method:
+
+        'fid',
 
     };
 
   }
 
-  const token = await fns.getToken(messaging, {
+  const token =
 
-    vapidKey: VAPID_KEY,
+    await fns.getToken(
 
-    serviceWorkerRegistration: swRegistration,
+      messaging,
 
-  });
+      {
+
+        vapidKey:
+
+          VAPID_KEY,
+
+        serviceWorkerRegistration:
+
+          swRegistration,
+
+      },
+
+    );
 
   if (!token) {
 
-    throw new Error('通知の登録に失敗しました。');
+    throw new Error(
+
+      '通知の登録に失敗しました。',
+
+    );
 
   }
 
   return {
 
-    id: token,
+    id:
 
-    method: 'token',
+      token,
+
+    method:
+
+      'token',
 
   };
 
 }
 
-export async function onForegroundMessage(callback) {
+// ============================================================
 
-  const { fns, messaging } = await loadMessaging();
+// フォアグラウンド通知
 
-  if (typeof callback !== 'function') return () => {};
+// ============================================================
 
-  return fns.onMessage(messaging, callback);
+export async function onForegroundMessage(
+
+  callback,
+
+) {
+
+  const {
+
+    fns,
+
+    messaging,
+
+  } =
+
+    await loadMessaging();
+
+  if (
+
+    typeof callback !==
+
+    'function'
+
+  ) {
+
+    return () => {};
+
+  }
+
+  return fns.onMessage(
+
+    messaging,
+
+    callback,
+
+  );
 
 }
 
@@ -328,29 +204,73 @@ export async function onForegroundMessage(callback) {
 
 // ------------------------------------------------------------
 
-let signInPromise = null;
+let signInPromise =
+
+  null;
 
 export async function ensureSignedIn() {
 
-  const { auth, authFns } = await loadFirebase();
+  const {
 
-  if (auth.currentUser) return auth.currentUser.uid;
+    auth,
 
-  if (signInPromise) return signInPromise;
+    authFns,
 
-  signInPromise = authFns
+  } =
 
-    .signInAnonymously(auth)
+    await loadFirebase();
 
-    .then((credential) => credential.user.uid)
+  if (
 
-    .catch((error) => {
+    auth.currentUser
 
-      signInPromise = null;
+  ) {
 
-      throw error;
+    return auth.currentUser.uid;
 
-    });
+  }
+
+  if (
+
+    signInPromise
+
+  ) {
+
+    return signInPromise;
+
+  }
+
+  signInPromise =
+
+    authFns
+
+      .signInAnonymously(
+
+        auth,
+
+      )
+
+      .then(
+
+        (credential) =>
+
+          credential.user.uid,
+
+      )
+
+      .catch(
+
+        (error) => {
+
+          signInPromise =
+
+            null;
+
+          throw error;
+
+        },
+
+      );
 
   return signInPromise;
 
@@ -358,7 +278,11 @@ export async function ensureSignedIn() {
 
 export function getCurrentUid() {
 
-  if (!firebaseState) return null;
+  if (!firebaseState) {
+
+    return null;
+
+  }
 
   return firebaseState.auth.currentUser
 
@@ -376,21 +300,31 @@ export function getCurrentUid() {
 
 export function getOrCreateClientId() {
 
-  const existing = Storage.get(
+  const existing =
 
-    STORAGE_KEYS.CLIENT_ID,
+    Storage.get(
 
-    null,
+      STORAGE_KEYS.CLIENT_ID,
 
-  );
+      null,
 
-  if (existing) return existing;
+    );
+
+  if (existing) {
+
+    return existing;
+
+  }
 
   const generated =
 
-    typeof crypto !== 'undefined' &&
+    typeof crypto !==
 
-    typeof crypto.randomUUID === 'function'
+      'undefined' &&
+
+    typeof crypto.randomUUID ===
+
+      'function'
 
       ? crypto.randomUUID()
 
@@ -424,7 +358,11 @@ export function getLocalDisplayName() {
 
 }
 
-export function saveLocalDisplayName(displayName) {
+export function saveLocalDisplayName(
+
+  displayName,
+
+) {
 
   Storage.set(
 
@@ -448,7 +386,11 @@ export function getLocalRoomId() {
 
 }
 
-export function saveLocalRoomId(roomId) {
+export function saveLocalRoomId(
+
+  roomId,
+
+) {
 
   Storage.set(
 
@@ -474,25 +416,45 @@ export async function ensureUserProfile(
 
 ) {
 
-  const { db, firestoreFns } =
-
-    await loadFirebase();
-
-  const userRef = firestoreFns.doc(
+  const {
 
     db,
 
-    'users',
+    firestoreFns,
 
-    uid,
+  } =
 
-  );
+    await loadFirebase();
+
+  const userRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'users',
+
+      uid,
+
+    );
 
   const snapshot =
 
-    await firestoreFns.getDoc(userRef);
+    await firestoreFns.getDoc(
 
-  if (snapshot.exists()) return;
+      userRef,
+
+    );
+
+  if (
+
+    snapshot.exists()
+
+  ) {
+
+    return;
+
+  }
 
   await firestoreFns.setDoc(
 
@@ -502,13 +464,17 @@ export async function ensureUserProfile(
 
       displayName,
 
-      roomIds: [],
+      roomIds:
+
+        [],
 
       createdAt:
 
         firestoreFns.serverTimestamp(),
 
-      schemaVersion: SCHEMA_VERSION,
+      schemaVersion:
+
+        SCHEMA_VERSION,
 
     },
 
@@ -518,13 +484,15 @@ export async function ensureUserProfile(
 
 // ------------------------------------------------------------
 
-// 招待コード／ペアリング
+// 招待コード生成
 
 // ------------------------------------------------------------
 
 function generateInviteCode() {
 
-  let code = '';
+  let code =
+
+    '';
 
   for (
 
@@ -536,23 +504,35 @@ function generateInviteCode() {
 
   ) {
 
-    const index = Math.floor(
+    const index =
 
-      Math.random() *
+      Math.floor(
 
-        INVITE_CODE_CHARSET.length,
+        Math.random() *
 
-    );
+          INVITE_CODE_CHARSET.length,
+
+      );
 
     code +=
 
-      INVITE_CODE_CHARSET[index];
+      INVITE_CODE_CHARSET[
+
+        index
+
+      ];
 
   }
 
   return code;
 
 }
+
+// ------------------------------------------------------------
+
+// 招待コード作成
+
+// ------------------------------------------------------------
 
 async function createInviteCodeDoc(
 
@@ -574,29 +554,47 @@ async function createInviteCodeDoc(
 
     let attempt = 0;
 
-    attempt < INVITE_CODE_MAX_ATTEMPTS;
+    attempt <
+
+      INVITE_CODE_MAX_ATTEMPTS;
 
     attempt += 1
 
   ) {
 
-    const code = generateInviteCode();
+    const code =
 
-    const codeRef = firestoreFns.doc(
+      generateInviteCode();
 
-      db,
+    const codeRef =
 
-      'inviteCodes',
+      firestoreFns.doc(
 
-      code,
+        db,
 
-    );
+        'inviteCodes',
+
+        code,
+
+      );
 
     const existing =
 
-      await firestoreFns.getDoc(codeRef);
+      await firestoreFns.getDoc(
 
-    if (existing.exists()) continue;
+        codeRef,
+
+      );
+
+    if (
+
+      existing.exists()
+
+    ) {
+
+      continue;
+
+    }
 
     await firestoreFns.setDoc(
 
@@ -606,7 +604,9 @@ async function createInviteCodeDoc(
 
         roomId,
 
-        createdBy: uid,
+        createdBy:
+
+          uid,
 
         createdAt:
 
@@ -622,7 +622,9 @@ async function createInviteCodeDoc(
 
           ),
 
-        used: false,
+        used:
+
+          false,
 
         purpose,
 
@@ -644,6 +646,12 @@ async function createInviteCodeDoc(
 
 }
 
+// ------------------------------------------------------------
+
+// ルーム作成＋招待コード発行
+
+// ------------------------------------------------------------
+
 export async function createRoomAndInviteCode(
 
   uid,
@@ -652,7 +660,13 @@ export async function createRoomAndInviteCode(
 
 ) {
 
-  const { db, firestoreFns } =
+  const {
+
+    db,
+
+    firestoreFns,
+
+  } =
 
     await loadFirebase();
 
@@ -670,7 +684,9 @@ export async function createRoomAndInviteCode(
 
     );
 
-  const roomId = roomRef.id;
+  const roomId =
+
+    roomRef.id;
 
   await firestoreFns.setDoc(
 
@@ -678,55 +694,93 @@ export async function createRoomAndInviteCode(
 
     {
 
-      status: 'pending',
+      status:
 
-      schemaVersion: SCHEMA_VERSION,
+        'pending',
 
-      memberIds: [uid],
+      schemaVersion:
 
-      formerMemberIds: [],
+        SCHEMA_VERSION,
 
-      memberProfiles: {
+      memberIds:
 
-        [uid]: {
+        [
 
-          displayName,
+          uid,
 
-          avatarUrl: null,
+        ],
 
-          accentColor: null,
+      formerMemberIds:
 
-          status: 'active',
+        [],
 
-          joinedAt:
+      memberProfiles:
 
-            firestoreFns.serverTimestamp(),
+        {
 
-          leftAt: null,
+          [uid]:
+
+            {
+
+              displayName,
+
+              avatarUrl:
+
+                null,
+
+              accentColor:
+
+                null,
+
+              status:
+
+                'active',
+
+              joinedAt:
+
+                firestoreFns.serverTimestamp(),
+
+              leftAt:
+
+                null,
+
+            },
 
         },
 
-      },
+      createdBy:
 
-      createdBy: uid,
+        uid,
 
       createdAt:
 
         firestoreFns.serverTimestamp(),
 
-      lastMessageAt: null,
+      lastMessageAt:
 
-      lastMessagePreview: null,
+        null,
 
-      customization: {
+      lastMessagePreview:
 
-        workspaceTitle: null,
+        null,
 
-        cards: {},
+      customization:
 
-        backgrounds: {},
+        {
 
-      },
+          workspaceTitle:
+
+            null,
+
+          cards:
+
+            {},
+
+          backgrounds:
+
+            {},
+
+        },
 
     },
 
@@ -766,7 +820,11 @@ export async function createRoomAndInviteCode(
 
       roomIds:
 
-        firestoreFns.arrayUnion(roomId),
+        firestoreFns.arrayUnion(
+
+          roomId,
+
+        ),
 
     },
 
@@ -778,17 +836,25 @@ export async function createRoomAndInviteCode(
 
     code,
 
-    expiresAt: new Date(
+    expiresAt:
 
-      Date.now() +
+      new Date(
 
-        INVITE_CODE_TTL_MS,
+        Date.now() +
 
-    ),
+          INVITE_CODE_TTL_MS,
+
+      ),
 
   };
 
 }
+
+// ------------------------------------------------------------
+
+// 招待コードでルーム参加
+
+// ------------------------------------------------------------
 
 export async function joinRoomWithCode(
 
@@ -800,23 +866,35 @@ export async function joinRoomWithCode(
 
 ) {
 
-  const { db, firestoreFns } =
+  const {
+
+    db,
+
+    firestoreFns,
+
+  } =
 
     await loadFirebase();
 
   const normalizedCode =
 
-    code.trim().toUpperCase();
+    code
 
-  const codeRef = firestoreFns.doc(
+      .trim()
 
-    db,
+      .toUpperCase();
 
-    'inviteCodes',
+  const codeRef =
 
-    normalizedCode,
+    firestoreFns.doc(
 
-  );
+      db,
+
+      'inviteCodes',
+
+      normalizedCode,
+
+    );
 
   const roomId =
 
@@ -824,7 +902,11 @@ export async function joinRoomWithCode(
 
       db,
 
-      async (transaction) => {
+      async (
+
+        transaction,
+
+      ) => {
 
         const codeSnap =
 
@@ -834,7 +916,11 @@ export async function joinRoomWithCode(
 
           );
 
-        if (!codeSnap.exists()) {
+        if (
+
+          !codeSnap.exists()
+
+        ) {
 
           throw new Error(
 
@@ -848,7 +934,11 @@ export async function joinRoomWithCode(
 
           codeSnap.data();
 
-        if (codeData.used) {
+        if (
+
+          codeData.used
+
+        ) {
 
           throw new Error(
 
@@ -894,7 +984,11 @@ export async function joinRoomWithCode(
 
           );
 
-        if (!roomSnap.exists()) {
+        if (
+
+          !roomSnap.exists()
+
+        ) {
 
           throw new Error(
 
@@ -924,7 +1018,9 @@ export async function joinRoomWithCode(
 
             {
 
-              used: true,
+              used:
+
+                true,
 
             },
 
@@ -934,41 +1030,57 @@ export async function joinRoomWithCode(
 
         }
 
-        let finalMemberIds = [
+        let finalMemberIds =
 
-          ...roomData.memberIds,
+          [
 
-          uid,
+            ...roomData.memberIds,
 
-        ];
+            uid,
+
+          ];
 
         let finalFormerMemberIds =
 
-          roomData.formerMemberIds ?? [];
+          roomData.formerMemberIds ??
 
-        const finalProfiles = {
+          [];
 
-          ...roomData.memberProfiles,
+        const finalProfiles =
 
-          [uid]: {
+          {
 
-            displayName,
+            ...roomData.memberProfiles,
 
-            avatarUrl: null,
+            [uid]:
 
-            accentColor: null,
+              {
 
-            status: 'active',
+                displayName,
 
-            joinedAt:
+                avatarUrl:
 
-              firestoreFns.serverTimestamp(),
+                  null,
 
-            leftAt: null,
+                accentColor:
 
-          },
+                  null,
 
-        };
+                status:
+
+                  'active',
+
+                joinedAt:
+
+                  firestoreFns.serverTimestamp(),
+
+                leftAt:
+
+                  null,
+
+              },
+
+          };
 
         if (
 
@@ -984,7 +1096,11 @@ export async function joinRoomWithCode(
 
             finalMemberIds.filter(
 
-              (memberId) =>
+              (
+
+                memberId,
+
+              ) =>
 
                 memberId !==
 
@@ -992,13 +1108,15 @@ export async function joinRoomWithCode(
 
             );
 
-          finalFormerMemberIds = [
+          finalFormerMemberIds =
 
-            ...finalFormerMemberIds,
+            [
 
-            codeData.replacesUid,
+              ...finalFormerMemberIds,
 
-          ];
+              codeData.replacesUid,
+
+            ];
 
           if (
 
@@ -1014,21 +1132,25 @@ export async function joinRoomWithCode(
 
               codeData.replacesUid
 
-            ] = {
+            ] =
 
-              ...finalProfiles[
+              {
 
-                codeData.replacesUid
+                ...finalProfiles[
 
-              ],
+                  codeData.replacesUid
 
-              status: 'replaced',
+                ],
 
-              leftAt:
+                status:
 
-                firestoreFns.serverTimestamp(),
+                  'replaced',
 
-            };
+                leftAt:
+
+                  firestoreFns.serverTimestamp(),
+
+              };
 
           }
 
@@ -1052,7 +1174,9 @@ export async function joinRoomWithCode(
 
               finalProfiles,
 
-            status: 'active',
+            status:
+
+              'active',
 
           },
 
@@ -1064,7 +1188,9 @@ export async function joinRoomWithCode(
 
           {
 
-            used: true,
+            used:
+
+              true,
 
           },
 
@@ -1106,6 +1232,12 @@ export async function joinRoomWithCode(
 
 }
 
+// ------------------------------------------------------------
+
+// ルーム購読
+
+// ------------------------------------------------------------
+
 export function subscribeToRoom(
 
   roomId,
@@ -1116,15 +1248,29 @@ export function subscribeToRoom(
 
 ) {
 
-  let unsubscribeFn = () => {};
+  let unsubscribeFn =
 
-  let cancelled = false;
+    () => {};
+
+  let cancelled =
+
+    false;
 
   loadFirebase().then(
 
-    ({ db, firestoreFns }) => {
+    ({
 
-      if (cancelled) return;
+      db,
+
+      firestoreFns,
+
+    }) => {
+
+      if (cancelled) {
+
+        return;
+
+      }
 
       const roomRef =
 
@@ -1144,9 +1290,17 @@ export function subscribeToRoom(
 
           roomRef,
 
-          (snapshot) => {
+          (
 
-            if (snapshot.exists()) {
+            snapshot,
+
+          ) => {
+
+            if (
+
+              snapshot.exists()
+
+            ) {
 
               callback(
 
@@ -1158,7 +1312,11 @@ export function subscribeToRoom(
 
           },
 
-          (error) => {
+          (
+
+            error,
+
+          ) => {
 
             console.error(
 
@@ -1176,302 +1334,12 @@ export function subscribeToRoom(
 
             ) {
 
-              onError(error);
+              onError(
 
-            }
-
-          },
-
-        );
-
-    },
-
-  );
-
-  return () => {
-
-    cancelled = true;
-
-    unsubscribeFn();
-
-  };
-
-}
-
-// ------------------------------------------------------------
-
-// メッセージ
-
-// ------------------------------------------------------------
-
-function buildSearchKeywords(text) {
-
-  return text
-
-    .toLowerCase()
-
-    .split(/\s+/)
-
-    .filter(
-
-      (word) =>
-
-        word.length > 0,
-
-    )
-
-    .slice(0, 20);
-
-}
-
-export async function sendTextMessage(
-
-  roomId,
-
-  uid,
-
-  clientId,
-
-  text,
-
-) {
-
-  const trimmed =
-
-    typeof text === 'string'
-
-      ? text.trim()
-
-      : '';
-
-  if (trimmed === '') {
-
-    return null;
-
-  }
-
-  const { db, firestoreFns } =
-
-    await loadFirebase();
-
-  const messagesRef =
-
-    firestoreFns.collection(
-
-      db,
-
-      'rooms',
-
-      roomId,
-
-      'messages',
-
-    );
-
-  const messageRef =
-
-    await firestoreFns.addDoc(
-
-      messagesRef,
-
-      {
-
-        schemaVersion:
-
-          SCHEMA_VERSION,
-
-        senderId: uid,
-
-        clientId,
-
-        type: 'text',
-
-        text: trimmed,
-
-        media: null,
-
-        location: null,
-
-        stickerId: null,
-
-        timestamp:
-
-          firestoreFns.serverTimestamp(),
-
-        readBy: [uid],
-
-        reactions: {},
-
-        replyToMessageId: null,
-
-        editedAt: null,
-
-        deletedForEveryone:
-
-          false,
-
-        deletedFor: [],
-
-        searchKeywords:
-
-          buildSearchKeywords(
-
-            trimmed,
-
-          ),
-
-      },
-
-    );
-
-  const preview =
-
-    trimmed.length > 40
-
-      ? `${trimmed.slice(
-
-          0,
-
-          40,
-
-        )}…`
-
-      : trimmed;
-
-  await firestoreFns.updateDoc(
-
-    firestoreFns.doc(
-
-      db,
-
-      'rooms',
-
-      roomId,
-
-    ),
-
-    {
-
-      lastMessageAt:
-
-        firestoreFns.serverTimestamp(),
-
-      lastMessagePreview:
-
-        preview,
-
-    },
-
-  );
-
-  return messageRef.id;
-
-}
-
-export function subscribeToMessages(
-
-  roomId,
-
-  callback,
-
-  onError,
-
-) {
-
-  let unsubscribeFn = () => {};
-
-  let cancelled = false;
-
-  loadFirebase().then(
-
-    ({ db, firestoreFns }) => {
-
-      if (cancelled) return;
-
-      const messagesRef =
-
-        firestoreFns.collection(
-
-          db,
-
-          'rooms',
-
-          roomId,
-
-          'messages',
-
-        );
-
-      const messagesQuery =
-
-        firestoreFns.query(
-
-          messagesRef,
-
-          firestoreFns.orderBy(
-
-            'timestamp',
-
-            'asc',
-
-          ),
-
-          firestoreFns.limit(
-
-            MESSAGE_LIST_LIMIT,
-
-          ),
-
-        );
-
-      unsubscribeFn =
-
-        firestoreFns.onSnapshot(
-
-          messagesQuery,
-
-          (snapshot) => {
-
-            const messages =
-
-              snapshot.docs.map(
-
-                (docSnapshot) => ({
-
-                  id:
-
-                    docSnapshot.id,
-
-                  ...docSnapshot.data(),
-
-                }),
+                error,
 
               );
 
-            callback(messages);
-
-          },
-
-          (error) => {
-
-            console.error(
-
-              '[firebase.js] メッセージの購読でエラーが発生しました',
-
-              error,
-
-            );
-
-            if (
-
-              typeof onError ===
-
-              'function'
-
-            ) {
-
-              onError(error);
-
             }
 
           },
@@ -1484,702 +1352,12 @@ export function subscribeToMessages(
 
   return () => {
 
-    cancelled = true;
+    cancelled =
+
+      true;
 
     unsubscribeFn();
 
   };
 
 }
-
-export async function markMessageAsRead(
-
-  roomId,
-
-  messageId,
-
-  uid,
-
-  currentReadBy,
-
-) {
-
-  if (
-
-    Array.isArray(currentReadBy) &&
-
-    currentReadBy.includes(uid)
-
-  ) {
-
-    return;
-
-  }
-
-  const { db, firestoreFns } =
-
-    await loadFirebase();
-
-  const messageRef =
-
-    firestoreFns.doc(
-
-      db,
-
-      'rooms',
-
-      roomId,
-
-      'messages',
-
-      messageId,
-
-    );
-
-  await firestoreFns.updateDoc(
-
-    messageRef,
-
-    {
-
-      readBy:
-
-        firestoreFns.arrayUnion(
-
-          uid,
-
-        ),
-
-    },
-
-  );
-
-}
-
-export async function setMessageReaction(
-
-  roomId,
-
-  messageId,
-
-  uid,
-
-  emoji,
-
-) {
-
-  const { db, firestoreFns } =
-
-    await loadFirebase();
-
-  const messageRef =
-
-    firestoreFns.doc(
-
-      db,
-
-      'rooms',
-
-      roomId,
-
-      'messages',
-
-      messageId,
-
-    );
-
-  if (emoji === null) {
-
-    await firestoreFns.updateDoc(
-
-      messageRef,
-
-      {
-
-        [`reactions.${uid}`]:
-
-          firestoreFns.deleteField(),
-
-      },
-
-    );
-
-    return;
-
-  }
-
-  await firestoreFns.updateDoc(
-
-    messageRef,
-
-    {
-
-      [`reactions.${uid}`]:
-
-        emoji,
-
-    },
-
-  );
-
-}
-
-export async function deleteMessage(
-
-  roomId,
-
-  messageId,
-
-) {
-
-  const { db, firestoreFns } =
-
-    await loadFirebase();
-
-  const messageRef =
-
-    firestoreFns.doc(
-
-      db,
-
-      'rooms',
-
-      roomId,
-
-      'messages',
-
-      messageId,
-
-    );
-
-  await firestoreFns.deleteDoc(
-
-    messageRef,
-
-  );
-
-}
-
-export async function deleteAllOwnMessages(
-
-  roomId,
-
-  uid,
-
-) {
-
-  const { db, firestoreFns } =
-
-    await loadFirebase();
-
-  const messagesRef =
-
-    firestoreFns.collection(
-
-      db,
-
-      'rooms',
-
-      roomId,
-
-      'messages',
-
-    );
-
-  const ownMessagesQuery =
-
-    firestoreFns.query(
-
-      messagesRef,
-
-      firestoreFns.where(
-
-        'senderId',
-
-        '==',
-
-        uid,
-
-      ),
-
-    );
-
-  const snapshot =
-
-    await firestoreFns.getDocs(
-
-      ownMessagesQuery,
-
-    );
-
-  await Promise.all(
-
-    snapshot.docs.map(
-
-      (docSnapshot) =>
-
-        firestoreFns.deleteDoc(
-
-          docSnapshot.ref,
-
-        ),
-
-    ),
-
-  );
-
-  return snapshot.size;
-
-}
-
-// ------------------------------------------------------------
-
-// 入力中 / Presence
-
-// ------------------------------------------------------------
-
-export async function updateTypingState(
-
-  roomId,
-
-  uid,
-
-  isTyping,
-
-) {
-
-  const { db, firestoreFns } =
-
-    await loadFirebase();
-
-  const roomRef =
-
-    firestoreFns.doc(
-
-      db,
-
-      'rooms',
-
-      roomId,
-
-    );
-
-  await firestoreFns.updateDoc(
-
-    roomRef,
-
-    {
-
-      [`typing.${uid}`]:
-
-        isTyping
-
-          ? firestoreFns.serverTimestamp()
-
-          : firestoreFns.deleteField(),
-
-    },
-
-  );
-
-}
-
-export async function updatePresence(
-
-  roomId,
-
-  uid,
-
-  isOnline,
-
-) {
-
-  const { db, firestoreFns } =
-
-    await loadFirebase();
-
-  const roomRef =
-
-    firestoreFns.doc(
-
-      db,
-
-      'rooms',
-
-      roomId,
-
-    );
-
-  await firestoreFns.updateDoc(
-
-    roomRef,
-
-    {
-
-      [`presence.${uid}`]: {
-
-        state: isOnline
-
-          ? 'online'
-
-          : 'offline',
-
-        lastSeenAt:
-
-          firestoreFns.serverTimestamp(),
-
-      },
-
-    },
-
-  );
-
-}
-
-// ------------------------------------------------------------
-
-// カスタマイズ
-
-// ------------------------------------------------------------
-
-export async function updateRoomCustomization(
-
-  roomId,
-
-  partial,
-
-) {
-
-  const { db, firestoreFns } =
-
-    await loadFirebase();
-
-  const roomRef =
-
-    firestoreFns.doc(
-
-      db,
-
-      'rooms',
-
-      roomId,
-
-    );
-
-  const updates = {};
-
-  Object.entries(partial).forEach(
-
-    ([path, value]) => {
-
-      updates[
-
-        `customization.${path}`
-
-      ] = value;
-
-    },
-
-  );
-
-  await firestoreFns.updateDoc(
-
-    roomRef,
-
-    updates,
-
-  );
-
-}
-
-// ------------------------------------------------------------
-
-// 通知登録
-
-// ------------------------------------------------------------
-
-export async function savePushRegistration(
-
-  roomId,
-
-  uid,
-
-  clientId,
-
-  registrationId,
-
-  method,
-
-) {
-
-  const { db, firestoreFns } =
-
-    await loadFirebase();
-
-  const roomRef =
-
-    firestoreFns.doc(
-
-      db,
-
-      'rooms',
-
-      roomId,
-
-    );
-
-  await firestoreFns.updateDoc(
-
-    roomRef,
-
-    {
-
-      [`memberProfiles.${uid}.pushRegistrations.${clientId}`]:
-
-        {
-
-          id: registrationId,
-
-          method,
-
-          enabled: true,
-
-          updatedAt:
-
-            firestoreFns.serverTimestamp(),
-
-          platform: 'ios-pwa',
-
-        },
-
-    },
-
-  );
-
-}
-
-export async function disablePushRegistration(
-
-  roomId,
-
-  uid,
-
-  clientId,
-
-) {
-
-  const { db, firestoreFns } =
-
-    await loadFirebase();
-
-  const roomRef =
-
-    firestoreFns.doc(
-
-      db,
-
-      'rooms',
-
-      roomId,
-
-    );
-
-  await firestoreFns.updateDoc(
-
-    roomRef,
-
-    {
-
-      [`memberProfiles.${uid}.pushRegistrations.${clientId}.enabled`]:
-
-        false,
-
-      [`memberProfiles.${uid}.pushRegistrations.${clientId}.updatedAt`]:
-
-        firestoreFns.serverTimestamp(),
-
-    },
-
-  );
-
-}
-
-export async function saveNotificationContentPreference(
-
-  roomId,
-
-  uid,
-
-  enabled,
-
-) {
-
-  const { db, firestoreFns } =
-
-    await loadFirebase();
-
-  const roomRef =
-
-    firestoreFns.doc(
-
-      db,
-
-      'rooms',
-
-      roomId,
-
-    );
-
-  await firestoreFns.updateDoc(
-
-    roomRef,
-
-    {
-
-      [`memberProfiles.${uid}.notificationContentEnabled`]:
-
-        enabled,
-
-    },
-
-  );
-
-}
-
-// ------------------------------------------------------------
-
-// Cloudflare Worker通知依頼
-
-// ------------------------------------------------------------
-
-export async function requestNotificationSend(
-
-  roomId,
-
-  messageId,
-
-) {
-
-  const { auth } =
-
-    await loadFirebase();
-
-  if (!auth.currentUser) {
-
-    return false;
-
-  }
-
-  const idToken =
-
-    await auth.currentUser.getIdToken();
-
-  const response = await fetch(
-
-    NOTIFICATION_WORKER_URL,
-
-    {
-
-      method: 'POST',
-
-      headers: {
-
-        'Content-Type':
-
-          'application/json',
-
-        Authorization:
-
-          `Bearer ${idToken}`,
-
-      },
-
-      body: JSON.stringify({
-
-        roomId,
-
-        messageId,
-
-      }),
-
-    },
-
-  );
-
-  if (!response.ok) {
-
-    throw new Error(
-
-      `通知の送信依頼に失敗しました (status: ${response.status})`,
-
-    );
-
-  }
-
-  return true;
-
-}
-
-// ------------------------------------------------------------
-
-// default export
-
-// ------------------------------------------------------------
-
-const Firebase = {
-
-  ensureSignedIn,
-
-  getCurrentUid,
-
-  getOrCreateClientId,
-
-  getLocalDisplayName,
-
-  saveLocalDisplayName,
-
-  getLocalRoomId,
-
-  saveLocalRoomId,
-
-  ensureUserProfile,
-
-  createRoomAndInviteCode,
-
-  joinRoomWithCode,
-
-  subscribeToRoom,
-
-  sendTextMessage,
-
-  subscribeToMessages,
-
-  markMessageAsRead,
-
-  setMessageReaction,
-
-  deleteMessage,
-
-  deleteAllOwnMessages,
-
-  updateTypingState,
-
-  updatePresence,
-
-  updateRoomCustomization,
-
-  registerForPush,
-
-  onForegroundMessage,
-
-  savePushRegistration,
-
-  disablePushRegistration,
-
-  saveNotificationContentPreference,
-
-  requestNotificationSend,
-
-};
-
-export default Firebase;
