@@ -3424,7 +3424,7 @@ function handlePhotoScreenClick(
 
   if (handler) {
 
-    handler();
+    handler(target,);
 
   }
 
