@@ -3896,7 +3896,19 @@ export async function initFirebase() {
 
 // ============================================================
 
+// ============================================================
+
+// 公開API
+
+// ============================================================
+
 const Firebase = {
+
+  // ----------------------------------------
+
+  // Firebase
+
+  // ----------------------------------------
 
   initFirebase,
 
@@ -3908,9 +3920,33 @@ const Firebase = {
 
   // ----------------------------------------
 
-  ensureAnonymousUser,
+  ensureSignedIn,
 
-  getCurrentUser,
+  getCurrentUid,
+
+  // ----------------------------------------
+
+  // ローカル情報
+
+  // ----------------------------------------
+
+  getOrCreateClientId,
+
+  getLocalDisplayName,
+
+  saveLocalDisplayName,
+
+  getLocalRoomId,
+
+  saveLocalRoomId,
+
+  // ----------------------------------------
+
+  // User
+
+  // ----------------------------------------
+
+  ensureUserProfile,
 
   // ----------------------------------------
 
@@ -3918,11 +3954,9 @@ const Firebase = {
 
   // ----------------------------------------
 
-  createPairingRoom,
+  createRoomAndInviteCode,
 
-  joinPairingRoom,
-
-  getRoom,
+  joinRoomWithCode,
 
   subscribeToRoom,
 
@@ -3997,6 +4031,16 @@ const Firebase = {
   saveNotificationSettings,
 
   loadNotificationSettings,
+
+  // ----------------------------------------
+
+  // Push
+
+  // ----------------------------------------
+
+  registerForPush,
+
+  onForegroundMessage,
 
 };
 
