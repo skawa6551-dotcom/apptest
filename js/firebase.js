@@ -1361,3 +1361,2643 @@ export function subscribeToRoom(
   };
 
 }
+
+// ============================================================
+
+// メッセージ
+
+// ============================================================
+
+function buildSearchKeywords(
+
+  text,
+
+) {
+
+  return text
+
+    .toLowerCase()
+
+    .split(/\s+/)
+
+    .filter(
+
+      (word) =>
+
+        word.length > 0,
+
+    )
+
+    .slice(
+
+      0,
+
+      20,
+
+    );
+
+}
+
+export async function sendTextMessage(
+
+  roomId,
+
+  uid,
+
+  clientId,
+
+  text,
+
+) {
+
+  const trimmed =
+
+    typeof text ===
+
+      'string'
+
+      ? text.trim()
+
+      : '';
+
+  if (
+
+    trimmed === ''
+
+  ) {
+
+    return null;
+
+  }
+
+  const {
+
+    db,
+
+    firestoreFns,
+
+  } =
+
+    await loadFirebase();
+
+  const messagesRef =
+
+    firestoreFns.collection(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'messages',
+
+    );
+
+  const messageRef =
+
+    await firestoreFns.addDoc(
+
+      messagesRef,
+
+      {
+
+        schemaVersion:
+
+          SCHEMA_VERSION,
+
+        senderId:
+
+          uid,
+
+        clientId,
+
+        type:
+
+          'text',
+
+        text:
+
+          trimmed,
+
+        media:
+
+          null,
+
+        location:
+
+          null,
+
+        stickerId:
+
+          null,
+
+        timestamp:
+
+          firestoreFns.serverTimestamp(),
+
+        readBy:
+
+          [
+
+            uid,
+
+          ],
+
+        reactions:
+
+          {},
+
+        replyToMessageId:
+
+          null,
+
+        editedAt:
+
+          null,
+
+        deletedForEveryone:
+
+          false,
+
+        deletedFor:
+
+          [],
+
+        searchKeywords:
+
+          buildSearchKeywords(
+
+            trimmed,
+
+          ),
+
+      },
+
+    );
+
+  const preview =
+
+    trimmed.length > 40
+
+      ? `${trimmed.slice(
+
+          0,
+
+          40,
+
+        )}…`
+
+      : trimmed;
+
+  await firestoreFns.updateDoc(
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+    ),
+
+    {
+
+      lastMessageAt:
+
+        firestoreFns.serverTimestamp(),
+
+      lastMessagePreview:
+
+        preview,
+
+    },
+
+  );
+
+  return messageRef.id;
+
+}
+
+// ============================================================
+
+// メッセージ購読
+
+// ============================================================
+
+export function subscribeToMessages(
+
+  roomId,
+
+  callback,
+
+  onError,
+
+) {
+
+  let unsubscribeFn =
+
+    () => {};
+
+  let cancelled =
+
+    false;
+
+  loadFirebase().then(
+
+    ({
+
+      db,
+
+      firestoreFns,
+
+    }) => {
+
+      if (cancelled) {
+
+        return;
+
+      }
+
+      const messagesRef =
+
+        firestoreFns.collection(
+
+          db,
+
+          'rooms',
+
+          roomId,
+
+          'messages',
+
+        );
+
+      const messagesQuery =
+
+        firestoreFns.query(
+
+          messagesRef,
+
+          firestoreFns.orderBy(
+
+            'timestamp',
+
+            'asc',
+
+          ),
+
+          firestoreFns.limit(
+
+            MESSAGE_LIST_LIMIT,
+
+          ),
+
+        );
+
+      unsubscribeFn =
+
+        firestoreFns.onSnapshot(
+
+          messagesQuery,
+
+          (
+
+            snapshot,
+
+          ) => {
+
+            const messages =
+
+              snapshot.docs.map(
+
+                (
+
+                  docSnapshot,
+
+                ) => ({
+
+                  id:
+
+                    docSnapshot.id,
+
+                  ...docSnapshot.data(),
+
+                }),
+
+              );
+
+            callback(
+
+              messages,
+
+            );
+
+          },
+
+          (
+
+            error,
+
+          ) => {
+
+            console.error(
+
+              '[firebase.js] メッセージの購読でエラーが発生しました',
+
+              error,
+
+            );
+
+            if (
+
+              typeof onError ===
+
+                'function'
+
+            ) {
+
+              onError(
+
+                error,
+
+              );
+
+            }
+
+          },
+
+        );
+
+    },
+
+  );
+
+  return () => {
+
+    cancelled =
+
+      true;
+
+    unsubscribeFn();
+
+  };
+
+}
+
+// ============================================================
+
+// 既読
+
+// ============================================================
+
+export async function markMessageAsRead(
+
+  roomId,
+
+  messageId,
+
+  uid,
+
+  currentReadBy,
+
+) {
+
+  if (
+
+    Array.isArray(
+
+      currentReadBy,
+
+    ) &&
+
+    currentReadBy.includes(
+
+      uid,
+
+    )
+
+  ) {
+
+    return;
+
+  }
+
+  const {
+
+    db,
+
+    firestoreFns,
+
+  } =
+
+    await loadFirebase();
+
+  const messageRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'messages',
+
+      messageId,
+
+    );
+
+  await firestoreFns.updateDoc(
+
+    messageRef,
+
+    {
+
+      readBy:
+
+        firestoreFns.arrayUnion(
+
+          uid,
+
+        ),
+
+    },
+
+  );
+
+}
+
+// ============================================================
+
+// リアクション
+
+// ============================================================
+
+export async function setMessageReaction(
+
+  roomId,
+
+  messageId,
+
+  uid,
+
+  emoji,
+
+) {
+
+  const {
+
+    db,
+
+    firestoreFns,
+
+  } =
+
+    await loadFirebase();
+
+  const messageRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'messages',
+
+      messageId,
+
+    );
+
+  if (
+
+    emoji === null
+
+  ) {
+
+    await firestoreFns.updateDoc(
+
+      messageRef,
+
+      {
+
+        [`reactions.${uid}`]:
+
+          firestoreFns.deleteField(),
+
+      },
+
+    );
+
+    return;
+
+  }
+
+  await firestoreFns.updateDoc(
+
+    messageRef,
+
+    {
+
+      [`reactions.${uid}`]:
+
+        emoji,
+
+    },
+
+  );
+
+}
+
+// ============================================================
+
+// メッセージ削除
+
+// ============================================================
+
+export async function deleteMessage(
+
+  roomId,
+
+  messageId,
+
+) {
+
+  const {
+
+    db,
+
+    firestoreFns,
+
+  } =
+
+    await loadFirebase();
+
+  const messageRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'messages',
+
+      messageId,
+
+    );
+
+  await firestoreFns.deleteDoc(
+
+    messageRef,
+
+  );
+
+}
+
+// ============================================================
+
+// 自分のメッセージをすべて削除
+
+// ============================================================
+
+export async function deleteAllOwnMessages(
+
+  roomId,
+
+  uid,
+
+) {
+
+  const {
+
+    db,
+
+    firestoreFns,
+
+  } =
+
+    await loadFirebase();
+
+  const messagesRef =
+
+    firestoreFns.collection(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'messages',
+
+    );
+
+  const ownMessagesQuery =
+
+    firestoreFns.query(
+
+      messagesRef,
+
+      firestoreFns.where(
+
+        'senderId',
+
+        '==',
+
+        uid,
+
+      ),
+
+    );
+
+  const snapshot =
+
+    await firestoreFns.getDocs(
+
+      ownMessagesQuery,
+
+    );
+
+  await Promise.all(
+
+    snapshot.docs.map(
+
+      (
+
+        docSnapshot,
+
+      ) =>
+
+        firestoreFns.deleteDoc(
+
+          docSnapshot.ref,
+
+        ),
+
+    ),
+
+  );
+
+  return snapshot.size;
+
+}
+
+// ============================================================
+
+// 写真共有
+
+// ============================================================
+
+function sanitizePhotoFileName(
+
+  fileName,
+
+) {
+
+  const raw =
+
+    typeof fileName ===
+
+      'string' &&
+
+    fileName.trim()
+
+      ? fileName.trim()
+
+      : 'photo.jpg';
+
+  return raw.replace(
+
+    /[^a-zA-Z0-9._-]/g,
+
+    '_',
+
+  );
+
+}
+
+// ============================================================
+
+// 写真アップロード
+
+// ============================================================
+
+export async function uploadRoomPhoto(
+
+  roomId,
+
+  uid,
+
+  file,
+
+) {
+
+  if (
+
+    !roomId ||
+
+    !uid
+
+  ) {
+
+    throw new Error(
+
+      '写真共有に必要なルーム情報がありません。',
+
+    );
+
+  }
+
+  if (!file) {
+
+    throw new Error(
+
+      '写真データがありません。',
+
+    );
+
+  }
+
+  const size =
+
+    Number(
+
+      file.size,
+
+    ) || 0;
+
+  if (
+
+    size >
+
+    MAX_PHOTO_SIZE_BYTES
+
+  ) {
+
+    throw new Error(
+
+      '写真サイズが大きすぎます。15MB以下の写真を選んでください。',
+
+    );
+
+  }
+
+  const {
+
+    db,
+
+    storage,
+
+    firestoreFns,
+
+    storageFns,
+
+  } =
+
+    await loadFirebase();
+
+  /*
+
+   * Firestore側の写真IDを先に作る。
+
+   * Storage側でも同じIDを使う。
+
+   */
+
+  const photosRef =
+
+    firestoreFns.collection(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'photos',
+
+    );
+
+  const photoRef =
+
+    firestoreFns.doc(
+
+      photosRef,
+
+    );
+
+  const photoId =
+
+    photoRef.id;
+
+  const originalName =
+
+    sanitizePhotoFileName(
+
+      file.name ||
+
+      `photo-${photoId}.jpg`,
+
+    );
+
+  const storagePath =
+
+    `rooms/${roomId}/photos/${photoId}/${originalName}`;
+
+  const storageRef =
+
+    storageFns.ref(
+
+      storage,
+
+      storagePath,
+
+    );
+
+  let uploaded =
+
+    false;
+
+  try {
+
+    const metadata = {
+
+      contentType:
+
+        file.type ||
+
+        'image/jpeg',
+
+      customMetadata: {
+
+        roomId,
+
+        photoId,
+
+        uploaderId:
+
+          uid,
+
+      },
+
+    };
+
+    const uploadResult =
+
+      await storageFns.uploadBytes(
+
+        storageRef,
+
+        file,
+
+        metadata,
+
+      );
+
+    uploaded =
+
+      true;
+
+    const downloadUrl =
+
+      await storageFns.getDownloadURL(
+
+        uploadResult.ref,
+
+      );
+
+    await firestoreFns.setDoc(
+
+      photoRef,
+
+      {
+
+        schemaVersion:
+
+          SCHEMA_VERSION,
+
+        uploaderId:
+
+          uid,
+
+        fileName:
+
+          originalName,
+
+        contentType:
+
+          file.type ||
+
+          'image/jpeg',
+
+        size,
+
+        storagePath,
+
+        downloadUrl,
+
+        createdAt:
+
+          firestoreFns.serverTimestamp(),
+
+      },
+
+    );
+
+    return {
+
+      id:
+
+        photoId,
+
+      roomId,
+
+      uploaderId:
+
+        uid,
+
+      fileName:
+
+        originalName,
+
+      contentType:
+
+        file.type ||
+
+        'image/jpeg',
+
+      size,
+
+      storagePath,
+
+      downloadUrl,
+
+    };
+
+  } catch (error) {
+
+    /*
+
+     * Storageへのアップロードだけ成功して
+
+     * Firestore保存に失敗した場合、
+
+     * 孤立ファイルを残さない。
+
+     */
+
+    if (uploaded) {
+
+      try {
+
+        await storageFns.deleteObject(
+
+          storageRef,
+
+        );
+
+      } catch (
+
+        cleanupError
+
+      ) {
+
+        console.warn(
+
+          '[firebase.js] 写真アップロード失敗後のStorage削除に失敗しました',
+
+          cleanupError,
+
+        );
+
+      }
+
+    }
+
+    console.error(
+
+      '[firebase.js] 写真アップロードに失敗しました',
+
+      error,
+
+    );
+
+    throw error;
+
+  }
+
+}
+
+// ============================================================
+
+// 共有写真一覧をリアルタイム購読
+
+// ============================================================
+
+export function subscribeToPhotos(
+
+  roomId,
+
+  callback,
+
+  onError,
+
+) {
+
+  let unsubscribeFn =
+
+    () => {};
+
+  let cancelled =
+
+    false;
+
+  loadFirebase()
+
+    .then(
+
+      ({
+
+        db,
+
+        firestoreFns,
+
+      }) => {
+
+        if (cancelled) {
+
+          return;
+
+        }
+
+        const photosRef =
+
+          firestoreFns.collection(
+
+            db,
+
+            'rooms',
+
+            roomId,
+
+            'photos',
+
+          );
+
+        const photosQuery =
+
+          firestoreFns.query(
+
+            photosRef,
+
+            firestoreFns.orderBy(
+
+              'createdAt',
+
+              'desc',
+
+            ),
+
+            firestoreFns.limit(
+
+              PHOTO_LIST_LIMIT,
+
+            ),
+
+          );
+
+        unsubscribeFn =
+
+          firestoreFns.onSnapshot(
+
+            photosQuery,
+
+            (
+
+              snapshot,
+
+            ) => {
+
+              const photos =
+
+                snapshot.docs.map(
+
+                  (
+
+                    docSnapshot,
+
+                  ) => ({
+
+                    id:
+
+                      docSnapshot.id,
+
+                    ...docSnapshot.data(),
+
+                  }),
+
+                );
+
+              if (
+
+                typeof callback ===
+
+                  'function'
+
+              ) {
+
+                callback(
+
+                  photos,
+
+                );
+
+              }
+
+            },
+
+            (
+
+              error,
+
+            ) => {
+
+              console.error(
+
+                '[firebase.js] 写真一覧の購読に失敗しました',
+
+                error,
+
+              );
+
+              if (
+
+                typeof onError ===
+
+                  'function'
+
+              ) {
+
+                onError(
+
+                  error,
+
+                );
+
+              }
+
+            },
+
+          );
+
+      },
+
+    )
+
+    .catch(
+
+      (
+
+        error,
+
+      ) => {
+
+        console.error(
+
+          '[firebase.js] 写真購読の初期化に失敗しました',
+
+          error,
+
+        );
+
+        if (
+
+          typeof onError ===
+
+            'function'
+
+        ) {
+
+          onError(
+
+            error,
+
+          );
+
+        }
+
+      },
+
+    );
+
+  return () => {
+
+    cancelled =
+
+      true;
+
+    unsubscribeFn();
+
+  };
+
+}
+
+// ============================================================
+
+// 共有写真を1枚削除
+
+// ============================================================
+
+export async function deleteRoomPhoto(
+
+  roomId,
+
+  photoId,
+
+) {
+
+  if (
+
+    !roomId ||
+
+    !photoId
+
+  ) {
+
+    return;
+
+  }
+
+  const {
+
+    db,
+
+    storage,
+
+    firestoreFns,
+
+    storageFns,
+
+  } =
+
+    await loadFirebase();
+
+  const photoRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'photos',
+
+      photoId,
+
+    );
+
+  const snapshot =
+
+    await firestoreFns.getDoc(
+
+      photoRef,
+
+    );
+
+  if (
+
+    !snapshot.exists()
+
+  ) {
+
+    return;
+
+  }
+
+  const data =
+
+    snapshot.data();
+
+  /*
+
+   * 先にStorage本体を削除。
+
+   * 既に消えている場合でも
+
+   * Firestoreレコード削除へ進める。
+
+   */
+
+  if (
+
+    data.storagePath
+
+  ) {
+
+    try {
+
+      const storageRef =
+
+        storageFns.ref(
+
+          storage,
+
+          data.storagePath,
+
+        );
+
+      await storageFns.deleteObject(
+
+        storageRef,
+
+      );
+
+    } catch (error) {
+
+      /*
+
+       * object-not-found は
+
+       * 既にStorage側から消えているだけなので許容。
+
+       */
+
+      if (
+
+        error?.code !==
+
+        'storage/object-not-found'
+
+      ) {
+
+        throw error;
+
+      }
+
+    }
+
+  }
+
+  await firestoreFns.deleteDoc(
+
+    photoRef,
+
+  );
+
+}
+
+// ============================================================
+
+// 入力中状態
+
+// ============================================================
+
+export async function setTypingState(
+
+  roomId,
+
+  uid,
+
+  isTyping,
+
+) {
+
+  if (
+
+    !roomId ||
+
+    !uid
+
+  ) {
+
+    return;
+
+  }
+
+  const {
+
+    db,
+
+    firestoreFns,
+
+  } =
+
+    await loadFirebase();
+
+  const typingRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'typing',
+
+      uid,
+
+    );
+
+  await firestoreFns.setDoc(
+
+    typingRef,
+
+    {
+
+      uid,
+
+      isTyping:
+
+        Boolean(
+
+          isTyping,
+
+        ),
+
+      updatedAt:
+
+        firestoreFns.serverTimestamp(),
+
+    },
+
+    {
+
+      merge:
+
+        true,
+
+    },
+
+  );
+
+}
+
+// ============================================================
+
+// 入力中状態を購読
+
+// ============================================================
+
+export function subscribeToTyping(
+
+  roomId,
+
+  callback,
+
+  onError,
+
+) {
+
+  let unsubscribeFn =
+
+    () => {};
+
+  let cancelled =
+
+    false;
+
+  loadFirebase()
+
+    .then(
+
+      ({
+
+        db,
+
+        firestoreFns,
+
+      }) => {
+
+        if (cancelled) {
+
+          return;
+
+        }
+
+        const typingRef =
+
+          firestoreFns.collection(
+
+            db,
+
+            'rooms',
+
+            roomId,
+
+            'typing',
+
+          );
+
+        unsubscribeFn =
+
+          firestoreFns.onSnapshot(
+
+            typingRef,
+
+            (
+
+              snapshot,
+
+            ) => {
+
+              const states =
+
+                snapshot.docs.map(
+
+                  (
+
+                    docSnapshot,
+
+                  ) => ({
+
+                    id:
+
+                      docSnapshot.id,
+
+                    ...docSnapshot.data(),
+
+                  }),
+
+                );
+
+              if (
+
+                typeof callback ===
+
+                'function'
+
+              ) {
+
+                callback(
+
+                  states,
+
+                );
+
+              }
+
+            },
+
+            (
+
+              error,
+
+            ) => {
+
+              console.error(
+
+                '[firebase.js] 入力中状態の購読に失敗しました',
+
+                error,
+
+              );
+
+              if (
+
+                typeof onError ===
+
+                  'function'
+
+              ) {
+
+                onError(
+
+                  error,
+
+                );
+
+              }
+
+            },
+
+          );
+
+      },
+
+    )
+
+    .catch(
+
+      (
+
+        error,
+
+      ) => {
+
+        console.error(
+
+          '[firebase.js] 入力中状態の初期化に失敗しました',
+
+          error,
+
+        );
+
+        if (
+
+          typeof onError ===
+
+            'function'
+
+        ) {
+
+          onError(
+
+            error,
+
+          );
+
+        }
+
+      },
+
+    );
+
+  return () => {
+
+    cancelled =
+
+      true;
+
+    unsubscribeFn();
+
+  };
+
+}
+
+// ============================================================
+
+// オンライン状態更新
+
+// ============================================================
+
+export async function updatePresence(
+
+  roomId,
+
+  uid,
+
+  isOnline = true,
+
+) {
+
+  if (
+
+    !roomId ||
+
+    !uid
+
+  ) {
+
+    return;
+
+  }
+
+  const {
+
+    db,
+
+    firestoreFns,
+
+  } =
+
+    await loadFirebase();
+
+  const presenceRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'presence',
+
+      uid,
+
+    );
+
+  await firestoreFns.setDoc(
+
+    presenceRef,
+
+    {
+
+      uid,
+
+      online:
+
+        Boolean(
+
+          isOnline,
+
+        ),
+
+      lastSeenAt:
+
+        firestoreFns.serverTimestamp(),
+
+      updatedAt:
+
+        firestoreFns.serverTimestamp(),
+
+    },
+
+    {
+
+      merge:
+
+        true,
+
+    },
+
+  );
+
+}
+
+// ============================================================
+
+// オンライン状態購読
+
+// ============================================================
+
+export function subscribeToPresence(
+
+  roomId,
+
+  callback,
+
+  onError,
+
+) {
+
+  let unsubscribeFn =
+
+    () => {};
+
+  let cancelled =
+
+    false;
+
+  loadFirebase()
+
+    .then(
+
+      ({
+
+        db,
+
+        firestoreFns,
+
+      }) => {
+
+        if (cancelled) {
+
+          return;
+
+        }
+
+        const presenceRef =
+
+          firestoreFns.collection(
+
+            db,
+
+            'rooms',
+
+            roomId,
+
+            'presence',
+
+          );
+
+        unsubscribeFn =
+
+          firestoreFns.onSnapshot(
+
+            presenceRef,
+
+            (
+
+              snapshot,
+
+            ) => {
+
+              const members =
+
+                snapshot.docs.map(
+
+                  (
+
+                    docSnapshot,
+
+                  ) => ({
+
+                    id:
+
+                      docSnapshot.id,
+
+                    ...docSnapshot.data(),
+
+                  }),
+
+                );
+
+              if (
+
+                typeof callback ===
+
+                  'function'
+
+              ) {
+
+                callback(
+
+                  members,
+
+                );
+
+              }
+
+            },
+
+            (
+
+              error,
+
+            ) => {
+
+              console.error(
+
+                '[firebase.js] Presence購読に失敗しました',
+
+                error,
+
+              );
+
+              if (
+
+                typeof onError ===
+
+                  'function'
+
+              ) {
+
+                onError(
+
+                  error,
+
+                );
+
+              }
+
+            },
+
+          );
+
+      },
+
+    )
+
+    .catch(
+
+      (
+
+        error,
+
+      ) => {
+
+        console.error(
+
+          '[firebase.js] Presence初期化に失敗しました',
+
+          error,
+
+        );
+
+        if (
+
+          typeof onError ===
+
+            'function'
+
+        ) {
+
+          onError(
+
+            error,
+
+          );
+
+        }
+
+      },
+
+    );
+
+  return () => {
+
+    cancelled =
+
+      true;
+
+    unsubscribeFn();
+
+  };
+
+}
+
+// ============================================================
+
+// カスタマイズ保存
+
+// ============================================================
+
+export async function saveCustomization(
+
+  roomId,
+
+  uid,
+
+  customization,
+
+) {
+
+  if (
+
+    !roomId ||
+
+    !uid
+
+  ) {
+
+    throw new Error(
+
+      'カスタマイズ保存に必要な情報がありません。',
+
+    );
+
+  }
+
+  const {
+
+    db,
+
+    firestoreFns,
+
+  } =
+
+    await loadFirebase();
+
+  const customizationRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'customization',
+
+      uid,
+
+    );
+
+  await firestoreFns.setDoc(
+
+    customizationRef,
+
+    {
+
+      ...(customization ?? {}),
+
+      uid,
+
+      updatedAt:
+
+        firestoreFns.serverTimestamp(),
+
+    },
+
+    {
+
+      merge:
+
+        true,
+
+    },
+
+  );
+
+}
+
+// ============================================================
+
+// カスタマイズ取得
+
+// ============================================================
+
+export async function loadCustomization(
+
+  roomId,
+
+  uid,
+
+) {
+
+  if (
+
+    !roomId ||
+
+    !uid
+
+  ) {
+
+    return null;
+
+  }
+
+  const {
+
+    db,
+
+    firestoreFns,
+
+  } =
+
+    await loadFirebase();
+
+  const customizationRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'customization',
+
+      uid,
+
+    );
+
+  const snapshot =
+
+    await firestoreFns.getDoc(
+
+      customizationRef,
+
+    );
+
+  if (
+
+    !snapshot.exists()
+
+  ) {
+
+    return null;
+
+  }
+
+  return {
+
+    id:
+
+      snapshot.id,
+
+    ...snapshot.data(),
+
+  };
+
+}
+
+// ============================================================
+
+// カスタマイズ購読
+
+// ============================================================
+
+export function subscribeToCustomization(
+
+  roomId,
+
+  uid,
+
+  callback,
+
+  onError,
+
+) {
+
+  let unsubscribeFn =
+
+    () => {};
+
+  let cancelled =
+
+    false;
+
+  loadFirebase()
+
+    .then(
+
+      ({
+
+        db,
+
+        firestoreFns,
+
+      }) => {
+
+        if (cancelled) {
+
+          return;
+
+        }
+
+        const customizationRef =
+
+          firestoreFns.doc(
+
+            db,
+
+            'rooms',
+
+            roomId,
+
+            'customization',
+
+            uid,
+
+          );
+
+        unsubscribeFn =
+
+          firestoreFns.onSnapshot(
+
+            customizationRef,
+
+            (
+
+              snapshot,
+
+            ) => {
+
+              const data =
+
+                snapshot.exists()
+
+                  ? {
+
+                      id:
+
+                        snapshot.id,
+
+                      ...snapshot.data(),
+
+                    }
+
+                  : null;
+
+              if (
+
+                typeof callback ===
+
+                  'function'
+
+              ) {
+
+                callback(
+
+                  data,
+
+                );
+
+              }
+
+            },
+
+            (
+
+              error,
+
+            ) => {
+
+              console.error(
+
+                '[firebase.js] カスタマイズ購読に失敗しました',
+
+                error,
+
+              );
+
+              if (
+
+                typeof onError ===
+
+                  'function'
+
+              ) {
+
+                onError(
+
+                  error,
+
+                );
+
+              }
+
+            },
+
+          );
+
+      },
+
+    )
+
+    .catch(
+
+      (
+
+        error,
+
+      ) => {
+
+        console.error(
+
+          '[firebase.js] カスタマイズ購読の初期化に失敗しました',
+
+          error,
+
+        );
+
+        if (
+
+          typeof onError ===
+
+            'function'
+
+        ) {
+
+          onError(
+
+            error,
+
+          );
+
+        }
+
+      },
+
+    );
+
+  return () => {
+
+    cancelled =
+
+      true;
+
+    unsubscribeFn();
+
+  };
+
+}
+
+// ============================================================
+
+// 通知設定保存
+
+// ============================================================
+
+export async function saveNotificationSettings(
+
+  roomId,
+
+  uid,
+
+  settings,
+
+) {
+
+  if (
+
+    !roomId ||
+
+    !uid
+
+  ) {
+
+    throw new Error(
+
+      '通知設定の保存に必要な情報がありません。',
+
+    );
+
+  }
+
+  const {
+
+    db,
+
+    firestoreFns,
+
+  } =
+
+    await loadFirebase();
+
+  const settingsRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'notificationSettings',
+
+      uid,
+
+    );
+
+  await firestoreFns.setDoc(
+
+    settingsRef,
+
+    {
+
+      ...(settings ?? {}),
+
+      uid,
+
+      updatedAt:
+
+        firestoreFns.serverTimestamp(),
+
+    },
+
+    {
+
+      merge:
+
+        true,
+
+    },
+
+  );
+
+}
+
+// ============================================================
+
+// 通知設定取得
+
+// ============================================================
+
+export async function loadNotificationSettings(
+
+  roomId,
+
+  uid,
+
+) {
+
+  if (
+
+    !roomId ||
+
+    !uid
+
+  ) {
+
+    return null;
+
+  }
+
+  const {
+
+    db,
+
+    firestoreFns,
+
+  } =
+
+    await loadFirebase();
+
+  const settingsRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+      'notificationSettings',
+
+      uid,
+
+    );
+
+  const snapshot =
+
+    await firestoreFns.getDoc(
+
+      settingsRef,
+
+    );
+
+  if (
+
+    !snapshot.exists()
+
+  ) {
+
+    return null;
+
+  }
+
+  return {
+
+    id:
+
+      snapshot.id,
+
+    ...snapshot.data(),
+
+  };
+
+}
+
+// ============================================================
+
+// Firebase利用可能確認
+
+// ============================================================
+
+export async function isFirebaseAvailable() {
+
+  try {
+
+    await loadFirebase();
+
+    return true;
+
+  } catch (error) {
+
+    console.error(
+
+      '[firebase.js] Firebaseを利用できません',
+
+      error,
+
+    );
+
+    return false;
+
+  }
+
+}
+
+// ============================================================
+
+// Firebase初期化
+
+// ============================================================
+
+export async function initFirebase() {
+
+  return loadFirebase();
+
+}
+
+// ============================================================
+
+// 公開API
+
+// ============================================================
+
+const Firebase = {
+
+  initFirebase,
+
+  isFirebaseAvailable,
+
+  // ----------------------------------------
+
+  // 認証
+
+  // ----------------------------------------
+
+  ensureAnonymousUser,
+
+  getCurrentUser,
+
+  // ----------------------------------------
+
+  // Pairing / Room
+
+  // ----------------------------------------
+
+  createPairingRoom,
+
+  joinPairingRoom,
+
+  getRoom,
+
+  subscribeToRoom,
+
+  // ----------------------------------------
+
+  // Messages
+
+  // ----------------------------------------
+
+  sendTextMessage,
+
+  subscribeToMessages,
+
+  markMessageAsRead,
+
+  setMessageReaction,
+
+  deleteMessage,
+
+  deleteAllOwnMessages,
+
+  // ----------------------------------------
+
+  // Photos
+
+  // ----------------------------------------
+
+  uploadRoomPhoto,
+
+  subscribeToPhotos,
+
+  deleteRoomPhoto,
+
+  // ----------------------------------------
+
+  // Typing
+
+  // ----------------------------------------
+
+  setTypingState,
+
+  subscribeToTyping,
+
+  // ----------------------------------------
+
+  // Presence
+
+  // ----------------------------------------
+
+  updatePresence,
+
+  subscribeToPresence,
+
+  // ----------------------------------------
+
+  // Customization
+
+  // ----------------------------------------
+
+  saveCustomization,
+
+  loadCustomization,
+
+  subscribeToCustomization,
+
+  // ----------------------------------------
+
+  // Notifications
+
+  // ----------------------------------------
+
+  saveNotificationSettings,
+
+  loadNotificationSettings,
+
+};
+
+export default Firebase;
