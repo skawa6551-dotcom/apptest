@@ -1130,7 +1130,7 @@ function updateMonthLabel() {
 
 // ------------------------------------------------------------
 
-// DOM構築
+// 初期構築
 
 // ------------------------------------------------------------
 
@@ -1204,14 +1204,6 @@ export function create() {
 
   }
 
-  /*
-
-   * customization.jsの変更通知を受け、
-
-   * カレンダー背景を即時反映する。
-
-   */
-
   unsubscribeCustomization =
 
     Customization.subscribe(
@@ -1224,15 +1216,13 @@ export function create() {
 
     );
 
-  isBuilt =
-
-    true;
+  isBuilt = true;
 
 }
 
 // ------------------------------------------------------------
 
-// 表示
+// 開く
 
 // ------------------------------------------------------------
 
@@ -1250,9 +1240,9 @@ export function open() {
 
   /*
 
-   * 画面を開く直前にも必ず最新背景を反映する。
+   * 開く直前にも背景を再適用する。
 
-   * iPhone PWAで以前の描画状態が残るケースへの対策。
+   * iPhone PWAで古い見た目が残るケースを防ぐ。
 
    */
 
@@ -1278,11 +1268,7 @@ export function open() {
 
   /*
 
-   * is-open付与後の次フレームでも再適用。
-
-   * display:none → flex の切り替え後に
-
-   * Safariが背景を再計算しないケースを防ぐ。
+   * is-open付与後のフレームでも再確認。
 
    */
 
@@ -1300,7 +1286,7 @@ export function open() {
 
 // ------------------------------------------------------------
 
-// 非表示
+// 閉じる
 
 // ------------------------------------------------------------
 
@@ -1340,7 +1326,7 @@ export function close() {
 
 // ------------------------------------------------------------
 
-// 開いているか
+// 開閉状態
 
 // ------------------------------------------------------------
 
@@ -1394,6 +1380,8 @@ export function goToPreviousMonth() {
 
   renderGrid();
 
+  renderBackground();
+
 }
 
 // ------------------------------------------------------------
@@ -1427,6 +1415,8 @@ export function goToNextMonth() {
   updateMonthLabel();
 
   renderGrid();
+
+  renderBackground();
 
 }
 
@@ -1618,9 +1608,7 @@ export function saveNote(
 
   const trimmed =
 
-    typeof text ===
-
-      'string'
+    typeof text === 'string'
 
       ? text.trim()
 
@@ -1660,27 +1648,7 @@ export function saveNote(
 
   renderGrid();
 
-}
-
-// ------------------------------------------------------------
-
-// 画面を現在月へ戻す補助
-
-// ------------------------------------------------------------
-
-export function goToToday() {
-
-  viewedYear =
-
-    today.getFullYear();
-
-  viewedMonth =
-
-    today.getMonth();
-
-  updateMonthLabel();
-
-  renderGrid();
+  renderBackground();
 
 }
 
@@ -1703,8 +1671,6 @@ const Calendar = {
   goToPreviousMonth,
 
   goToNextMonth,
-
-  goToToday,
 
   selectDate,
 
