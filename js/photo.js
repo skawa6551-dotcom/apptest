@@ -225,6 +225,32 @@ async function startSharedPhotoSubscription() {
 
       },
 
+        if (
+
+          isOpen()
+
+        ) {
+
+          renderGallery()
+
+            .catch(
+
+              (error) => {
+
+                console.error(
+
+                  '[photo.js] 共有写真更新後の再描画に失敗しました',
+
+                  error,
+
+                );
+
+              },
+
+            );
+
+        }
+
       (error) => {
 
         console.error(
