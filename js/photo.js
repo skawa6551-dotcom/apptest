@@ -4,15 +4,19 @@
 
 // Calculator 0209
 
+//
+
 // 写真画面
 
 //
 
 // ・iPhoneから写真選択
 
-// ・ArrayBufferでIndexedDB保存
+// ・未ペアリング時はIndexedDB保存
 
-// ・アプリ再起動後も復元
+// ・ペアリング済みはFirebase Storageへ共有保存
+
+// ・共有写真リアルタイム同期
 
 // ・写真一覧表示
 
@@ -27,13 +31,14 @@
 // ============================================================
 
 import Customization from './customization.js';
+
 import Firebase from './firebase.js';
 
-// ------------------------------------------------------------
+// ============================================================
 
-// 画面定数
+// 定数
 
-// ------------------------------------------------------------
+// ============================================================
 
 const CONTAINER_ID =
 
@@ -65,11 +70,11 @@ const PHOTO_STORE_NAME =
 
   'photos';
 
-// ------------------------------------------------------------
+// ============================================================
 
 // 状態
 
-// ------------------------------------------------------------
+// ============================================================
 
 let isBuilt =
 
@@ -89,17 +94,25 @@ const activeObjectUrls =
 
 // ------------------------------------------------------------
 
-// Firebase共有写真 状態
+// Firebase共有写真
 
 // ------------------------------------------------------------
 
-let currentRoomId = null;
+let currentRoomId =
 
-let currentUid = null;
+  null;
 
-let unsubscribePhotos = null;
+let currentUid =
 
-let sharedPhotos = [];
+  null;
+
+let unsubscribePhotos =
+
+  null;
+
+let sharedPhotos =
+
+  [];
 
 // ============================================================
 
@@ -117,9 +130,13 @@ async function initializeSharedPhotoContext() {
 
     if (!roomId) {
 
-      currentRoomId = null;
+      currentRoomId =
 
-      currentUid = null;
+        null;
+
+      currentUid =
+
+        null;
 
       return false;
 
@@ -131,17 +148,25 @@ async function initializeSharedPhotoContext() {
 
     if (!uid) {
 
-      currentRoomId = null;
+      currentRoomId =
 
-      currentUid = null;
+        null;
+
+      currentUid =
+
+        null;
 
       return false;
 
     }
 
-    currentRoomId = roomId;
+    currentRoomId =
 
-    currentUid = uid;
+      roomId;
+
+    currentUid =
+
+      uid;
 
     return true;
 
@@ -155,13 +180,57 @@ async function initializeSharedPhotoContext() {
 
     );
 
-    currentRoomId = null;
+    currentRoomId =
 
-    currentUid = null;
+      null;
+
+    currentUid =
+
+      null;
 
     return false;
 
   }
+
+}
+
+// ============================================================
+
+// Firebase共有写真 購読停止
+
+// ============================================================
+
+function stopSharedPhotoSubscription() {
+
+  if (
+
+    typeof unsubscribePhotos ===
+
+      'function'
+
+  ) {
+
+    try {
+
+      unsubscribePhotos();
+
+    } catch (error) {
+
+      console.warn(
+
+        '[photo.js] 共有写真購読解除に失敗しました',
+
+        error,
+
+      );
+
+    }
+
+  }
+
+  unsubscribePhotos =
+
+    null;
 
 }
 
@@ -177,25 +246,15 @@ async function startSharedPhotoSubscription() {
 
     await initializeSharedPhotoContext();
 
+  stopSharedPhotoSubscription();
+
   if (!ready) {
 
-    sharedPhotos = [];
+    sharedPhotos =
 
-    return;
+      [];
 
-  }
-
-  if (
-
-    typeof unsubscribePhotos ===
-
-      'function'
-
-  ) {
-
-    unsubscribePhotos();
-
-    unsubscribePhotos = null;
+    return false;
 
   }
 
@@ -209,7 +268,11 @@ async function startSharedPhotoSubscription() {
 
         sharedPhotos =
 
-          Array.isArray(photos)
+          Array.isArray(
+
+            photos,
+
+          )
 
             ? photos
 
@@ -222,8 +285,6 @@ async function startSharedPhotoSubscription() {
           sharedPhotos.length,
 
         );
-
-      },
 
         if (
 
@@ -251,6 +312,8 @@ async function startSharedPhotoSubscription() {
 
         }
 
+      },
+
       (error) => {
 
         console.error(
@@ -272,6 +335,8 @@ async function startSharedPhotoSubscription() {
       },
 
     );
+
+  return true;
 
 }
 
@@ -343,11 +408,23 @@ function openDatabase() {
 
     new Promise(
 
-      (resolve, reject) => {
+      (
+
+        resolve,
+
+        reject,
+
+      ) => {
 
         if (
 
-          !('indexedDB' in window)
+          !(
+
+            'indexedDB' in
+
+            window
+
+          )
 
         ) {
 
@@ -507,7 +584,7 @@ function openDatabase() {
 
 // ============================================================
 
-// ID生成
+// 写真ID生成
 
 // ============================================================
 
@@ -563,7 +640,13 @@ function blobToArrayBuffer(
 
   return new Promise(
 
-    (resolve, reject) => {
+    (
+
+      resolve,
+
+      reject,
+
+    ) => {
 
       const reader =
 
@@ -613,7 +696,7 @@ function blobToArrayBuffer(
 
 // ============================================================
 
-// 写真1枚保存
+// ローカル写真保存
 
 // ============================================================
 
@@ -632,14 +715,6 @@ async function savePhotoFile(
     );
 
   }
-
-  setStatus(
-
-    '保存中…',
-
-    'saving',
-
-  );
 
   const buffer =
 
@@ -701,7 +776,9 @@ async function savePhotoFile(
 
         file.size,
 
-      ) || buffer.byteLength,
+      ) ||
+
+      buffer.byteLength,
 
     createdAt:
 
@@ -713,7 +790,13 @@ async function savePhotoFile(
 
   return new Promise(
 
-    (resolve, reject) => {
+    (
+
+      resolve,
+
+      reject,
+
+    ) => {
 
       const transaction =
 
@@ -815,7 +898,7 @@ async function savePhotoFile(
 
 // ============================================================
 
-// 保存済み写真取得
+// ローカル写真一覧取得
 
 // ============================================================
 
@@ -827,7 +910,13 @@ async function loadAllPhotos() {
 
   return new Promise(
 
-    (resolve, reject) => {
+    (
+
+      resolve,
+
+      reject,
+
+    ) => {
 
       const transaction =
 
@@ -869,7 +958,13 @@ async function loadAllPhotos() {
 
           records.sort(
 
-            (a, b) =>
+            (
+
+              a,
+
+              b,
+
+            ) =>
 
               Number(
 
@@ -919,7 +1014,7 @@ async function loadAllPhotos() {
 
 // ============================================================
 
-// 写真削除
+// ローカル写真削除
 
 // ============================================================
 
@@ -941,7 +1036,13 @@ async function deletePhotoById(
 
   return new Promise(
 
-    (resolve, reject) => {
+    (
+
+      resolve,
+
+      reject,
+
+    ) => {
 
       const transaction =
 
@@ -1323,16 +1424,6 @@ function createIntro() {
 
   );
 
-  /*
-
-   * iPhoneでは
-
-   * input.click()だけに頼らず、
-
-   * labelとfile inputを直接関連付ける。
-
-   */
-
   const addLabel =
 
     document.createElement(
@@ -1395,7 +1486,7 @@ function createIntro() {
 
 // ============================================================
 
-// 保存状態表示
+// ステータス
 
 // ============================================================
 
@@ -1723,14 +1814,6 @@ function createBlobFromRecord(
 
   }
 
-  /*
-
-   * 新方式：
-
-   * ArrayBufferからBlobを作る。
-
-   */
-
   if (
 
     record.buffer instanceof
@@ -1761,14 +1844,6 @@ function createBlobFromRecord(
 
   }
 
-  /*
-
-   * 古い方式のデータが残っていた場合にも
-
-   * 一応対応する。
-
-   */
-
   if (
 
     record.blob instanceof
@@ -1787,7 +1862,7 @@ function createBlobFromRecord(
 
 // ============================================================
 
-// Firebase共有写真カード生成
+// Firebase共有写真カード
 
 // ============================================================
 
@@ -2013,7 +2088,7 @@ function createSharedPhotoCard(
 
 // ============================================================
 
-// 写真カード生成
+// ローカル写真カード
 
 // ============================================================
 
@@ -2383,11 +2458,13 @@ async function renderGallery() {
 
       ),
 
-    ]
+    ];
 
     if (
 
-      allPhotos.length === 0
+      allPhotos.length ===
+
+        0
 
     ) {
 
@@ -2413,22 +2490,24 @@ async function renderGallery() {
 
       (record) => {
 
-       const card =
+        const card =
 
-  record.source === 'shared'
+          record.source ===
 
-    ? createSharedPhotoCard(
+          'shared'
 
-        record,
+            ? createSharedPhotoCard(
 
-      )
+                record,
 
-    : createPhotoCard(
+              )
 
-        record,
+            : createPhotoCard(
 
-      );
-      
+                record,
+
+              );
+
         if (card) {
 
           fragment.appendChild(
@@ -2449,7 +2528,9 @@ async function renderGallery() {
 
     if (
 
-      renderedCount === 0
+      renderedCount ===
+
+        0
 
     ) {
 
@@ -2585,14 +2666,6 @@ async function handleSelectedFiles(
 
   }
 
-  /*
-
-   * iPhoneではFile判定が不安定になる場合があるため、
-
-   * instanceof File では絞り込まない。
-
-   */
-
   const imageFiles =
 
     Array.from(
@@ -2613,7 +2686,9 @@ async function handleSelectedFiles(
 
   if (
 
-    imageFiles.length === 0
+    imageFiles.length ===
+
+      0
 
   ) {
 
@@ -2651,7 +2726,7 @@ async function handleSelectedFiles(
 
       );
 
-            if (
+      if (
 
         currentRoomId &&
 
@@ -2767,7 +2842,11 @@ function registerFileInputListener() {
 
     'change',
 
-    async (event) => {
+    async (
+
+      event,
+
+    ) => {
 
       const target =
 
@@ -2793,16 +2872,6 @@ function registerFileInputListener() {
 
       );
 
-      /*
-
-       * ファイル一覧を先に変数へコピーしてから
-
-       * inputを空にする。
-
-       * これで同じ写真も再選択できる。
-
-       */
-
       if (target) {
 
         target.value =
@@ -2825,7 +2894,7 @@ function registerFileInputListener() {
 
 // ============================================================
 
-// ＋ボタンのキーボード操作
+// ＋ボタン キーボード
 
 // ============================================================
 
@@ -2849,7 +2918,11 @@ function registerAddLabelKeyboard() {
 
     'keydown',
 
-    (event) => {
+    (
+
+      event,
+
+    ) => {
 
       if (
 
@@ -3279,7 +3352,7 @@ export function getPhotoIdFromTarget(
 
 // ============================================================
 
-// ターゲットからプレビューを開く
+// ターゲットからプレビュー
 
 // ============================================================
 
@@ -3319,7 +3392,7 @@ export function openPreviewFromTarget(
 
 // ============================================================
 
-// 写真1枚削除
+// ローカル写真削除
 
 // ============================================================
 
@@ -3389,7 +3462,7 @@ export async function deletePhoto(
 
 // ============================================================
 
-// ターゲットから写真削除
+// ターゲットからローカル写真削除
 
 // ============================================================
 
@@ -3432,6 +3505,104 @@ export async function deletePhotoFromTarget(
     photoId,
 
   );
+
+}
+
+// ============================================================
+
+// Firebase共有写真削除
+
+// ============================================================
+
+export async function deleteSharedPhotoFromTarget(
+
+  target,
+
+) {
+
+  const photoId =
+
+    getPhotoIdFromTarget(
+
+      target,
+
+    );
+
+  if (
+
+    !photoId ||
+
+    !currentRoomId
+
+  ) {
+
+    return;
+
+  }
+
+  const confirmed =
+
+    window.confirm(
+
+      'この共有写真を削除しますか？',
+
+    );
+
+  if (!confirmed) {
+
+    return;
+
+  }
+
+  try {
+
+    await Firebase.deleteRoomPhoto(
+
+      currentRoomId,
+
+      photoId,
+
+    );
+
+    setStatus(
+
+      '共有写真を削除しました',
+
+      'success',
+
+    );
+
+    window.setTimeout(
+
+      () => {
+
+        clearStatus();
+
+      },
+
+      1800,
+
+    );
+
+  } catch (error) {
+
+    console.error(
+
+      '[photo.js] 共有写真の削除に失敗しました',
+
+      error,
+
+    );
+
+    setStatus(
+
+      '共有写真の削除に失敗しました',
+
+      'error',
+
+    );
+
+  }
 
 }
 
@@ -3509,7 +3680,11 @@ function applyBackground() {
 
   ).forEach(
 
-    (className) => {
+    (
+
+      className,
+
+    ) => {
 
       if (
 
@@ -3753,7 +3928,7 @@ export async function open() {
 
   clearStatus();
 
- await startSharedPhotoSubscription();
+  await startSharedPhotoSubscription();
 
   await renderGallery();
 
@@ -3778,6 +3953,8 @@ export function close() {
   }
 
   closePreview();
+
+  stopSharedPhotoSubscription();
 
   container.classList.remove(
 
@@ -3851,6 +4028,8 @@ export function destroy() {
 
   closePreview();
 
+  stopSharedPhotoSubscription();
+
   revokeAllObjectUrls();
 
   if (
@@ -3882,6 +4061,18 @@ export function destroy() {
   unsubscribeCustomization =
 
     null;
+
+  currentRoomId =
+
+    null;
+
+  currentUid =
+
+    null;
+
+  sharedPhotos =
+
+    [];
 
   databasePromise =
 
@@ -3926,6 +4117,8 @@ const Photo = {
   deletePhoto,
 
   deletePhotoFromTarget,
+
+  deleteSharedPhotoFromTarget,
 
   destroy,
 
