@@ -2,19 +2,21 @@
 
 // app.js
 
-// アプリ全体の司令塔。DOMの取得・イベント処理・画面描画は
-
-// このファイルだけが行う。
-
-// calculator.js / storage.js / settings.js / sound.js / auth.js /
-
-// themes.js は中身を変更せず、公開APIだけを利用して接続する。
+// Calculator 0209
 
 // ============================================================
 
-import Calculator, { ACTIONS as CALC_ACTIONS } from './calculator.js';
+import Calculator, {
 
-import Storage, { STORAGE_KEYS } from './storage.js';
+  ACTIONS as CALC_ACTIONS,
+
+} from './calculator.js';
+
+import Storage, {
+
+  STORAGE_KEYS,
+
+} from './storage.js';
 
 import Settings, {
 
@@ -28,7 +30,13 @@ import Sound from './sound.js';
 
 import Auth from './auth.js';
 
-import { THEMES, getThemeById } from './themes.js';
+import {
+
+  THEMES,
+
+  getThemeById,
+
+} from './themes.js';
 
 import Router from './router.js';
 
@@ -52,69 +60,223 @@ import Customization from './customization.js';
 
 import Notifications from './notifications.js';
 
-// ------------------------------------------------------------
+// ============================================================
 
 // 定数
 
-// ------------------------------------------------------------
+// ============================================================
 
 const KEYPAD_LAYOUT = [
 
   [
 
-    { label: 'AC', action: CALC_ACTIONS.CLEAR, variant: 'func' },
+    {
 
-    { label: '±', action: CALC_ACTIONS.NEGATE, variant: 'func' },
+      label: 'AC',
 
-    { label: '%', action: CALC_ACTIONS.PERCENT, variant: 'func' },
+      action: CALC_ACTIONS.CLEAR,
 
-    { label: '÷', action: CALC_ACTIONS.DIVIDE, variant: 'operator' },
+      variant: 'func',
 
-  ],
+    },
 
-  [
+    {
 
-    { label: '7', num: '7', variant: 'num' },
+      label: '±',
 
-    { label: '8', num: '8', variant: 'num' },
+      action: CALC_ACTIONS.NEGATE,
 
-    { label: '9', num: '9', variant: 'num' },
+      variant: 'func',
 
-    { label: '×', action: CALC_ACTIONS.MULTIPLY, variant: 'operator' },
+    },
 
-  ],
+    {
 
-  [
+      label: '%',
 
-    { label: '4', num: '4', variant: 'num' },
+      action: CALC_ACTIONS.PERCENT,
 
-    { label: '5', num: '5', variant: 'num' },
+      variant: 'func',
 
-    { label: '6', num: '6', variant: 'num' },
+    },
 
-    { label: '−', action: CALC_ACTIONS.SUBTRACT, variant: 'operator' },
+    {
 
-  ],
+      label: '÷',
 
-  [
+      action: CALC_ACTIONS.DIVIDE,
 
-    { label: '1', num: '1', variant: 'num' },
+      variant: 'operator',
 
-    { label: '2', num: '2', variant: 'num' },
-
-    { label: '3', num: '3', variant: 'num' },
-
-    { label: '＋', action: CALC_ACTIONS.ADD, variant: 'operator' },
+    },
 
   ],
 
   [
 
-    { label: '0', num: '0', variant: 'num', wide: true },
+    {
 
-    { label: '.', action: CALC_ACTIONS.DECIMAL, variant: 'num' },
+      label: '7',
 
-    { label: '=', action: CALC_ACTIONS.EQUALS, variant: 'equal' },
+      num: '7',
+
+      variant: 'num',
+
+    },
+
+    {
+
+      label: '8',
+
+      num: '8',
+
+      variant: 'num',
+
+    },
+
+    {
+
+      label: '9',
+
+      num: '9',
+
+      variant: 'num',
+
+    },
+
+    {
+
+      label: '×',
+
+      action: CALC_ACTIONS.MULTIPLY,
+
+      variant: 'operator',
+
+    },
+
+  ],
+
+  [
+
+    {
+
+      label: '4',
+
+      num: '4',
+
+      variant: 'num',
+
+    },
+
+    {
+
+      label: '5',
+
+      num: '5',
+
+      variant: 'num',
+
+    },
+
+    {
+
+      label: '6',
+
+      num: '6',
+
+      variant: 'num',
+
+    },
+
+    {
+
+      label: '−',
+
+      action: CALC_ACTIONS.SUBTRACT,
+
+      variant: 'operator',
+
+    },
+
+  ],
+
+  [
+
+    {
+
+      label: '1',
+
+      num: '1',
+
+      variant: 'num',
+
+    },
+
+    {
+
+      label: '2',
+
+      num: '2',
+
+      variant: 'num',
+
+    },
+
+    {
+
+      label: '3',
+
+      num: '3',
+
+      variant: 'num',
+
+    },
+
+    {
+
+      label: '＋',
+
+      action: CALC_ACTIONS.ADD,
+
+      variant: 'operator',
+
+    },
+
+  ],
+
+  [
+
+    {
+
+      label: '0',
+
+      num: '0',
+
+      variant: 'num',
+
+      wide: true,
+
+    },
+
+    {
+
+      label: '.',
+
+      action: CALC_ACTIONS.DECIMAL,
+
+      variant: 'num',
+
+    },
+
+    {
+
+      label: '=',
+
+      action: CALC_ACTIONS.EQUALS,
+
+      variant: 'equal',
+
+    },
 
   ],
 
@@ -122,23 +284,41 @@ const KEYPAD_LAYOUT = [
 
 const KEY_ARIA_LABELS = Object.freeze({
 
-  [CALC_ACTIONS.CLEAR]: 'オールクリア',
+  [CALC_ACTIONS.CLEAR]:
 
-  [CALC_ACTIONS.NEGATE]: 'プラスマイナス切り替え',
+    'オールクリア',
 
-  [CALC_ACTIONS.PERCENT]: 'パーセント',
+  [CALC_ACTIONS.NEGATE]:
 
-  [CALC_ACTIONS.DIVIDE]: '割る',
+    'プラスマイナス切り替え',
 
-  [CALC_ACTIONS.MULTIPLY]: '掛ける',
+  [CALC_ACTIONS.PERCENT]:
 
-  [CALC_ACTIONS.SUBTRACT]: '引く',
+    'パーセント',
 
-  [CALC_ACTIONS.ADD]: '足す',
+  [CALC_ACTIONS.DIVIDE]:
 
-  [CALC_ACTIONS.DECIMAL]: '小数点',
+    '割る',
 
-  [CALC_ACTIONS.EQUALS]: '計算実行',
+  [CALC_ACTIONS.MULTIPLY]:
+
+    '掛ける',
+
+  [CALC_ACTIONS.SUBTRACT]:
+
+    '引く',
+
+  [CALC_ACTIONS.ADD]:
+
+    '足す',
+
+  [CALC_ACTIONS.DECIMAL]:
+
+    '小数点',
+
+  [CALC_ACTIONS.EQUALS]:
+
+    '計算実行',
 
 });
 
@@ -164,67 +344,85 @@ const CALCULATOR_ACTIONS = new Set([
 
 ]);
 
-const PASSCODE_RESET_ACTIONS = new Set([
+const PASSCODE_RESET_ACTIONS =
 
-  CALC_ACTIONS.CLEAR,
+  new Set([
 
-  CALC_ACTIONS.EQUALS,
+    CALC_ACTIONS.CLEAR,
 
-  CALC_ACTIONS.ADD,
+    CALC_ACTIONS.EQUALS,
 
-  CALC_ACTIONS.SUBTRACT,
+    CALC_ACTIONS.ADD,
 
-  CALC_ACTIONS.MULTIPLY,
+    CALC_ACTIONS.SUBTRACT,
 
-  CALC_ACTIONS.DIVIDE,
+    CALC_ACTIONS.MULTIPLY,
 
-  CALC_ACTIONS.PERCENT,
+    CALC_ACTIONS.DIVIDE,
 
-  CALC_ACTIONS.DECIMAL,
+    CALC_ACTIONS.PERCENT,
 
-]);
+    CALC_ACTIONS.DECIMAL,
 
-const ERROR_DISPLAY_TEXT = Object.freeze({
+  ]);
 
-  'division-by-zero': 'エラー',
+const ERROR_DISPLAY_TEXT =
 
-  overflow: 'エラー',
+  Object.freeze({
 
-  'unknown-operator': 'エラー',
+    'division-by-zero': 'エラー',
 
-  unknown: 'エラー',
+    overflow: 'エラー',
 
-});
+    'unknown-operator': 'エラー',
 
-const DEFAULT_ERROR_TEXT = 'エラー';
+    unknown: 'エラー',
 
-const LONG_NUMBER_THRESHOLD = 10;
+  });
 
-const PRESSED_CLASS_TIMEOUT = 150;
+const DEFAULT_ERROR_TEXT =
+
+  'エラー';
+
+const LONG_NUMBER_THRESHOLD =
+
+  10;
+
+const PRESSED_CLASS_TIMEOUT =
+
+  150;
 
 const FOCUSABLE_SELECTOR =
 
-  'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-// ------------------------------------------------------------
+// ============================================================
 
-// モジュール内状態
+// 状態
 
-// ------------------------------------------------------------
+// ============================================================
 
-let isBiometricSupported = false;
+let isBiometricSupported =
 
-let lastFocusedElement = null;
+  false;
 
-let passcodeBuffer = '';
+let lastFocusedElement =
 
-const pressedTimeouts = new WeakMap();
+  null;
 
-// ------------------------------------------------------------
+let passcodeBuffer =
+
+  '';
+
+const pressedTimeouts =
+
+  new WeakMap();
+  
+  // ============================================================
 
 // ユーティリティ
 
-// ------------------------------------------------------------
+// ============================================================
 
 function formatWithGrouping(rawValue) {
 
@@ -234,19 +432,35 @@ function formatWithGrouping(rawValue) {
 
   }
 
-  const isNegative = rawValue.startsWith('-');
+  const isNegative =
 
-  const unsigned = isNegative ? rawValue.slice(1) : rawValue;
+    rawValue.startsWith('-');
 
-  const [integerPart, decimalPart] = unsigned.split('.');
+  const unsigned =
 
-  const groupedInteger = integerPart.replace(
+    isNegative
 
-    /\B(?=(\d{3})+(?!\d))/g,
+      ? rawValue.slice(1)
 
-    ',',
+      : rawValue;
 
-  );
+  const [
+
+    integerPart,
+
+    decimalPart,
+
+  ] = unsigned.split('.');
+
+  const groupedInteger =
+
+    integerPart.replace(
+
+      /\B(?=(\d{3})+(?!\d))/g,
+
+      ',',
+
+    );
 
   const grouped =
 
@@ -256,7 +470,11 @@ function formatWithGrouping(rawValue) {
 
       : groupedInteger;
 
-  return isNegative ? `-${grouped}` : grouped;
+  return isNegative
+
+    ? `-${grouped}`
+
+    : grouped;
 
 }
 
@@ -266,7 +484,9 @@ function groupNumbersInText(text) {
 
     /-?\d+(\.\d+)?/g,
 
-    (match) => formatWithGrouping(match),
+    (match) =>
+
+      formatWithGrouping(match),
 
   );
 
@@ -274,27 +494,39 @@ function groupNumbersInText(text) {
 
 function playFeedbackSound(kind) {
 
-  if (!Settings.isSoundEnabled()) return;
+  if (!Settings.isSoundEnabled()) {
+
+    return;
+
+  }
 
   if (kind === 'success') {
 
     Sound.playSuccess();
 
-  } else if (kind === 'error') {
+    return;
+
+  }
+
+  if (kind === 'error') {
 
     Sound.playError();
 
-  } else {
-
-    Sound.playTap();
+    return;
 
   }
+
+  Sound.playTap();
 
 }
 
 function playFeedbackVibration() {
 
-  if (Settings.isVibrationEnabled()) {
+  if (
+
+    Settings.isVibrationEnabled()
+
+  ) {
 
     Sound.vibrate();
 
@@ -302,71 +534,167 @@ function playFeedbackVibration() {
 
 }
 
-function dispatchToCalculator(type, payload) {
+function dispatchToCalculator(
 
-  return Calculator.input(type, payload);
+  type,
+
+  payload,
+
+) {
+
+  return Calculator.input(
+
+    type,
+
+    payload,
+
+  );
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
-// キーパッド・設定UI生成
+// キーパッド生成
 
-// ------------------------------------------------------------
+// ============================================================
 
 function buildKeypad() {
 
-  const keypadEl = document.getElementById('keypad');
+  const keypadEl =
 
-  const fragment = document.createDocumentFragment();
+    document.getElementById(
 
-  KEYPAD_LAYOUT.forEach((row) => {
+      'keypad',
 
-    const rowEl = document.createElement('div');
+    );
 
-    rowEl.className = 'keypad-row';
+  if (!keypadEl) {
 
-    row.forEach((keyDef) => {
+    return;
 
-      rowEl.appendChild(createKeyButton(keyDef));
+  }
 
-    });
+  const fragment =
 
-    fragment.appendChild(rowEl);
+    document.createDocumentFragment();
 
-  });
+  KEYPAD_LAYOUT.forEach(
 
-  keypadEl.appendChild(fragment);
+    (row) => {
+
+      const rowEl =
+
+        document.createElement(
+
+          'div',
+
+        );
+
+      rowEl.className =
+
+        'keypad-row';
+
+      row.forEach(
+
+        (keyDef) => {
+
+          rowEl.appendChild(
+
+            createKeyButton(
+
+              keyDef,
+
+            ),
+
+          );
+
+        },
+
+      );
+
+      fragment.appendChild(
+
+        rowEl,
+
+      );
+
+    },
+
+  );
+
+  keypadEl.replaceChildren(
+
+    fragment,
+
+  );
 
 }
 
-function createKeyButton(keyDef) {
+function createKeyButton(
 
-  const button = document.createElement('button');
+  keyDef,
+
+) {
+
+  const button =
+
+    document.createElement(
+
+      'button',
+
+    );
 
   button.type = 'button';
 
   button.className =
 
-    `key key-${keyDef.variant}${keyDef.wide ? ' key-zero' : ''}`;
+    `key key-${keyDef.variant}${
 
-  button.textContent = keyDef.label;
+      keyDef.wide
 
-  if (keyDef.num !== undefined) {
+        ? ' key-zero'
 
-    button.dataset.num = keyDef.num;
+        : ''
 
-    button.setAttribute('aria-label', `数字 ${keyDef.num}`);
+    }`;
 
-  } else {
+  button.textContent =
 
-    button.dataset.action = keyDef.action;
+    keyDef.label;
+
+  if (
+
+    keyDef.num !== undefined
+
+  ) {
+
+    button.dataset.num =
+
+      keyDef.num;
 
     button.setAttribute(
 
       'aria-label',
 
-      KEY_ARIA_LABELS[keyDef.action] ?? keyDef.label,
+      `数字 ${keyDef.num}`,
+
+    );
+
+  } else {
+
+    button.dataset.action =
+
+      keyDef.action;
+
+    button.setAttribute(
+
+      'aria-label',
+
+      KEY_ARIA_LABELS[
+
+        keyDef.action
+
+      ] ?? keyDef.label,
 
     );
 
@@ -376,55 +704,161 @@ function createKeyButton(keyDef) {
 
 }
 
+// ============================================================
+
+// テーマ設定UI生成
+
+// ============================================================
+
 function buildThemeOptions() {
 
-  const themeSwitchEl = document.getElementById('themeSwitch');
+  const themeSwitchEl =
 
-  const fragment = document.createDocumentFragment();
+    document.getElementById(
 
-  THEMES.forEach((theme) => {
+      'themeSwitch',
 
-    const button = document.createElement('button');
+    );
 
-    button.type = 'button';
+  if (!themeSwitchEl) {
 
-    button.className = 'theme-option';
+    return;
 
-    button.textContent = theme.label;
+  }
 
-    button.dataset.action = 'select-theme';
+  const fragment =
 
-    button.dataset.themeId = theme.id;
+    document.createDocumentFragment();
 
-    button.setAttribute('role', 'radio');
+  THEMES.forEach(
 
-    button.setAttribute('aria-checked', 'false');
+    (theme) => {
 
-    fragment.appendChild(button);
+      const button =
 
-  });
+        document.createElement(
 
-  themeSwitchEl.appendChild(fragment);
+          'button',
+
+        );
+
+      button.type =
+
+        'button';
+
+      button.className =
+
+        'theme-option';
+
+      button.textContent =
+
+        theme.label;
+
+      button.dataset.action =
+
+        'select-theme';
+
+      button.dataset.themeId =
+
+        theme.id;
+
+      button.setAttribute(
+
+        'role',
+
+        'radio',
+
+      );
+
+      button.setAttribute(
+
+        'aria-checked',
+
+        'false',
+
+      );
+
+      fragment.appendChild(
+
+        button,
+
+      );
+
+    },
+
+  );
+
+  themeSwitchEl.replaceChildren(
+
+    fragment,
+
+  );
 
 }
 
-function populateDurationSelect(selectEl, presets) {
+// ============================================================
 
-  const fragment = document.createDocumentFragment();
+// 時間設定UI生成
 
-  presets.forEach((preset) => {
+// ============================================================
 
-    const option = document.createElement('option');
+function populateDurationSelect(
 
-    option.value = String(preset.valueMs);
+  selectEl,
 
-    option.textContent = preset.label;
+  presets,
 
-    fragment.appendChild(option);
+) {
 
-  });
+  if (!selectEl) {
 
-  selectEl.appendChild(fragment);
+    return;
+
+  }
+
+  const fragment =
+
+    document.createDocumentFragment();
+
+  presets.forEach(
+
+    (preset) => {
+
+      const option =
+
+        document.createElement(
+
+          'option',
+
+        );
+
+      option.value =
+
+        String(
+
+          preset.valueMs,
+
+        );
+
+      option.textContent =
+
+        preset.label;
+
+      fragment.appendChild(
+
+        option,
+
+      );
+
+    },
+
+  );
+
+  selectEl.replaceChildren(
+
+    fragment,
+
+  );
 
 }
 
@@ -432,7 +866,11 @@ function buildDurationSelectOptions() {
 
   populateDurationSelect(
 
-    document.getElementById('autoLockDurationSelect'),
+    document.getElementById(
+
+      'autoLockDurationSelect',
+
+    ),
 
     AUTO_LOCK_DURATION_PRESETS,
 
@@ -440,7 +878,11 @@ function buildDurationSelectOptions() {
 
   populateDurationSelect(
 
-    document.getElementById('organizeDurationSelect'),
+    document.getElementById(
+
+      'organizeDurationSelect',
+
+    ),
 
     CONVERSATION_ORGANIZE_DURATION_PRESETS,
 
@@ -448,93 +890,213 @@ function buildDurationSelectOptions() {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
-// 描画
+// 電卓表示
 
-// ------------------------------------------------------------
+// ============================================================
 
 function renderDisplay() {
 
-  const displayState = Calculator.getDisplayState();
+  const displayState =
 
-  const expressionEl = document.getElementById('expressionDisplay');
+    Calculator.getDisplayState();
 
-  const resultEl = document.getElementById('resultDisplay');
+  const expressionEl =
 
-  expressionEl.textContent = displayState.expression;
+    document.getElementById(
 
-  if (displayState.isError) {
+      'expressionDisplay',
 
-    resultEl.textContent =
+    );
 
-      ERROR_DISPLAY_TEXT[displayState.errorCode] ??
+  const resultEl =
 
-      DEFAULT_ERROR_TEXT;
+    document.getElementById(
 
-    resultEl.classList.add('is-error');
+      'resultDisplay',
 
-    resultEl.classList.remove('result-display--long');
+    );
+
+  if (
+
+    !expressionEl ||
+
+    !resultEl
+
+  ) {
 
     return;
 
   }
 
-  const formatted = formatWithGrouping(displayState.result);
+  expressionEl.textContent =
 
-  resultEl.textContent = formatted;
+    displayState.expression;
 
-  resultEl.classList.remove('is-error');
+  if (
+
+    displayState.isError
+
+  ) {
+
+    resultEl.textContent =
+
+      ERROR_DISPLAY_TEXT[
+
+        displayState.errorCode
+
+      ] ??
+
+      DEFAULT_ERROR_TEXT;
+
+    resultEl.classList.add(
+
+      'is-error',
+
+    );
+
+    resultEl.classList.remove(
+
+      'result-display--long',
+
+    );
+
+    return;
+
+  }
+
+  const formatted =
+
+    formatWithGrouping(
+
+      displayState.result,
+
+    );
+
+  resultEl.textContent =
+
+    formatted;
+
+  resultEl.classList.remove(
+
+    'is-error',
+
+  );
 
   resultEl.classList.toggle(
 
     'result-display--long',
 
-    formatted.length > LONG_NUMBER_THRESHOLD,
+    formatted.length >
+
+      LONG_NUMBER_THRESHOLD,
 
   );
 
 }
+
+// ============================================================
+
+// 履歴表示
+
+// ============================================================
 
 function renderHistory() {
 
-  const historyListEl = document.getElementById('historyList');
+  const historyListEl =
 
-  const entries = Calculator.getHistory();
+    document.getElementById(
 
-  const fragment = document.createDocumentFragment();
-
-  entries.forEach((entry) => {
-
-    const li = document.createElement('li');
-
-    li.className = 'history-item';
-
-    li.textContent = groupNumbersInText(
-
-      `${entry.expression} = ${entry.result}`,
+      'historyList',
 
     );
 
-    fragment.appendChild(li);
+  if (!historyListEl) {
 
-  });
+    return;
 
-  historyListEl.replaceChildren(fragment);
+  }
+
+  const entries =
+
+    Calculator.getHistory();
+
+  const fragment =
+
+    document.createDocumentFragment();
+
+  entries.forEach(
+
+    (entry) => {
+
+      const li =
+
+        document.createElement(
+
+          'li',
+
+        );
+
+      li.className =
+
+        'history-item';
+
+      li.textContent =
+
+        groupNumbersInText(
+
+          `${entry.expression} = ${entry.result}`,
+
+        );
+
+      fragment.appendChild(
+
+        li,
+
+      );
+
+    },
+
+  );
+
+  historyListEl.replaceChildren(
+
+    fragment,
+
+  );
 
 }
 
-function updateMetaThemeColor(themeId) {
+// ============================================================
 
-  const theme = getThemeById(themeId);
+// テーマ描画
 
-  if (!theme) return;
+// ============================================================
 
-  const metaEl = document.querySelector(
+function updateMetaThemeColor(
 
-    'meta[name="theme-color"]',
+  themeId,
 
-  );
+) {
+
+  const theme =
+
+    getThemeById(themeId);
+
+  if (!theme) {
+
+    return;
+
+  }
+
+  const metaEl =
+
+    document.querySelector(
+
+      'meta[name="theme-color"]',
+
+    );
 
   if (metaEl) {
 
@@ -552,89 +1114,317 @@ function updateMetaThemeColor(themeId) {
 
 function renderTheme() {
 
-  const theme = Settings.getTheme();
+  const theme =
 
-  document.documentElement.dataset.theme = theme;
+    Settings.getTheme();
 
-  updateMetaThemeColor(theme);
+  document.documentElement.dataset.theme =
 
-  const themeSwitchEl = document.getElementById('themeSwitch');
+    theme;
 
-  Array.from(themeSwitchEl.children).forEach((button) => {
+  updateMetaThemeColor(
 
-    const isActive = button.dataset.themeId === theme;
+    theme,
 
-    button.classList.toggle('active', isActive);
+  );
 
-    button.setAttribute('aria-checked', String(isActive));
+  const themeSwitchEl =
 
-  });
+    document.getElementById(
+
+      'themeSwitch',
+
+    );
+
+  if (!themeSwitchEl) {
+
+    return;
+
+  }
+
+  Array.from(
+
+    themeSwitchEl.children,
+
+  ).forEach(
+
+    (button) => {
+
+      const isActive =
+
+        button.dataset.themeId ===
+
+        theme;
+
+      button.classList.toggle(
+
+        'active',
+
+        isActive,
+
+      );
+
+      button.setAttribute(
+
+        'aria-checked',
+
+        String(isActive),
+
+      );
+
+    },
+
+  );
 
 }
 
+// ============================================================
+
+// 設定画面描画
+
+// ============================================================
+
 function renderSettings() {
 
-  document.getElementById('soundToggle').checked =
+  const soundToggle =
 
-    Settings.isSoundEnabled();
+    document.getElementById(
 
-  document.getElementById('vibrationToggle').checked =
+      'soundToggle',
 
-    Settings.isVibrationEnabled();
+    );
 
-  const biometricRow = document.getElementById('biometricRow');
+  if (soundToggle) {
 
-  biometricRow.hidden = !isBiometricSupported;
+    soundToggle.checked =
 
-  if (isBiometricSupported) {
+      Settings.isSoundEnabled();
 
-    document.getElementById('biometricToggle').checked =
+  }
+
+  const vibrationToggle =
+
+    document.getElementById(
+
+      'vibrationToggle',
+
+    );
+
+  if (vibrationToggle) {
+
+    vibrationToggle.checked =
+
+      Settings.isVibrationEnabled();
+
+  }
+
+  const biometricRow =
+
+    document.getElementById(
+
+      'biometricRow',
+
+    );
+
+  if (biometricRow) {
+
+    biometricRow.hidden =
+
+      !isBiometricSupported;
+
+  }
+
+  const biometricToggle =
+
+    document.getElementById(
+
+      'biometricToggle',
+
+    );
+
+  if (
+
+    biometricToggle &&
+
+    isBiometricSupported
+
+  ) {
+
+    biometricToggle.checked =
 
       Settings.isBiometricEnabled();
 
   }
 
-  document.getElementById('autoLockDurationSelect').value =
+  const autoLockSelect =
 
-    String(Settings.getAutoLockDurationMs());
+    document.getElementById(
 
-  document.getElementById('archiveLockToggle').checked =
+      'autoLockDurationSelect',
 
-    Settings.isArchiveLockEnabled();
+    );
 
-  document.getElementById('notificationsToggle').checked =
+  if (autoLockSelect) {
 
-    Settings.isNotificationsEnabled();
+    autoLockSelect.value =
 
-  document.getElementById('notificationContentToggle').checked =
+      String(
 
-    Settings.isNotificationContentEnabled();
+        Settings.getAutoLockDurationMs(),
 
-  document.getElementById('notificationSoundToggle').checked =
+      );
 
-    Settings.isNotificationSoundEnabled();
+  }
 
-  document.getElementById('notificationVibrationToggle').checked =
+  const archiveLockToggle =
 
-    Settings.isNotificationVibrationEnabled();
+    document.getElementById(
+
+      'archiveLockToggle',
+
+    );
+
+  if (archiveLockToggle) {
+
+    archiveLockToggle.checked =
+
+      Settings.isArchiveLockEnabled();
+
+  }
+
+  const notificationsToggle =
+
+    document.getElementById(
+
+      'notificationsToggle',
+
+    );
+
+  if (notificationsToggle) {
+
+    notificationsToggle.checked =
+
+      Settings.isNotificationsEnabled();
+
+  }
+
+  const notificationContentToggle =
+
+    document.getElementById(
+
+      'notificationContentToggle',
+
+    );
+
+  if (notificationContentToggle) {
+
+    notificationContentToggle.checked =
+
+      Settings.isNotificationContentEnabled();
+
+  }
+
+  const notificationSoundToggle =
+
+    document.getElementById(
+
+      'notificationSoundToggle',
+
+    );
+
+  if (notificationSoundToggle) {
+
+    notificationSoundToggle.checked =
+
+      Settings.isNotificationSoundEnabled();
+
+  }
+
+  const notificationVibrationToggle =
+
+    document.getElementById(
+
+      'notificationVibrationToggle',
+
+    );
+
+  if (notificationVibrationToggle) {
+
+    notificationVibrationToggle.checked =
+
+      Settings.isNotificationVibrationEnabled();
+
+  }
 
   renderNotificationStatus();
 
-  document.getElementById('readReceiptsToggle').checked =
+  const readReceiptsToggle =
 
-    Settings.isReadReceiptsEnabled();
+    document.getElementById(
 
-  document.getElementById('onlineVisibilityToggle').checked =
+      'readReceiptsToggle',
 
-    Settings.isOnlineVisibilityEnabled();
+    );
 
-  document.getElementById('organizeModeSelect').value =
+  if (readReceiptsToggle) {
 
-    Settings.getConversationOrganizeMode();
+    readReceiptsToggle.checked =
 
-  document.getElementById('organizeDurationSelect').value =
+      Settings.isReadReceiptsEnabled();
 
-    String(Settings.getConversationOrganizeDurationMs());
+  }
+
+  const onlineVisibilityToggle =
+
+    document.getElementById(
+
+      'onlineVisibilityToggle',
+
+    );
+
+  if (onlineVisibilityToggle) {
+
+    onlineVisibilityToggle.checked =
+
+      Settings.isOnlineVisibilityEnabled();
+
+  }
+
+  const organizeModeSelect =
+
+    document.getElementById(
+
+      'organizeModeSelect',
+
+    );
+
+  if (organizeModeSelect) {
+
+    organizeModeSelect.value =
+
+      Settings.getConversationOrganizeMode();
+
+  }
+
+  const organizeDurationSelect =
+
+    document.getElementById(
+
+      'organizeDurationSelect',
+
+    );
+
+  if (organizeDurationSelect) {
+
+    organizeDurationSelect.value =
+
+      String(
+
+        Settings.getConversationOrganizeDurationMs(),
+
+      );
+
+  }
 
   renderStorageUsage();
 
@@ -644,227 +1434,511 @@ function renderSettings() {
 
   renderBackgroundCustomizationList();
 
-  document.getElementById('versionLabel').textContent =
+  const versionLabel =
 
-    `Version ${Settings.getVersion()}`;
+    document.getElementById(
+
+      'versionLabel',
+
+    );
+
+  if (versionLabel) {
+
+    versionLabel.textContent =
+
+      `Version ${Settings.getVersion()}`;
+
+  }
 
 }
+
+// ============================================================
+
+// Workspaceタイトル
+
+// ============================================================
 
 function renderWorkspaceTitleInput() {
 
-  const input = document.getElementById('workspaceTitleInput');
+  const input =
 
-  if (!input) return;
+    document.getElementById(
+
+      'workspaceTitleInput',
+
+    );
+
+  if (!input) {
+
+    return;
+
+  }
 
   input.value =
 
-    Customization.getCached().workspaceTitle ?? '';
+    Customization
+
+      .getCached()
+
+      .workspaceTitle ?? '';
 
 }
+
+// ============================================================
+
+// Workspaceカード設定
+
+// ============================================================
 
 function renderCardCustomizationList() {
 
-  const list = document.getElementById('cardCustomizationList');
+  const list =
 
-  if (!list) return;
+    document.getElementById(
 
-  const cards = Customization.getEffectiveCards();
-
-  const fragment = document.createDocumentFragment();
-
-  cards.forEach((card, index) => {
-
-    const row = document.createElement('div');
-
-    row.className = 'card-edit-row';
-
-    const iconInput = document.createElement('input');
-
-    iconInput.type = 'text';
-
-    iconInput.className = 'card-icon-input';
-
-    iconInput.dataset.cardKey = card.key;
-
-    iconInput.maxLength = 4;
-
-    iconInput.value = card.icon;
-
-    iconInput.setAttribute(
-
-      'aria-label',
-
-      `${card.label}のアイコン`,
+      'cardCustomizationList',
 
     );
 
-    const labelInput = document.createElement('input');
+  if (!list) {
 
-    labelInput.type = 'text';
+    return;
 
-    labelInput.className = 'card-label-input';
+  }
 
-    labelInput.dataset.cardKey = card.key;
+  const cards =
 
-    labelInput.maxLength = 12;
+    Customization.getEffectiveCards();
 
-    labelInput.value = card.label;
+  const fragment =
 
-    labelInput.setAttribute(
+    document.createDocumentFragment();
 
-      'aria-label',
+  cards.forEach(
 
-      `${card.label}の表示名`,
+    (card, index) => {
 
-    );
+      const row =
 
-    const moveUpButton = document.createElement('button');
+        document.createElement(
 
-    moveUpButton.type = 'button';
+          'div',
 
-    moveUpButton.className = 'card-move-btn';
+        );
 
-    moveUpButton.dataset.action = 'move-card-up';
+      row.className =
 
-    moveUpButton.dataset.cardKey = card.key;
+        'card-edit-row';
 
-    moveUpButton.disabled = index === 0;
+      const iconInput =
 
-    moveUpButton.setAttribute(
+        document.createElement(
 
-      'aria-label',
+          'input',
 
-      `${card.label}を上へ`,
+        );
 
-    );
+      iconInput.type =
 
-    moveUpButton.textContent = '▲';
+        'text';
 
-    const moveDownButton = document.createElement('button');
+      iconInput.className =
 
-    moveDownButton.type = 'button';
+        'card-icon-input';
 
-    moveDownButton.className = 'card-move-btn';
+      iconInput.dataset.cardKey =
 
-    moveDownButton.dataset.action = 'move-card-down';
+        card.key;
 
-    moveDownButton.dataset.cardKey = card.key;
+      iconInput.maxLength =
 
-    moveDownButton.disabled = index === cards.length - 1;
+        4;
 
-    moveDownButton.setAttribute(
+      iconInput.value =
 
-      'aria-label',
+        card.icon;
 
-      `${card.label}を下へ`,
+      iconInput.setAttribute(
 
-    );
+        'aria-label',
 
-    moveDownButton.textContent = '▼';
+        `${card.label}のアイコン`,
 
-    row.appendChild(iconInput);
+      );
 
-    row.appendChild(labelInput);
+      const labelInput =
 
-    row.appendChild(moveUpButton);
+        document.createElement(
 
-    row.appendChild(moveDownButton);
+          'input',
 
-    fragment.appendChild(row);
+        );
 
-  });
+      labelInput.type =
 
-  list.replaceChildren(fragment);
+        'text';
 
-}
+      labelInput.className =
 
-function renderBackgroundCustomizationList() {
+        'card-label-input';
 
-  const list = document.getElementById(
+      labelInput.dataset.cardKey =
 
-    'backgroundCustomizationList',
+        card.key;
+
+      labelInput.maxLength =
+
+        12;
+
+      labelInput.value =
+
+        card.label;
+
+      labelInput.setAttribute(
+
+        'aria-label',
+
+        `${card.label}の表示名`,
+
+      );
+
+      const moveUpButton =
+
+        document.createElement(
+
+          'button',
+
+        );
+
+      moveUpButton.type =
+
+        'button';
+
+      moveUpButton.className =
+
+        'card-move-btn';
+
+      moveUpButton.dataset.action =
+
+        'move-card-up';
+
+      moveUpButton.dataset.cardKey =
+
+        card.key;
+
+      moveUpButton.disabled =
+
+        index === 0;
+
+      moveUpButton.setAttribute(
+
+        'aria-label',
+
+        `${card.label}を上へ`,
+
+      );
+
+      moveUpButton.textContent =
+
+        '▲';
+
+      const moveDownButton =
+
+        document.createElement(
+
+          'button',
+
+        );
+
+      moveDownButton.type =
+
+        'button';
+
+      moveDownButton.className =
+
+        'card-move-btn';
+
+      moveDownButton.dataset.action =
+
+        'move-card-down';
+
+      moveDownButton.dataset.cardKey =
+
+        card.key;
+
+      moveDownButton.disabled =
+
+        index ===
+
+        cards.length - 1;
+
+      moveDownButton.setAttribute(
+
+        'aria-label',
+
+        `${card.label}を下へ`,
+
+      );
+
+      moveDownButton.textContent =
+
+        '▼';
+
+      row.appendChild(
+
+        iconInput,
+
+      );
+
+      row.appendChild(
+
+        labelInput,
+
+      );
+
+      row.appendChild(
+
+        moveUpButton,
+
+      );
+
+      row.appendChild(
+
+        moveDownButton,
+
+      );
+
+      fragment.appendChild(
+
+        row,
+
+      );
+
+    },
 
   );
 
-  if (!list) return;
+  list.replaceChildren(
 
-  const backgrounds =
+    fragment,
 
-    Customization.getCached().backgrounds ?? {};
-
-  const fragment = document.createDocumentFragment();
-
-  Customization.CUSTOMIZABLE_SCREENS.forEach((screen) => {
-
-    const row = document.createElement('div');
-
-    row.className =
-
-      'settings-row settings-row-select';
-
-    const textWrap = document.createElement('div');
-
-    textWrap.className = 'settings-row-text';
-
-    const title = document.createElement('span');
-
-    title.className = 'settings-row-title';
-
-    title.textContent = `${screen.label}の背景`;
-
-    textWrap.appendChild(title);
-
-    const select = document.createElement('select');
-
-    select.className = 'settings-select bg-select';
-
-    select.dataset.screen = screen.key;
-
-    select.setAttribute(
-
-      'aria-label',
-
-      `${screen.label}の背景`,
-
-    );
-
-    Customization.BACKGROUND_PRESETS.forEach((preset) => {
-
-      const option = document.createElement('option');
-
-      option.value = preset.id;
-
-      option.textContent = preset.label;
-
-      select.appendChild(option);
-
-    });
-
-    select.value =
-
-      backgrounds[screen.key] ?? 'default';
-
-    row.appendChild(textWrap);
-
-    row.appendChild(select);
-
-    fragment.appendChild(row);
-
-  });
-
-  list.replaceChildren(fragment);
+  );
 
 }
 
+// ============================================================
+
+// 背景カスタマイズ設定
+
+// ============================================================
+
+function renderBackgroundCustomizationList() {
+
+  const list =
+
+    document.getElementById(
+
+      'backgroundCustomizationList',
+
+    );
+
+  if (!list) {
+
+    return;
+
+  }
+
+  const backgrounds =
+
+    Customization
+
+      .getCached()
+
+      .backgrounds ?? {};
+
+  const fragment =
+
+    document.createDocumentFragment();
+
+  Customization
+
+    .CUSTOMIZABLE_SCREENS
+
+    .forEach(
+
+      (screen) => {
+
+        const row =
+
+          document.createElement(
+
+            'div',
+
+          );
+
+        row.className =
+
+          'settings-row settings-row-select';
+
+        const textWrap =
+
+          document.createElement(
+
+            'div',
+
+          );
+
+        textWrap.className =
+
+          'settings-row-text';
+
+        const title =
+
+          document.createElement(
+
+            'span',
+
+          );
+
+        title.className =
+
+          'settings-row-title';
+
+        title.textContent =
+
+          `${screen.label}の背景`;
+
+        textWrap.appendChild(
+
+          title,
+
+        );
+
+        const select =
+
+          document.createElement(
+
+            'select',
+
+          );
+
+        select.className =
+
+          'settings-select bg-select';
+
+        select.dataset.screen =
+
+          screen.key;
+
+        select.setAttribute(
+
+          'aria-label',
+
+          `${screen.label}の背景`,
+
+        );
+
+        Customization
+
+          .BACKGROUND_PRESETS
+
+          .forEach(
+
+            (preset) => {
+
+              const option =
+
+                document.createElement(
+
+                  'option',
+
+                );
+
+              option.value =
+
+                preset.id;
+
+              option.textContent =
+
+                preset.label;
+
+              select.appendChild(
+
+                option,
+
+              );
+
+            },
+
+          );
+
+        select.value =
+
+          backgrounds[
+
+            screen.key
+
+          ] ?? 'default';
+
+        row.appendChild(
+
+          textWrap,
+
+        );
+
+        row.appendChild(
+
+          select,
+
+        );
+
+        fragment.appendChild(
+
+          row,
+
+        );
+
+      },
+
+    );
+
+  list.replaceChildren(
+
+    fragment,
+
+  );
+
+}
+
+// ============================================================
+
+// ストレージ使用量
+
+// ============================================================
+
 function renderStorageUsage() {
 
-  const label = document.getElementById('storageUsageLabel');
+  const label =
 
-  if (!label) return;
+    document.getElementById(
 
-  const bytes = Storage.getUsageBytes();
+      'storageUsageLabel',
 
-  const kb = bytes / 1024;
+    );
+
+  if (!label) {
+
+    return;
+
+  }
+
+  const bytes =
+
+    Storage.getUsageBytes();
+
+  const kb =
+
+    bytes / 1024;
 
   label.textContent =
 
@@ -872,27 +1946,49 @@ function renderStorageUsage() {
 
 }
 
+// ============================================================
+
+// 通知状態
+
+// ============================================================
+
 function renderNotificationStatus() {
 
-  const hint = document.getElementById(
+  const hint =
 
-    'notificationHomeScreenHint',
+    document.getElementById(
 
-  );
+      'notificationHomeScreenHint',
 
-  const statusLabel = document.getElementById(
+    );
 
-    'notificationStatusLabel',
+  const statusLabel =
 
-  );
+    document.getElementById(
 
-  if (!hint || !statusLabel) return;
+      'notificationStatusLabel',
+
+    );
+
+  if (
+
+    !hint ||
+
+    !statusLabel
+
+  ) {
+
+    return;
+
+  }
 
   const isStandalone =
 
     Notifications.isStandalonePwa();
 
-  hint.hidden = isStandalone;
+  hint.hidden =
+
+    isStandalone;
 
   if (!isStandalone) {
 
@@ -908,15 +2004,27 @@ function renderNotificationStatus() {
 
     Notifications.getPermissionState();
 
-  if (permission === 'denied') {
+  if (
+
+    permission ===
+
+    'denied'
+
+  ) {
 
     statusLabel.textContent =
 
       '通知がブロックされています。iPhoneの設定アプリから許可してください。';
 
-  } else if (
+    return;
 
-    permission === 'granted' &&
+  }
+
+  if (
+
+    permission ===
+
+      'granted' &&
 
     Settings.isNotificationsEnabled()
 
@@ -926,15 +2034,21 @@ function renderNotificationStatus() {
 
       '新着メッセージの通知（有効）';
 
-  } else {
-
-    statusLabel.textContent =
-
-      '新着メッセージの通知';
+    return;
 
   }
 
+  statusLabel.textContent =
+
+    '新着メッセージの通知';
+
 }
+
+// ============================================================
+
+// 全体描画
+
+// ============================================================
 
 function render() {
 
@@ -948,49 +2062,107 @@ function render() {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
-// 設定画面
+// 設定画面 開閉
 
-// ------------------------------------------------------------
+// ============================================================
 
 function openSettings() {
 
-  lastFocusedElement = document.activeElement;
+  lastFocusedElement =
 
-  const overlay = document.getElementById(
+    document.activeElement;
 
-    'settingsOverlay',
+  const overlay =
+
+    document.getElementById(
+
+      'settingsOverlay',
+
+    );
+
+  if (!overlay) {
+
+    return;
+
+  }
+
+  /*
+
+   * 設定を開くたびに最新の
+
+   * カスタマイズ状態を描画する。
+
+   */
+
+  renderSettings();
+
+  overlay.classList.add(
+
+    'is-open',
 
   );
 
-  overlay.classList.add('is-open');
+  overlay.setAttribute(
 
-  overlay.setAttribute('aria-hidden', 'false');
+    'aria-hidden',
 
-  document.getElementById(
+    'false',
 
-    'settingsCloseBtn',
+  );
 
-  ).focus();
+  const closeButton =
+
+    document.getElementById(
+
+      'settingsCloseBtn',
+
+    );
+
+  if (closeButton) {
+
+    closeButton.focus();
+
+  }
 
 }
 
 function closeSettings() {
 
-  const overlay = document.getElementById(
+  const overlay =
 
-    'settingsOverlay',
+    document.getElementById(
+
+      'settingsOverlay',
+
+    );
+
+  if (!overlay) {
+
+    return;
+
+  }
+
+  overlay.classList.remove(
+
+    'is-open',
 
   );
 
-  overlay.classList.remove('is-open');
+  overlay.setAttribute(
 
-  overlay.setAttribute('aria-hidden', 'true');
+    'aria-hidden',
+
+    'true',
+
+  );
 
   if (
 
-    lastFocusedElement instanceof HTMLElement
+    lastFocusedElement
+
+      instanceof HTMLElement
 
   ) {
 
@@ -1000,45 +2172,81 @@ function closeSettings() {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // 生体認証ロック
 
-// ------------------------------------------------------------
+// ============================================================
 
 function showLockOverlay() {
 
-  const lockOverlay = document.getElementById(
+  const lockOverlay =
 
-    'lockOverlay',
+    document.getElementById(
+
+      'lockOverlay',
+
+    );
+
+  if (!lockOverlay) {
+
+    return;
+
+  }
+
+  lockOverlay.classList.add(
+
+    'is-open',
 
   );
 
-  lockOverlay.classList.add('is-open');
+  lockOverlay.setAttribute(
 
-  lockOverlay.setAttribute('aria-hidden', 'false');
+    'aria-hidden',
+
+    'false',
+
+  );
 
 }
 
 function hideLockOverlay() {
 
-  const lockOverlay = document.getElementById(
+  const lockOverlay =
 
-    'lockOverlay',
+    document.getElementById(
+
+      'lockOverlay',
+
+    );
+
+  if (!lockOverlay) {
+
+    return;
+
+  }
+
+  lockOverlay.classList.remove(
+
+    'is-open',
 
   );
 
-  lockOverlay.classList.remove('is-open');
+  lockOverlay.setAttribute(
 
-  lockOverlay.setAttribute('aria-hidden', 'true');
+    'aria-hidden',
+
+    'true',
+
+  );
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // Workspace
 
-// ------------------------------------------------------------
+// ============================================================
 
 function handleCloseWorkspace() {
 
@@ -1068,9 +2276,17 @@ function handleLockNow() {
 
 function handleToggleViewMode() {
 
-  if (Workspace.isViewModeActive()) {
+  if (
 
-    Workspace.setViewModeActive(false);
+    Workspace.isViewModeActive()
+
+  ) {
+
+    Workspace.setViewModeActive(
+
+      false,
+
+    );
 
     Router.disableViewMode();
 
@@ -1088,9 +2304,17 @@ function handleConfirmViewMode() {
 
     Workspace.getViewModeAuthValue();
 
-  if (Passcode.validate(value)) {
+  if (
 
-    playFeedbackSound('success');
+    Passcode.validate(value)
+
+  ) {
+
+    playFeedbackSound(
+
+      'success',
+
+    );
 
     playFeedbackVibration();
 
@@ -1098,7 +2322,11 @@ function handleConfirmViewMode() {
 
     Workspace.clearViewModeAuthInput();
 
-    Workspace.setViewModeActive(true);
+    Workspace.setViewModeActive(
+
+      true,
+
+    );
 
     Router.enableViewMode();
 
@@ -1106,7 +2334,11 @@ function handleConfirmViewMode() {
 
   }
 
-  playFeedbackSound('error');
+  playFeedbackSound(
+
+    'error',
+
+  );
 
   playFeedbackVibration();
 
@@ -1126,45 +2358,91 @@ function handleSendRecord() {
 
   const text =
 
-    Records.getInputValue().trim();
+    Records
 
-  if (!text) return;
+      .getInputValue()
 
-  Records.saveToArchive(text);
+      .trim();
+
+  if (!text) {
+
+    return;
+
+  }
+
+  Records.saveToArchive(
+
+    text,
+
+  );
 
   Records.clearInput();
 
-  playFeedbackSound('success');
+  playFeedbackSound(
+
+    'success',
+
+  );
 
   playFeedbackVibration();
 
 }
 
-const WORKSPACE_ACTION_HANDLERS = Object.freeze({
+const WORKSPACE_ACTION_HANDLERS =
 
-  'close-workspace': handleCloseWorkspace,
+  Object.freeze({
 
-  'lock-now': handleLockNow,
+    'close-workspace':
 
-  'toggle-view-mode': handleToggleViewMode,
+      handleCloseWorkspace,
 
-  'confirm-view-mode': handleConfirmViewMode,
+    'lock-now':
 
-  'cancel-view-mode': handleCancelViewMode,
+      handleLockNow,
 
-});
+    'toggle-view-mode':
 
-function handleWorkspaceScreenClick(target) {
+      handleToggleViewMode,
 
-  const { action, secret } = target.dataset;
+    'confirm-view-mode':
 
-  playFeedbackSound('tap');
+      handleConfirmViewMode,
+
+    'cancel-view-mode':
+
+      handleCancelViewMode,
+
+  });
+
+function handleWorkspaceScreenClick(
+
+  target,
+
+) {
+
+  const {
+
+    action,
+
+    secret,
+
+  } = target.dataset;
+
+  playFeedbackSound(
+
+    'tap',
+
+  );
 
   playFeedbackVibration();
 
   const handler =
 
-    WORKSPACE_ACTION_HANDLERS[action];
+    WORKSPACE_ACTION_HANDLERS[
+
+      action
+
+    ];
 
   if (handler) {
 
@@ -1174,7 +2452,11 @@ function handleWorkspaceScreenClick(target) {
 
   }
 
-  if (secret === 'records') {
+  if (
+
+    secret === 'records'
+
+  ) {
 
     Router.openRecords();
 
@@ -1182,7 +2464,11 @@ function handleWorkspaceScreenClick(target) {
 
   }
 
-  if (secret === 'calendar') {
+  if (
+
+    secret === 'calendar'
+
+  ) {
 
     Router.openCalendar();
 
@@ -1190,7 +2476,11 @@ function handleWorkspaceScreenClick(target) {
 
   }
 
-  if (secret === 'archive') {
+  if (
+
+    secret === 'archive'
+
+  ) {
 
     Router.openArchive();
 
@@ -1198,7 +2488,11 @@ function handleWorkspaceScreenClick(target) {
 
   }
 
-  if (secret === 'messages') {
+  if (
+
+    secret === 'messages'
+
+  ) {
 
     handleOpenMessagesCard();
 
@@ -1206,7 +2500,11 @@ function handleWorkspaceScreenClick(target) {
 
   }
 
-  if (secret === 'settings') {
+  if (
+
+    secret === 'settings'
+
+  ) {
 
     openSettings();
 
@@ -1214,7 +2512,9 @@ function handleWorkspaceScreenClick(target) {
 
   }
 
-  // 写真／行きたい場所は現時点では未実装。
+  // 写真／行きたい場所は
+
+  // 現時点では未実装。
 
 }
 
@@ -1236,33 +2536,57 @@ function handleOpenMessagesCard() {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // Records
 
-// ------------------------------------------------------------
+// ============================================================
 
-const RECORDS_ACTION_HANDLERS = Object.freeze({
+const RECORDS_ACTION_HANDLERS =
 
-  'close-records': handleCloseRecords,
+  Object.freeze({
 
-  'lock-now': handleLockNow,
+    'close-records':
 
-  'send-record': handleSendRecord,
+      handleCloseRecords,
 
-});
+    'lock-now':
 
-function handleRecordsScreenClick(target) {
+      handleLockNow,
 
-  const { action } = target.dataset;
+    'send-record':
 
-  playFeedbackSound('tap');
+      handleSendRecord,
+
+  });
+
+function handleRecordsScreenClick(
+
+  target,
+
+) {
+
+  const {
+
+    action,
+
+  } = target.dataset;
+
+  playFeedbackSound(
+
+    'tap',
+
+  );
 
   playFeedbackVibration();
 
   const handler =
 
-    RECORDS_ACTION_HANDLERS[action];
+    RECORDS_ACTION_HANDLERS[
+
+      action
+
+    ];
 
   if (handler) {
 
@@ -1272,11 +2596,11 @@ function handleRecordsScreenClick(target) {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // Calendar
 
-// ------------------------------------------------------------
+// ============================================================
 
 function handleCloseCalendar() {
 
@@ -1296,13 +2620,29 @@ function handleNextMonth() {
 
 }
 
-function handleSelectDate(target) {
+function handleSelectDate(
 
-  const { date } = target.dataset;
+  target,
 
-  if (!date) return;
+) {
 
-  Calendar.selectDate(date);
+  const {
+
+    date,
+
+  } = target.dataset;
+
+  if (!date) {
+
+    return;
+
+  }
+
+  Calendar.selectDate(
+
+    date,
+
+  );
 
 }
 
@@ -1312,9 +2652,17 @@ function handleSaveNote() {
 
     Calendar.getNoteInputValue();
 
-  Calendar.saveNote(text);
+  Calendar.saveNote(
 
-  playFeedbackSound('success');
+    text,
+
+  );
+
+  playFeedbackSound(
+
+    'success',
+
+  );
 
   playFeedbackVibration();
 
@@ -1326,33 +2674,69 @@ function handleCancelNote() {
 
 }
 
-const CALENDAR_ACTION_HANDLERS = Object.freeze({
+const CALENDAR_ACTION_HANDLERS =
 
-  'close-calendar': handleCloseCalendar,
+  Object.freeze({
 
-  'lock-now': handleLockNow,
+    'close-calendar':
 
-  'prev-month': handlePrevMonth,
+      handleCloseCalendar,
 
-  'next-month': handleNextMonth,
+    'lock-now':
 
-  'save-note': handleSaveNote,
+      handleLockNow,
 
-  'cancel-note': handleCancelNote,
+    'prev-month':
 
-});
+      handlePrevMonth,
 
-function handleCalendarScreenClick(target) {
+    'next-month':
 
-  const { action } = target.dataset;
+      handleNextMonth,
 
-  playFeedbackSound('tap');
+    'save-note':
+
+      handleSaveNote,
+
+    'cancel-note':
+
+      handleCancelNote,
+
+  });
+
+function handleCalendarScreenClick(
+
+  target,
+
+) {
+
+  const {
+
+    action,
+
+  } = target.dataset;
+
+  playFeedbackSound(
+
+    'tap',
+
+  );
 
   playFeedbackVibration();
 
-  if (action === 'select-date') {
+  if (
 
-    handleSelectDate(target);
+    action ===
+
+    'select-date'
+
+  ) {
+
+    handleSelectDate(
+
+      target,
+
+    );
 
     return;
 
@@ -1360,7 +2744,11 @@ function handleCalendarScreenClick(target) {
 
   const handler =
 
-    CALENDAR_ACTION_HANDLERS[action];
+    CALENDAR_ACTION_HANDLERS[
+
+      action
+
+    ];
 
   if (handler) {
 
@@ -1370,11 +2758,11 @@ function handleCalendarScreenClick(target) {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // Archive
 
-// ------------------------------------------------------------
+// ============================================================
 
 function handleCloseArchive() {
 
@@ -1382,13 +2770,23 @@ function handleCloseArchive() {
 
 }
 
-function handleSelectBackground(target) {
+function handleSelectBackground(
 
-  const { backgroundId } =
+  target,
 
-    target.dataset;
+) {
 
-  if (!backgroundId) return;
+  const {
+
+    backgroundId,
+
+  } = target.dataset;
+
+  if (!backgroundId) {
+
+    return;
+
+  }
 
   Archive.selectBackground(
 
@@ -1406,7 +2804,11 @@ function handleConfirmArchiveAuth() {
 
   playFeedbackSound(
 
-    success ? 'success' : 'error',
+    success
+
+      ? 'success'
+
+      : 'error',
 
   );
 
@@ -1420,29 +2822,61 @@ function handleCancelArchiveAuth() {
 
 }
 
-const ARCHIVE_ACTION_HANDLERS = Object.freeze({
+const ARCHIVE_ACTION_HANDLERS =
 
-  'close-archive': handleCloseArchive,
+  Object.freeze({
 
-  'lock-now': handleLockNow,
+    'close-archive':
 
-  'confirm-archive-auth': handleConfirmArchiveAuth,
+      handleCloseArchive,
 
-  'cancel-archive-auth': handleCancelArchiveAuth,
+    'lock-now':
 
-});
+      handleLockNow,
 
-function handleArchiveScreenClick(target) {
+    'confirm-archive-auth':
 
-  const { action } = target.dataset;
+      handleConfirmArchiveAuth,
 
-  playFeedbackSound('tap');
+    'cancel-archive-auth':
+
+      handleCancelArchiveAuth,
+
+  });
+
+function handleArchiveScreenClick(
+
+  target,
+
+) {
+
+  const {
+
+    action,
+
+  } = target.dataset;
+
+  playFeedbackSound(
+
+    'tap',
+
+  );
 
   playFeedbackVibration();
 
-  if (action === 'select-background') {
+  if (
 
-    handleSelectBackground(target);
+    action ===
+
+    'select-background'
+
+  ) {
+
+    handleSelectBackground(
+
+      target,
+
+    );
 
     return;
 
@@ -1450,7 +2884,11 @@ function handleArchiveScreenClick(target) {
 
   const handler =
 
-    ARCHIVE_ACTION_HANDLERS[action];
+    ARCHIVE_ACTION_HANDLERS[
+
+      action
+
+    ];
 
   if (handler) {
 
@@ -1460,11 +2898,11 @@ function handleArchiveScreenClick(target) {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // Pairing
 
-// ------------------------------------------------------------
+// ============================================================
 
 function handleClosePairing() {
 
@@ -1478,9 +2916,17 @@ function handleSaveDisplayName() {
 
     Pairing.getDisplayNameInputValue();
 
-  if (!name) return;
+  if (!name) {
 
-  Pairing.saveDisplayName(name);
+    return;
+
+  }
+
+  Pairing.saveDisplayName(
+
+    name,
+
+  );
 
   Pairing.showChoicePanel();
 
@@ -1490,17 +2936,25 @@ function handleChooseGenerate() {
 
   Pairing.showGeneratePanel();
 
-  Pairing.generateInvite().catch((error) => {
+  Pairing
 
-    console.error(
+    .generateInvite()
 
-      '[app.js] 招待コードの発行に失敗しました',
+    .catch(
 
-      error,
+      (error) => {
+
+        console.error(
+
+          '[app.js] 招待コードの発行に失敗しました',
+
+          error,
+
+        );
+
+      },
 
     );
-
-  });
 
 }
 
@@ -1522,13 +2976,21 @@ async function handleSubmitJoinCode() {
 
     await Pairing.submitJoinCode();
 
-    playFeedbackSound('success');
+    playFeedbackSound(
+
+      'success',
+
+    );
 
     playFeedbackVibration();
 
   } catch (error) {
 
-    playFeedbackSound('error');
+    playFeedbackSound(
+
+      'error',
+
+    );
 
     playFeedbackVibration();
 
@@ -1536,7 +2998,7 @@ async function handleSubmitJoinCode() {
 
       error.message ||
 
-      '参加に失敗しました。',
+        '参加に失敗しました。',
 
     );
 
@@ -1544,35 +3006,67 @@ async function handleSubmitJoinCode() {
 
 }
 
-const PAIRING_ACTION_HANDLERS = Object.freeze({
+const PAIRING_ACTION_HANDLERS =
 
-  'close-pairing': handleClosePairing,
+  Object.freeze({
 
-  'lock-now': handleLockNow,
+    'close-pairing':
 
-  'save-display-name': handleSaveDisplayName,
+      handleClosePairing,
 
-  'choose-generate': handleChooseGenerate,
+    'lock-now':
 
-  'choose-join': handleChooseJoin,
+      handleLockNow,
 
-  'back-to-choice': handleBackToChoice,
+    'save-display-name':
 
-  'submit-join-code': handleSubmitJoinCode,
+      handleSaveDisplayName,
 
-});
+    'choose-generate':
 
-function handlePairingScreenClick(target) {
+      handleChooseGenerate,
 
-  const { action } = target.dataset;
+    'choose-join':
 
-  playFeedbackSound('tap');
+      handleChooseJoin,
+
+    'back-to-choice':
+
+      handleBackToChoice,
+
+    'submit-join-code':
+
+      handleSubmitJoinCode,
+
+  });
+
+function handlePairingScreenClick(
+
+  target,
+
+) {
+
+  const {
+
+    action,
+
+  } = target.dataset;
+
+  playFeedbackSound(
+
+    'tap',
+
+  );
 
   playFeedbackVibration();
 
   const handler =
 
-    PAIRING_ACTION_HANDLERS[action];
+    PAIRING_ACTION_HANDLERS[
+
+      action
+
+    ];
 
   if (handler) {
 
@@ -1582,11 +3076,11 @@ function handlePairingScreenClick(target) {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // Messages
 
-// ------------------------------------------------------------
+// ============================================================
 
 function handleCloseMessages() {
 
@@ -1596,49 +3090,73 @@ function handleCloseMessages() {
 
 function handleSendMessage() {
 
-  Messages.sendMessage().catch((error) => {
+  Messages
 
-    console.error(
+    .sendMessage()
 
-      '[app.js] メッセージの送信に失敗しました',
+    .catch(
 
-      error,
+      (error) => {
+
+        console.error(
+
+          '[app.js] メッセージの送信に失敗しました',
+
+          error,
+
+        );
+
+      },
 
     );
-
-  });
 
 }
 
 function handleCopyMessage() {
 
-  Messages.copySelectedMessage().catch((error) => {
+  Messages
 
-    console.error(
+    .copySelectedMessage()
 
-      '[app.js] メッセージのコピーに失敗しました',
+    .catch(
 
-      error,
+      (error) => {
+
+        console.error(
+
+          '[app.js] メッセージのコピーに失敗しました',
+
+          error,
+
+        );
+
+      },
 
     );
-
-  });
 
 }
 
 function handleDeleteMessage() {
 
-  Messages.deleteSelectedMessage().catch((error) => {
+  Messages
 
-    console.error(
+    .deleteSelectedMessage()
 
-      '[app.js] メッセージの削除に失敗しました',
+    .catch(
 
-      error,
+      (error) => {
+
+        console.error(
+
+          '[app.js] メッセージの削除に失敗しました',
+
+          error,
+
+        );
+
+      },
 
     );
-
-  });
 
 }
 
@@ -1648,11 +3166,23 @@ function handleCancelActionSheet() {
 
 }
 
-function handleReactToMessage(target) {
+function handleReactToMessage(
 
-  const { emoji } = target.dataset;
+  target,
 
-  if (!emoji) return;
+) {
+
+  const {
+
+    emoji,
+
+  } = target.dataset;
+
+  if (!emoji) {
+
+    return;
+
+  }
 
   Messages.reactToSelectedMessage(
 
@@ -1662,33 +3192,69 @@ function handleReactToMessage(target) {
 
 }
 
-const MESSAGES_ACTION_HANDLERS = Object.freeze({
+const MESSAGES_ACTION_HANDLERS =
 
-  'close-messages': handleCloseMessages,
+  Object.freeze({
 
-  'lock-now': handleLockNow,
+    'close-messages':
 
-  'send-message': handleSendMessage,
+      handleCloseMessages,
 
-  'copy-message': handleCopyMessage,
+    'lock-now':
 
-  'delete-message': handleDeleteMessage,
+      handleLockNow,
 
-  'cancel-action-sheet': handleCancelActionSheet,
+    'send-message':
 
-});
+      handleSendMessage,
 
-function handleMessagesScreenClick(target) {
+    'copy-message':
 
-  const { action } = target.dataset;
+      handleCopyMessage,
 
-  playFeedbackSound('tap');
+    'delete-message':
+
+      handleDeleteMessage,
+
+    'cancel-action-sheet':
+
+      handleCancelActionSheet,
+
+  });
+
+function handleMessagesScreenClick(
+
+  target,
+
+) {
+
+  const {
+
+    action,
+
+  } = target.dataset;
+
+  playFeedbackSound(
+
+    'tap',
+
+  );
 
   playFeedbackVibration();
 
-  if (action === 'react') {
+  if (
 
-    handleReactToMessage(target);
+    action ===
+
+    'react'
+
+  ) {
+
+    handleReactToMessage(
+
+      target,
+
+    );
 
     return;
 
@@ -1696,7 +3262,11 @@ function handleMessagesScreenClick(target) {
 
   const handler =
 
-    MESSAGES_ACTION_HANDLERS[action];
+    MESSAGES_ACTION_HANDLERS[
+
+      action
+
+    ];
 
   if (handler) {
 
@@ -1706,17 +3276,25 @@ function handleMessagesScreenClick(target) {
 
 }
 
-function handleArchiveSearchInput(query) {
+function handleArchiveSearchInput(
 
-  Archive.search(query);
+  query,
+
+) {
+
+  Archive.search(
+
+    query,
+
+  );
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
-// 履歴削除・データ管理
+// 履歴・データ管理
 
-// ------------------------------------------------------------
+// ============================================================
 
 function handleClearHistory() {
 
@@ -1742,7 +3320,17 @@ async function handleClearCache() {
 
   try {
 
-    if (!('caches' in window)) {
+    if (
+
+      !(
+
+        'caches' in
+
+        window
+
+      )
+
+    ) {
 
       return;
 
@@ -1754,15 +3342,25 @@ async function handleClearCache() {
 
     await Promise.all(
 
-      cacheNames.map((name) =>
+      cacheNames.map(
 
-        caches.delete(name),
+        (name) =>
+
+          caches.delete(
+
+            name,
+
+          ),
 
       ),
 
     );
 
-    playFeedbackSound('success');
+    playFeedbackSound(
+
+      'success',
+
+    );
 
     playFeedbackVibration();
 
@@ -1776,7 +3374,11 @@ async function handleClearCache() {
 
     );
 
-    playFeedbackSound('error');
+    playFeedbackSound(
+
+      'error',
+
+    );
 
     playFeedbackVibration();
 
@@ -1794,7 +3396,13 @@ async function handleDeleteAllMyMessages() {
 
     Firebase.getCurrentUid();
 
-  if (!roomId || !uid) {
+  if (
+
+    !roomId ||
+
+    !uid
+
+  ) {
 
     return;
 
@@ -1802,15 +3410,21 @@ async function handleDeleteAllMyMessages() {
 
   try {
 
-    await Firebase.deleteAllOwnMessages(
+    await Firebase
 
-      roomId,
+      .deleteAllOwnMessages(
 
-      uid,
+        roomId,
+
+        uid,
+
+      );
+
+    playFeedbackSound(
+
+      'success',
 
     );
-
-    playFeedbackSound('success');
 
     playFeedbackVibration();
 
@@ -1824,7 +3438,11 @@ async function handleDeleteAllMyMessages() {
 
     );
 
-    playFeedbackSound('error');
+    playFeedbackSound(
+
+      'error',
+
+    );
 
     playFeedbackVibration();
 
@@ -1840,7 +3458,11 @@ function handleClearArchiveData() {
 
     renderStorageUsage();
 
-    playFeedbackSound('success');
+    playFeedbackSound(
+
+      'success',
+
+    );
 
     playFeedbackVibration();
 
@@ -1854,7 +3476,11 @@ function handleClearArchiveData() {
 
     );
 
-    playFeedbackSound('error');
+    playFeedbackSound(
+
+      'error',
+
+    );
 
     playFeedbackVibration();
 
@@ -1862,19 +3488,29 @@ function handleClearArchiveData() {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // Workspaceカスタマイズ
 
-// ------------------------------------------------------------
+// ============================================================
 
-async function handleMoveCardUp(target) {
+async function handleMoveCardUp(
 
-  const { cardKey } =
+  target,
 
-    target.dataset;
+) {
 
-  if (!cardKey) return;
+  const {
+
+    cardKey,
+
+  } = target.dataset;
+
+  if (!cardKey) {
+
+    return;
+
+  }
 
   await swapCardOrder(
 
@@ -1886,13 +3522,23 @@ async function handleMoveCardUp(target) {
 
 }
 
-async function handleMoveCardDown(target) {
+async function handleMoveCardDown(
 
-  const { cardKey } =
+  target,
 
-    target.dataset;
+) {
 
-  if (!cardKey) return;
+  const {
+
+    cardKey,
+
+  } = target.dataset;
+
+  if (!cardKey) {
+
+    return;
+
+  }
 
   await swapCardOrder(
 
@@ -1914,7 +3560,9 @@ async function swapCardOrder(
 
   const cards =
 
-    Customization.getEffectiveCards();
+    Customization
+
+      .getEffectiveCards();
 
   const currentIndex =
 
@@ -1922,13 +3570,17 @@ async function swapCardOrder(
 
       (card) =>
 
-        card.key === cardKey,
+        card.key ===
+
+        cardKey,
 
     );
 
   const targetIndex =
 
-    currentIndex + direction;
+    currentIndex +
+
+    direction;
 
   if (
 
@@ -1936,7 +3588,9 @@ async function swapCardOrder(
 
     targetIndex < 0 ||
 
-    targetIndex >= cards.length
+    targetIndex >=
+
+      cards.length
 
   ) {
 
@@ -1946,19 +3600,25 @@ async function swapCardOrder(
 
   try {
 
-    await Customization.updateCardOrder({
+    await Customization
 
-      [cards[currentIndex].key]:
+      .updateCardOrder({
 
-        targetIndex,
+        [cards[currentIndex].key]:
 
-      [cards[targetIndex].key]:
+          targetIndex,
 
-        currentIndex,
+        [cards[targetIndex].key]:
 
-    });
+          currentIndex,
 
-    playFeedbackSound('tap');
+      });
+
+    playFeedbackSound(
+
+      'tap',
+
+    );
 
     playFeedbackVibration();
 
@@ -1972,7 +3632,11 @@ async function swapCardOrder(
 
     );
 
-    playFeedbackSound('error');
+    playFeedbackSound(
+
+      'error',
+
+    );
 
     playFeedbackVibration();
 
@@ -1990,13 +3654,23 @@ async function handleResetCustomization() {
 
     );
 
-  if (!confirmed) return;
+  if (!confirmed) {
+
+    return;
+
+  }
 
   try {
 
-    await Customization.resetAll();
+    await Customization
 
-    playFeedbackSound('success');
+      .resetAll();
+
+    playFeedbackSound(
+
+      'success',
+
+    );
 
     playFeedbackVibration();
 
@@ -2010,7 +3684,11 @@ async function handleResetCustomization() {
 
     );
 
-    playFeedbackSound('error');
+    playFeedbackSound(
+
+      'error',
+
+    );
 
     playFeedbackVibration();
 
@@ -2018,11 +3696,11 @@ async function handleResetCustomization() {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // 履歴パネル
 
-// ------------------------------------------------------------
+// ============================================================
 
 function toggleHistoryPanel() {
 
@@ -2042,6 +3720,18 @@ function toggleHistoryPanel() {
 
     );
 
+  if (
+
+    !panel ||
+
+    !button
+
+  ) {
+
+    return;
+
+  }
+
   const isExpanded =
 
     panel.classList.toggle(
@@ -2050,13 +3740,19 @@ function toggleHistoryPanel() {
 
     );
 
-  panel.hidden = !isExpanded;
+  panel.hidden =
+
+    !isExpanded;
 
   button.setAttribute(
 
     'aria-expanded',
 
-    String(isExpanded),
+    String(
+
+      isExpanded,
+
+    ),
 
   );
 
@@ -2074,23 +3770,37 @@ function toggleHistoryPanel() {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
-// テーマ
+// テーマ変更
 
-// ------------------------------------------------------------
+// ============================================================
 
-function handleSelectTheme(target) {
+function handleSelectTheme(
 
-  const { themeId } =
+  target,
 
-    target.dataset;
+) {
 
-  if (!themeId) return;
+  const {
+
+    themeId,
+
+  } = target.dataset;
+
+  if (!themeId) {
+
+    return;
+
+  }
 
   try {
 
-    Settings.setTheme(themeId);
+    Settings.setTheme(
+
+      themeId,
+
+    );
 
   } catch (error) {
 
@@ -2106,11 +3816,11 @@ function handleSelectTheme(target) {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // 生体認証
 
-// ------------------------------------------------------------
+// ============================================================
 
 async function handleRetryAuth() {
 
@@ -2140,59 +3850,81 @@ async function handleRetryAuth() {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
-// 共通data-action
+// 共通 data-action
 
-// ------------------------------------------------------------
+// ============================================================
 
-const ACTION_HANDLERS = Object.freeze({
+const ACTION_HANDLERS =
 
-  'open-settings': openSettings,
+  Object.freeze({
 
-  'close-settings': closeSettings,
+    'open-settings':
 
-  'clear-history': handleClearHistory,
+      openSettings,
 
-  'select-theme': handleSelectTheme,
+    'close-settings':
 
-  'retry-auth': handleRetryAuth,
+      closeSettings,
 
-  'toggle-history': toggleHistoryPanel,
+    'clear-history':
 
-  'clear-cache': handleClearCache,
+      handleClearHistory,
 
-  'delete-all-my-messages':
+    'select-theme':
 
-    handleDeleteAllMyMessages,
+      handleSelectTheme,
 
-  'clear-archive-data':
+    'retry-auth':
 
-    handleClearArchiveData,
+      handleRetryAuth,
 
-  'move-card-up':
+    'toggle-history':
 
-    handleMoveCardUp,
+      toggleHistoryPanel,
 
-  'move-card-down':
+    'clear-cache':
 
-    handleMoveCardDown,
+      handleClearCache,
 
-  'reset-customization':
+    'delete-all-my-messages':
 
-    handleResetCustomization,
+      handleDeleteAllMyMessages,
 
-});
+    'clear-archive-data':
 
-// ------------------------------------------------------------
+      handleClearArchiveData,
 
-// Calculator
+    'move-card-up':
 
-// ------------------------------------------------------------
+      handleMoveCardUp,
 
-function handleDigitInput(digit) {
+    'move-card-down':
 
-  let shouldRender = true;
+      handleMoveCardDown,
+
+    'reset-customization':
+
+      handleResetCustomization,
+
+  });
+
+// ============================================================
+
+// Calculator 数字入力
+
+// ============================================================
+
+function handleDigitInput(
+
+  digit,
+
+) {
+
+  let shouldRender =
+
+    true;
 
   try {
 
@@ -2206,7 +3938,9 @@ function handleDigitInput(digit) {
 
     const displayState =
 
-      Calculator.getDisplayState();
+      Calculator
+
+        .getDisplayState();
 
     playFeedbackSound(
 
@@ -2220,7 +3954,9 @@ function handleDigitInput(digit) {
 
     playFeedbackVibration();
 
-    passcodeBuffer += digit;
+    passcodeBuffer +=
+
+      digit;
 
     const passcode =
 
@@ -2246,9 +3982,13 @@ function handleDigitInput(digit) {
 
         Router.openWorkspace();
 
-        passcodeBuffer = '';
+        passcodeBuffer =
 
-        shouldRender = false;
+          '';
+
+        shouldRender =
+
+          false;
 
         return;
 
@@ -2278,7 +4018,17 @@ function handleDigitInput(digit) {
 
 }
 
-function handleCalculatorAction(action) {
+// ============================================================
+
+// Calculator 操作入力
+
+// ============================================================
+
+function handleCalculatorAction(
+
+  action,
+
+) {
 
   if (
 
@@ -2290,23 +4040,39 @@ function handleCalculatorAction(action) {
 
   ) {
 
-    passcodeBuffer = '';
+    passcodeBuffer =
+
+      '';
 
   }
 
   try {
 
-    dispatchToCalculator(action);
+    dispatchToCalculator(
+
+      action,
+
+    );
 
     const displayState =
 
-      Calculator.getDisplayState();
+      Calculator
 
-    let feedbackKind = 'tap';
+        .getDisplayState();
 
-    if (displayState.isError) {
+    let feedbackKind =
 
-      feedbackKind = 'error';
+      'tap';
+
+    if (
+
+      displayState.isError
+
+    ) {
+
+      feedbackKind =
+
+        'error';
 
     } else if (
 
@@ -2316,7 +4082,9 @@ function handleCalculatorAction(action) {
 
     ) {
 
-      feedbackKind = 'success';
+      feedbackKind =
+
+        'success';
 
     }
 
@@ -2362,17 +4130,27 @@ function handleCalculatorAction(action) {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // documentクリック
 
-// ------------------------------------------------------------
+// ============================================================
 
-function handleDocumentClick(event) {
+function handleDocumentClick(
+
+  event,
+
+) {
 
   if (
 
-    !(event.target instanceof Element)
+    !(
+
+      event.target instanceof
+
+      Element
+
+    )
 
   ) {
 
@@ -2388,7 +4166,11 @@ function handleDocumentClick(event) {
 
     );
 
-  if (!target) return;
+  if (!target) {
+
+    return;
+
+  }
 
   const settingsOverlay =
 
@@ -2400,9 +4182,11 @@ function handleDocumentClick(event) {
 
   /*
 
-   * 設定画面が開いている場合は、
+   * 設定画面が開いている場合は
 
-   * Workspace等の画面処理より先に設定操作を処理する。
+   * Workspace等の画面処理より先に
+
+   * 設定操作を処理する。
 
    */
 
@@ -2424,17 +4208,27 @@ function handleDocumentClick(event) {
 
   ) {
 
-    const { action } =
+    const {
 
-      target.dataset;
+      action,
+
+    } = target.dataset;
 
     const settingsHandler =
 
-      ACTION_HANDLERS[action];
+      ACTION_HANDLERS[
+
+        action
+
+      ];
 
     if (settingsHandler) {
 
-      playFeedbackSound('tap');
+      playFeedbackSound(
+
+        'tap',
+
+      );
 
       playFeedbackVibration();
 
@@ -2572,9 +4366,17 @@ function handleDocumentClick(event) {
 
   } = target.dataset;
 
-  if (num !== undefined) {
+  if (
 
-    handleDigitInput(num);
+    num !== undefined
+
+  ) {
+
+    handleDigitInput(
+
+      num,
+
+    );
 
     return;
 
@@ -2602,11 +4404,19 @@ function handleDocumentClick(event) {
 
   const handler =
 
-    ACTION_HANDLERS[action];
+    ACTION_HANDLERS[
+
+      action
+
+    ];
 
   if (handler) {
 
-    playFeedbackSound('tap');
+    playFeedbackSound(
+
+      'tap',
+
+    );
 
     playFeedbackVibration();
 
@@ -2622,21 +4432,39 @@ function handleDocumentClick(event) {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // inputイベント
 
-// ------------------------------------------------------------
+// ============================================================
 
-function handleDocumentInput(event) {
+function handleDocumentInput(
 
-  const target = event.target;
+  event,
+
+) {
+
+  const target =
+
+    event.target;
 
   if (
 
-    !(target instanceof HTMLInputElement) &&
+    !(
 
-    !(target instanceof HTMLTextAreaElement)
+      target instanceof
+
+      HTMLInputElement
+
+    ) &&
+
+    !(
+
+      target instanceof
+
+      HTMLTextAreaElement
+
+    )
 
   ) {
 
@@ -2678,21 +4506,31 @@ function handleDocumentInput(event) {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // 設定変更
 
-// ------------------------------------------------------------
+// ============================================================
 
-function handleSettingsChange(event) {
+function handleSettingsChange(
 
-  const target = event.target;
+  event,
+
+) {
+
+  const target =
+
+    event.target;
 
   if (
 
-    target instanceof HTMLInputElement &&
+    target instanceof
 
-    target.type === 'checkbox'
+      HTMLInputElement &&
+
+    target.type ===
+
+      'checkbox'
 
   ) {
 
@@ -2708,9 +4546,13 @@ function handleSettingsChange(event) {
 
   if (
 
-    target instanceof HTMLInputElement &&
+    target instanceof
 
-    target.type === 'text'
+      HTMLInputElement &&
+
+    target.type ===
+
+      'text'
 
   ) {
 
@@ -2726,7 +4568,9 @@ function handleSettingsChange(event) {
 
   if (
 
-    target instanceof HTMLSelectElement
+    target instanceof
+
+    HTMLSelectElement
 
   ) {
 
@@ -2746,9 +4590,15 @@ function handleSettingsCheckboxChange(
 
 ) {
 
-  const checked = target.checked;
+  const checked =
 
-  switch (target.id) {
+    target.checked;
+
+  switch (
+
+    target.id
+
+  ) {
 
     case 'soundToggle':
 
@@ -2802,11 +4652,13 @@ function handleSettingsCheckboxChange(
 
     case 'notificationContentToggle':
 
-      Settings.setNotificationContentEnabled(
+      Settings
 
-        checked,
+        .setNotificationContentEnabled(
 
-      );
+          checked,
+
+        );
 
       Notifications
 
@@ -2816,57 +4668,69 @@ function handleSettingsCheckboxChange(
 
         )
 
-        .catch((error) => {
+        .catch(
 
-          console.warn(
+          (error) => {
 
-            '[app.js] 通知内容表示設定の同期に失敗しました',
+            console.warn(
 
-            error,
+              '[app.js] 通知内容表示設定の同期に失敗しました',
 
-          );
+              error,
 
-        });
+            );
+
+          },
+
+        );
 
       break;
 
     case 'notificationSoundToggle':
 
-      Settings.setNotificationSoundEnabled(
+      Settings
 
-        checked,
+        .setNotificationSoundEnabled(
 
-      );
+          checked,
+
+        );
 
       break;
 
     case 'notificationVibrationToggle':
 
-      Settings.setNotificationVibrationEnabled(
+      Settings
 
-        checked,
+        .setNotificationVibrationEnabled(
 
-      );
+          checked,
+
+        );
 
       break;
 
     case 'readReceiptsToggle':
 
-      Settings.setReadReceiptsEnabled(
+      Settings
 
-        checked,
+        .setReadReceiptsEnabled(
 
-      );
+          checked,
+
+        );
 
       break;
 
     case 'onlineVisibilityToggle':
 
-      Settings.setOnlineVisibilityEnabled(
+      Settings
 
-        checked,
+        .setOnlineVisibilityEnabled(
 
-      );
+          checked,
+
+        );
 
       break;
 
@@ -2884,6 +4748,14 @@ function handleSettingsSelectChange(
 
 ) {
 
+  /*
+
+   * Workspace等の
+
+   * 背景変更。
+
+   */
+
   if (
 
     target.classList.contains(
@@ -2894,63 +4766,111 @@ function handleSettingsSelectChange(
 
   ) {
 
-    const { screen } =
-
-      target.dataset;
-
-    if (!screen) return;
-
-    Customization.updateBackground(
+    const {
 
       screen,
 
-      target.value,
+    } = target.dataset;
 
-    ).catch((error) => {
+    if (!screen) {
 
-      console.error(
+      return;
 
-        '[app.js] 背景の保存に失敗しました',
+    }
 
-        error,
+    /*
+
+     * customization.js側で
+
+     * 先にローカルへ即時反映される。
+
+     *
+
+     * Workspace.js等のsubscribeが
+
+     * その変更を受け取って
+
+     * 背景クラスを即時変更する。
+
+     */
+
+    Customization
+
+      .updateBackground(
+
+        screen,
+
+        target.value,
+
+      )
+
+      .catch(
+
+        (error) => {
+
+          console.error(
+
+            '[app.js] 背景の保存に失敗しました',
+
+            error,
+
+          );
+
+        },
 
       );
-
-    });
 
     return;
 
   }
 
-  switch (target.id) {
+  switch (
+
+    target.id
+
+  ) {
 
     case 'autoLockDurationSelect':
 
-      Settings.setAutoLockDurationMs(
+      Settings
 
-        Number(target.value),
+        .setAutoLockDurationMs(
 
-      );
+          Number(
+
+            target.value,
+
+          ),
+
+        );
 
       break;
 
     case 'organizeModeSelect':
 
-      Settings.setConversationOrganizeMode(
+      Settings
 
-        target.value,
+        .setConversationOrganizeMode(
 
-      );
+          target.value,
+
+        );
 
       break;
 
     case 'organizeDurationSelect':
 
-      Settings.setConversationOrganizeDurationMs(
+      Settings
 
-        Number(target.value),
+        .setConversationOrganizeDurationMs(
 
-      );
+          Number(
+
+            target.value,
+
+          ),
+
+        );
 
       break;
 
@@ -2968,6 +4888,12 @@ function handleSettingsTextInputChange(
 
 ) {
 
+  /*
+
+   * Workspaceタイトル
+
+   */
+
   if (
 
     target.id ===
@@ -2976,25 +4902,39 @@ function handleSettingsTextInputChange(
 
   ) {
 
-    Customization.updateWorkspaceTitle(
+    Customization
 
-      target.value,
+      .updateWorkspaceTitle(
 
-    ).catch((error) => {
+        target.value,
 
-      console.error(
+      )
 
-        '[app.js] Workspaceタイトルの保存に失敗しました',
+      .catch(
 
-        error,
+        (error) => {
+
+          console.error(
+
+            '[app.js] Workspaceタイトルの保存に失敗しました',
+
+            error,
+
+          );
+
+        },
 
       );
-
-    });
 
     return;
 
   }
+
+  /*
+
+   * カードアイコン・カード名
+
+   */
 
   if (
 
@@ -3012,11 +4952,17 @@ function handleSettingsTextInputChange(
 
   ) {
 
-    const { cardKey } =
+    const {
 
-      target.dataset;
+      cardKey,
 
-    if (!cardKey) return;
+    } = target.dataset;
+
+    if (!cardKey) {
+
+      return;
+
+    }
 
     const changes =
 
@@ -3042,33 +4988,41 @@ function handleSettingsTextInputChange(
 
           };
 
-    Customization.updateCard(
+    Customization
 
-      cardKey,
+      .updateCard(
 
-      changes,
+        cardKey,
 
-    ).catch((error) => {
+        changes,
 
-      console.error(
+      )
 
-        '[app.js] カードの保存に失敗しました',
+      .catch(
 
-        error,
+        (error) => {
+
+          console.error(
+
+            '[app.js] カードの保存に失敗しました',
+
+            error,
+
+          );
+
+        },
 
       );
-
-    });
 
   }
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // 生体認証設定
 
-// ------------------------------------------------------------
+// ============================================================
 
 async function handleBiometricToggle(
 
@@ -3078,11 +5032,13 @@ async function handleBiometricToggle(
 
   if (!enabled) {
 
-    Settings.setBiometricEnabled(
+    Settings
 
-      false,
+      .setBiometricEnabled(
 
-    );
+        false,
+
+      );
 
     Auth.lock();
 
@@ -3098,11 +5054,13 @@ async function handleBiometricToggle(
 
     if (success) {
 
-      Settings.setBiometricEnabled(
+      Settings
 
-        true,
+        .setBiometricEnabled(
 
-      );
+          true,
+
+        );
 
       return;
 
@@ -3124,11 +5082,11 @@ async function handleBiometricToggle(
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // 通知設定
 
-// ------------------------------------------------------------
+// ============================================================
 
 async function handleNotificationsToggle(
 
@@ -3138,27 +5096,33 @@ async function handleNotificationsToggle(
 
   if (!enabled) {
 
-    Settings.setNotificationsEnabled(
+    Settings
 
-      false,
+      .setNotificationsEnabled(
 
-    );
+        false,
+
+      );
 
     Notifications
 
       .disableRegistration()
 
-      .catch((error) => {
+      .catch(
 
-        console.warn(
+        (error) => {
 
-          '[app.js] 通知登録の無効化に失敗しました',
+          console.warn(
 
-          error,
+            '[app.js] 通知登録の無効化に失敗しました',
 
-        );
+            error,
 
-      });
+          );
+
+        },
+
+      );
 
     renderNotificationStatus();
 
@@ -3172,11 +5136,13 @@ async function handleNotificationsToggle(
 
       .requestPermissionAndRegister();
 
-    Settings.setNotificationsEnabled(
+    Settings
 
-      true,
+      .setNotificationsEnabled(
 
-    );
+        true,
+
+      );
 
     renderNotificationStatus();
 
@@ -3198,13 +5164,17 @@ async function handleNotificationsToggle(
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // キーボード
 
-// ------------------------------------------------------------
+// ============================================================
 
-function handleKeyDown(event) {
+function handleKeyDown(
+
+  event,
+
+) {
 
   const lockOverlay =
 
@@ -3216,6 +5186,8 @@ function handleKeyDown(event) {
 
   const isLockOpen =
 
+    lockOverlay &&
+
     lockOverlay.classList.contains(
 
       'is-open',
@@ -3224,7 +5196,13 @@ function handleKeyDown(event) {
 
   if (isLockOpen) {
 
-    if (event.key === 'Tab') {
+    if (
+
+      event.key ===
+
+      'Tab'
+
+    ) {
 
       trapFocus(
 
@@ -3250,6 +5228,8 @@ function handleKeyDown(event) {
 
   if (
 
+    !overlay ||
+
     !overlay.classList.contains(
 
       'is-open',
@@ -3262,7 +5242,13 @@ function handleKeyDown(event) {
 
   }
 
-  if (event.key === 'Escape') {
+  if (
+
+    event.key ===
+
+    'Escape'
+
+  ) {
 
     closeSettings();
 
@@ -3270,7 +5256,13 @@ function handleKeyDown(event) {
 
   }
 
-  if (event.key === 'Tab') {
+  if (
+
+    event.key ===
+
+    'Tab'
+
+  ) {
 
     trapFocus(
 
@@ -3302,7 +5294,9 @@ function trapFocus(
 
   if (
 
-    focusable.length === 0
+    focusable.length ===
+
+    0
 
   ) {
 
@@ -3310,13 +5304,17 @@ function trapFocus(
 
   }
 
-  const first = focusable[0];
+  const first =
+
+    focusable[0];
 
   const last =
 
     focusable[
 
-      focusable.length - 1
+      focusable.length -
+
+        1
 
     ];
 
@@ -3352,13 +5350,17 @@ function trapFocus(
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // キーパッド押下
 
-// ------------------------------------------------------------
+// ============================================================
 
-function clearPressedTimeout(target) {
+function clearPressedTimeout(
+
+  target,
+
+) {
 
   const timeoutId =
 
@@ -3370,7 +5372,9 @@ function clearPressedTimeout(target) {
 
   if (
 
-    timeoutId !== undefined
+    timeoutId !==
+
+    undefined
 
   ) {
 
@@ -3398,7 +5402,13 @@ function handleKeypadPointerDown(
 
   if (
 
-    !(event.target instanceof Element)
+    !(
+
+      event.target instanceof
+
+      Element
+
+    )
 
   ) {
 
@@ -3408,11 +5418,23 @@ function handleKeypadPointerDown(
 
   const target =
 
-    event.target.closest('.key');
+    event.target.closest(
 
-  if (!target) return;
+      '.key',
 
-  clearPressedTimeout(target);
+    );
+
+  if (!target) {
+
+    return;
+
+  }
+
+  clearPressedTimeout(
+
+    target,
+
+  );
 
   target.classList.add(
 
@@ -3422,21 +5444,27 @@ function handleKeypadPointerDown(
 
   const timeoutId =
 
-    window.setTimeout(() => {
+    window.setTimeout(
 
-      target.classList.remove(
+      () => {
 
-        'pressed',
+        target.classList.remove(
 
-      );
+          'pressed',
 
-      pressedTimeouts.delete(
+        );
 
-        target,
+        pressedTimeouts.delete(
 
-      );
+          target,
 
-    }, PRESSED_CLASS_TIMEOUT);
+        );
+
+      },
+
+      PRESSED_CLASS_TIMEOUT,
+
+    );
 
   pressedTimeouts.set(
 
@@ -3456,7 +5484,13 @@ function handleKeypadPointerUp(
 
   if (
 
-    !(event.target instanceof Element)
+    !(
+
+      event.target instanceof
+
+      Element
+
+    )
 
   ) {
 
@@ -3466,11 +5500,23 @@ function handleKeypadPointerUp(
 
   const target =
 
-    event.target.closest('.key');
+    event.target.closest(
 
-  if (!target) return;
+      '.key',
 
-  clearPressedTimeout(target);
+    );
+
+  if (!target) {
+
+    return;
+
+  }
+
+  clearPressedTimeout(
+
+    target,
+
+  );
 
   target.classList.remove(
 
@@ -3480,11 +5526,11 @@ function handleKeypadPointerUp(
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
-// ★ 設定×ボタンを直接処理
+// 設定 × ボタン
 
-// ------------------------------------------------------------
+// ============================================================
 
 function registerSettingsCloseButton() {
 
@@ -3508,47 +5554,39 @@ function registerSettingsCloseButton() {
 
   }
 
-  /*
+  settingsCloseBtn
 
-   * documentのイベント委譲とは別に、
+    .addEventListener(
 
-   * ×ボタン自身へ直接リスナーを登録する。
+      'click',
 
-   *
+      (event) => {
 
-   * Workspace上から設定を開いた場合でも
+        event.preventDefault();
 
-   * Routerの画面判定に邪魔されず確実に閉じる。
+        event.stopPropagation();
 
-   */
+        playFeedbackSound(
 
-  settingsCloseBtn.addEventListener(
+          'tap',
 
-    'click',
+        );
 
-    (event) => {
+        playFeedbackVibration();
 
-      event.preventDefault();
+        closeSettings();
 
-      event.stopPropagation();
+      },
 
-      playFeedbackSound('tap');
-
-      playFeedbackVibration();
-
-      closeSettings();
-
-    },
-
-  );
+    );
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // イベント登録
 
-// ------------------------------------------------------------
+// ============================================================
 
 function registerEventListeners() {
 
@@ -3632,21 +5670,15 @@ function registerEventListeners() {
 
   }
 
-  /*
-
-   * ★ 今回追加した直接リスナー。
-
-   */
-
   registerSettingsCloseButton();
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // Storage購読
 
-// ------------------------------------------------------------
+// ============================================================
 
 function subscribeToStorageChanges() {
 
@@ -3692,11 +5724,11 @@ function subscribeToStorageChanges() {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // Service Worker
 
-// ------------------------------------------------------------
+// ============================================================
 
 function registerServiceWorker() {
 
@@ -3732,33 +5764,47 @@ function registerServiceWorker() {
 
     () => {
 
-      navigator.serviceWorker
+      navigator
 
-        .register(swUrl)
+        .serviceWorker
 
-        .catch((error) => {
+        .register(
 
-          console.warn(
+          swUrl,
 
-            '[app.js] Service Workerの登録に失敗しました',
+        )
 
-            error,
+        .catch(
 
-          );
+          (error) => {
 
-        });
+            console.warn(
+
+              '[app.js] Service Workerの登録に失敗しました',
+
+              error,
+
+            );
+
+          },
+
+        );
 
     },
 
   );
 
-  navigator.serviceWorker.addEventListener(
+  navigator
 
-    'message',
+    .serviceWorker
 
-    handleServiceWorkerMessage,
+    .addEventListener(
 
-  );
+      'message',
+
+      handleServiceWorkerMessage,
+
+    );
 
 }
 
@@ -3810,11 +5856,11 @@ function handleServiceWorkerMessage(
 
     message.type ===
 
-    'calculator-0209-push-subscription-changed' ||
+      'calculator-0209-push-subscription-changed' ||
 
     message.type ===
 
-    'PUSH_SUBSCRIPTION_CHANGED'
+      'PUSH_SUBSCRIPTION_CHANGED'
 
   ) {
 
@@ -3822,27 +5868,31 @@ function handleServiceWorkerMessage(
 
       .syncRegistrationOnStartup()
 
-      .catch((error) => {
+      .catch(
 
-        console.warn(
+        (error) => {
 
-          '[app.js] プッシュ購読変更後の再登録に失敗しました',
+          console.warn(
 
-          error,
+            '[app.js] プッシュ購読変更後の再登録に失敗しました',
 
-        );
+            error,
 
-      });
+          );
+
+        },
+
+      );
 
   }
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
 // 終了処理
 
-// ------------------------------------------------------------
+// ============================================================
 
 function handleVisibilityChange() {
 
@@ -3864,17 +5914,23 @@ function handlePageHide() {
 
   Sound.stopAll();
 
-  Sound.destroy().catch((error) => {
+  Sound.destroy()
 
-    console.warn(
+    .catch(
 
-      '[app.js] Sound.destroy()に失敗しました',
+      (error) => {
 
-      error,
+        console.warn(
+
+          '[app.js] Sound.destroy()に失敗しました',
+
+          error,
+
+        );
+
+      },
 
     );
-
-  });
 
 }
 
@@ -3912,11 +5968,11 @@ function registerTeardownHandlers() {
 
 }
 
-// ------------------------------------------------------------
+// ============================================================
 
-// 初期化
+// 生体認証起動フロー
 
-// ------------------------------------------------------------
+// ============================================================
 
 async function runBiometricLockFlow() {
 
@@ -3972,27 +6028,47 @@ function withTimeout(
 
     promise,
 
-    new Promise((resolve) => {
+    new Promise(
 
-      window.setTimeout(
+      (resolve) => {
 
-        () => resolve(false),
+        window.setTimeout(
 
-        timeoutMs,
+          () =>
 
-      );
+            resolve(
 
-    }),
+              false,
+
+            ),
+
+          timeoutMs,
+
+        );
+
+      },
+
+    ),
 
   ]);
 
 }
 
+// ============================================================
+
+// 初期化
+
+// ============================================================
+
 async function init() {
 
   try {
 
+    // --------------------------------------------------------
+
     // 1. UI構築
+
+    // --------------------------------------------------------
 
     buildKeypad();
 
@@ -4000,65 +6076,143 @@ async function init() {
 
     buildDurationSelectOptions();
 
+    // --------------------------------------------------------
+
     // 2. 各画面構築
+
+    // --------------------------------------------------------
 
     Router.init();
 
+    // --------------------------------------------------------
+
     // 3. ペアリング完了時
 
-    Pairing.setOnPaired(() => {
+    // --------------------------------------------------------
 
-      Router.completePairing();
+    Pairing.setOnPaired(
 
-      Customization.start();
+      () => {
 
-      Notifications
+        Router.completePairing();
 
-        .syncAfterPairing()
+        /*
 
-        .catch((error) => {
+         * ペアリング成立後に
 
-          console.warn(
+         * 共有カスタマイズ購読を開始。
 
-            '[app.js] ペアリング後の通知同期に失敗しました',
+         */
 
-            error,
+        Customization.start();
+
+        Notifications
+
+          .syncAfterPairing()
+
+          .catch(
+
+            (error) => {
+
+              console.warn(
+
+                '[app.js] ペアリング後の通知同期に失敗しました',
+
+                error,
+
+              );
+
+            },
 
           );
 
-        });
+      },
 
-    });
+    );
 
-    // 4. カスタマイズ
+    // --------------------------------------------------------
+
+    // 4. カスタマイズ初期化
+
+    // --------------------------------------------------------
+
+    /*
+
+     * 未ペアリングの場合でも
+
+     * customization.js内部の
+
+     * localStorageキャッシュは使用可能。
+
+     *
+
+     * ペアリング済みなら
+
+     * Firestore購読も開始される。
+
+     */
 
     Customization.start();
 
-    Customization.subscribe(() => {
+    /*
 
-      renderWorkspaceTitleInput();
+     * カスタマイズ変更時に
 
-      renderCardCustomizationList();
+     * 設定画面側も更新。
 
-      renderBackgroundCustomizationList();
+     *
 
-    });
+     * Workspace本体は
 
-    // 5. イベント
+     * workspace.js自身がsubscribeしている。
+
+     */
+
+    Customization.subscribe(
+
+      () => {
+
+        renderWorkspaceTitleInput();
+
+        renderCardCustomizationList();
+
+        renderBackgroundCustomizationList();
+
+      },
+
+    );
+
+    // --------------------------------------------------------
+
+    // 5. イベント登録
+
+    // --------------------------------------------------------
 
     registerEventListeners();
 
     registerTeardownHandlers();
 
-    // 6. Storage
+    // --------------------------------------------------------
+
+    // 6. Storage購読
+
+    // --------------------------------------------------------
 
     subscribeToStorageChanges();
 
+    // --------------------------------------------------------
+
     // 7. 初回描画
+
+    // --------------------------------------------------------
 
     render();
 
+    // --------------------------------------------------------
+
     // 8. 生体認証
+
+    // --------------------------------------------------------
 
     isBiometricSupported =
 
@@ -4074,11 +6228,19 @@ async function init() {
 
     await runBiometricLockFlow();
 
+    // --------------------------------------------------------
+
     // 9. Service Worker
+
+    // --------------------------------------------------------
 
     registerServiceWorker();
 
-    // 10. 通知初期化
+    // --------------------------------------------------------
+
+    // 10. 通知
+
+    // --------------------------------------------------------
 
     Notifications.init();
 
@@ -4086,33 +6248,41 @@ async function init() {
 
       .syncRegistrationOnStartup()
 
-      .catch((error) => {
+      .catch(
 
-        console.warn(
+        (error) => {
 
-          '[app.js] 起動時の通知同期に失敗しました',
+          console.warn(
 
-          error,
+            '[app.js] 起動時の通知同期に失敗しました',
 
-        );
+            error,
 
-      });
+          );
+
+        },
+
+      );
 
     Notifications
 
       .initForegroundListener()
 
-      .catch((error) => {
+      .catch(
 
-        console.warn(
+        (error) => {
 
-          '[app.js] フォアグラウンド通知初期化に失敗しました',
+          console.warn(
 
-          error,
+            '[app.js] フォアグラウンド通知初期化に失敗しました',
 
-        );
+            error,
 
-      });
+          );
+
+        },
+
+      );
 
   } catch (error) {
 
@@ -4128,7 +6298,11 @@ async function init() {
 
       render();
 
-    } catch (renderError) {
+    } catch (
+
+      renderError
+
+    ) {
 
       console.error(
 
@@ -4143,6 +6317,12 @@ async function init() {
   }
 
 }
+
+// ============================================================
+
+// 起動
+
+// ============================================================
 
 document.addEventListener(
 
