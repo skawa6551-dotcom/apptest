@@ -2,53 +2,17 @@
 
    calendar.css
 
-   Workspace内「カレンダー」画面専用スタイル。
+   Calendar画面専用スタイル
 
-   ・画面全体
+   iPhoneでの使用を前提に、Workspaceと統一した
 
-   ・共有背景プリセット
-
-   ・ヘッダー
-
-   ・月送り
-
-   ・曜日
-
-   ・日付グリッド
-
-   ・今日表示
-
-   ・メモあり表示
-
-   ・メモ編集パネル
-
-   を管理する。
-
-   背景プリセットは customization.js の
-
-   BACKGROUND_PRESETS と同じIDを使う。
-
-   calendar-bg--wood
-
-   calendar-bg--black
-
-   calendar-bg--black-glass
-
-   calendar-bg--dark-gray
-
-   calendar-bg--navy
-
-   calendar-bg--gold
-
-   calendar-bg--abstract
-
-   を定義する。
+   ダーク＋ゴールド系デザインにする。
 
    ============================================================ */
 
 /* ------------------------------------------------------------
 
-   カレンダー画面全体
+   Calendar画面全体
 
    ------------------------------------------------------------ */
 
@@ -58,13 +22,7 @@
 
   inset: 0;
 
-  z-index:
-
-    calc(
-
-      var(--z-lock) + 10
-
-    );
+  z-index: calc(var(--z-lock) + 10);
 
   display: none;
 
@@ -78,43 +36,35 @@
 
   height: 100dvh;
 
-  background:
-
-    var(--color-bg);
-
-  color:
-
-    var(--color-text-primary);
-
-  opacity: 0;
-
-  pointer-events: none;
-
   overflow-y: auto;
 
   overflow-x: hidden;
 
-  -webkit-overflow-scrolling:
+  -webkit-overflow-scrolling: touch;
 
-    touch;
+  overscroll-behavior: contain;
 
-  overscroll-behavior:
+  background:
 
-    contain;
+    radial-gradient(
 
-  transition:
+      circle at 50% -10%,
 
-    opacity
+      rgba(201, 169, 106, 0.08),
 
-    var(--duration-base)
+      transparent 35%
 
-    var(--easing-standard);
+    ),
+
+    var(--color-bg);
+
+  color: var(--color-text-primary);
 
   padding-top:
 
     max(
 
-      var(--space-md),
+      var(--space-sm),
 
       var(--safe-top)
 
@@ -124,7 +74,7 @@
 
     max(
 
-      var(--space-md),
+      var(--space-lg),
 
       var(--safe-bottom)
 
@@ -134,7 +84,7 @@
 
     max(
 
-      var(--space-md),
+      var(--space-sm),
 
       var(--safe-left)
 
@@ -144,19 +94,25 @@
 
     max(
 
-      var(--space-md),
+      var(--space-sm),
 
       var(--safe-right)
 
     );
 
+  opacity: 0;
+
+  pointer-events: none;
+
+  transition:
+
+    opacity
+
+    var(--duration-base)
+
+    var(--easing-standard);
+
 }
-
-/* ------------------------------------------------------------
-
-   表示中
-
-   ------------------------------------------------------------ */
 
 .calendar.is-open {
 
@@ -170,15 +126,11 @@
 
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
 
    背景プリセット
 
-   ============================================================ */
-
-/* ------------------------------------------------------------
-
-   default
+   customization.js の BACKGROUND_PRESETS と対応
 
    ------------------------------------------------------------ */
 
@@ -186,15 +138,19 @@
 
   background:
 
+    radial-gradient(
+
+      circle at 50% -10%,
+
+      rgba(201, 169, 106, 0.08),
+
+      transparent 35%
+
+    ),
+
     var(--color-bg);
 
 }
-
-/* ------------------------------------------------------------
-
-   木目
-
-   ------------------------------------------------------------ */
 
 .calendar.calendar-bg--wood {
 
@@ -204,57 +160,15 @@
 
       180deg,
 
-      rgba(
+      #caa06a 0%,
 
-        255,
+      #a97a45 55%,
 
-        226,
-
-        185,
-
-        0.10
-
-      ) 0%,
-
-      rgba(
-
-        84,
-
-        48,
-
-        22,
-
-        0.18
-
-      ) 100%
-
-    ),
-
-    repeating-linear-gradient(
-
-      92deg,
-
-      #a87545 0px,
-
-      #a87545 17px,
-
-      #946238 18px,
-
-      #b07c49 35px,
-
-      #87572f 36px,
-
-      #9c6a3c 58px
+      #7d5730 100%
 
     );
 
 }
-
-/* ------------------------------------------------------------
-
-   ブラック
-
-   ------------------------------------------------------------ */
 
 .calendar.calendar-bg--black {
 
@@ -264,7 +178,7 @@
 
       180deg,
 
-      #090909 0%,
+      #0a0a0a 0%,
 
       #000000 100%
 
@@ -272,55 +186,21 @@
 
 }
 
-/* ------------------------------------------------------------
-
-   ブラックガラス
-
-   ------------------------------------------------------------ */
-
 .calendar.calendar-bg--black-glass {
 
   background:
 
-    radial-gradient(
-
-      circle at 50% -10%,
-
-      rgba(
-
-        255,
-
-        255,
-
-        255,
-
-        0.09
-
-      ),
-
-      transparent 42%
-
-    ),
-
     linear-gradient(
 
-      160deg,
+      180deg,
 
-      #1a1c20 0%,
+      #101214 0%,
 
-      #0d0e10 48%,
-
-      #050506 100%
+      #24272b 100%
 
     );
 
 }
-
-/* ------------------------------------------------------------
-
-   ダークグレー
-
-   ------------------------------------------------------------ */
 
 .calendar.calendar-bg--dark-gray {
 
@@ -330,65 +210,29 @@
 
       180deg,
 
-      #292929 0%,
+      #202020 0%,
 
-      #191919 50%,
-
-      #111111 100%
+      #121212 100%
 
     );
 
 }
-
-/* ------------------------------------------------------------
-
-   ネイビー
-
-   ------------------------------------------------------------ */
 
 .calendar.calendar-bg--navy {
 
   background:
 
-    radial-gradient(
-
-      circle at 50% 0%,
-
-      rgba(
-
-        50,
-
-        105,
-
-        180,
-
-        0.22
-
-      ),
-
-      transparent 45%
-
-    ),
-
     linear-gradient(
 
       180deg,
 
-      #101c31 0%,
+      #05070d 0%,
 
-      #08101e 55%,
-
-      #040812 100%
+      #0d1a2e 100%
 
     );
 
 }
-
-/* ------------------------------------------------------------
-
-   ゴールド
-
-   ------------------------------------------------------------ */
 
 .calendar.calendar-bg--gold {
 
@@ -396,21 +240,11 @@
 
     radial-gradient(
 
-      ellipse 120% 65%
+      ellipse 120% 60%
 
       at 50% -10%,
 
-      rgba(
-
-        227,
-
-        176,
-
-        75,
-
-        0.30
-
-      ),
+      rgba(201, 169, 106, 0.25),
 
       transparent 60%
 
@@ -420,143 +254,121 @@
 
       180deg,
 
-      #21180b 0%,
+      #14100a 0%,
 
-      #110c06 55%,
-
-      #070503 100%
+      #0a0705 100%
 
     );
 
 }
-
-/* ------------------------------------------------------------
-
-   抽象グラデーション
-
-   ------------------------------------------------------------ */
 
 .calendar.calendar-bg--abstract {
 
   background:
 
-    radial-gradient(
-
-      circle at 15% 15%,
-
-      rgba(
-
-        173,
-
-        72,
-
-        255,
-
-        0.20
-
-      ),
-
-      transparent 38%
-
-    ),
-
-    radial-gradient(
-
-      circle at 85% 35%,
-
-      rgba(
-
-        50,
-
-        115,
-
-        255,
-
-        0.18
-
-      ),
-
-      transparent 40%
-
-    ),
-
-    radial-gradient(
-
-      circle at 45% 90%,
-
-      rgba(
-
-        220,
-
-        130,
-
-        40,
-
-        0.16
-
-      ),
-
-      transparent 45%
-
-    ),
-
     linear-gradient(
 
       160deg,
 
-      #10090e 0%,
+      #140a07 0%,
 
-      #0b101b 55%,
+      #241506 45%,
 
-      #08080b 100%
+      #0a0d14 100%
 
     );
 
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
 
    ヘッダー
 
-   ============================================================ */
+   戻る / カレンダー / ロック
+
+   ------------------------------------------------------------ */
 
 .calendar-header {
 
-  display: flex;
+  position: relative;
+
+  display: grid;
+
+  grid-template-columns:
+
+    2.75rem
+
+    minmax(0, 1fr)
+
+    2.75rem;
 
   align-items: center;
 
-  gap:
+  width: 100%;
 
-    var(--space-sm);
+  min-height: 3rem;
 
   flex-shrink: 0;
 
-  width: 100%;
-
-  padding-bottom:
-
-    var(--space-md);
+  margin-bottom: var(--space-md);
 
 }
 
 .calendar-header .icon-btn {
 
-  flex-shrink: 0;
+  width: 2.75rem;
+
+  height: 2.75rem;
+
+  background:
+
+    rgba(255, 255, 255, 0.055);
+
+  border:
+
+    1px solid
+
+    rgba(255, 255, 255, 0.035);
+
+  box-shadow:
+
+    0 0.45rem 1.2rem
+
+    rgba(0, 0, 0, 0.22);
+
+}
+
+.calendar-header .icon-btn:active {
+
+  transform: scale(0.9);
+
+  background:
+
+    rgba(255, 255, 255, 0.09);
 
 }
 
 /* ------------------------------------------------------------
 
-   タイトル
+   Calendarタイトル
 
    ------------------------------------------------------------ */
 
 .calendar-title {
 
-  flex: 1 1 auto;
-
   min-width: 0;
+
+  padding-inline:
+
+    var(--space-xs);
+
+  overflow: hidden;
+
+  white-space: nowrap;
+
+  text-overflow: ellipsis;
+
+  text-align: center;
 
   font-size:
 
@@ -564,11 +376,7 @@
 
   font-weight: 700;
 
-  letter-spacing:
-
-    0.02em;
-
-  text-align: center;
+  letter-spacing: 0.03em;
 
   color:
 
@@ -576,33 +384,47 @@
 
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
 
-   月送りナビ
+   月移動ナビ
 
-   ============================================================ */
+   ------------------------------------------------------------ */
 
 .calendar-nav {
 
-  display: flex;
+  display: grid;
+
+  grid-template-columns:
+
+    3rem
+
+    minmax(0, 1fr)
+
+    3rem;
 
   align-items: center;
 
-  justify-content:
-
-    space-between;
-
-  flex-shrink: 0;
-
   width: 100%;
+
+  margin-top:
+
+    var(--space-2xs);
 
   margin-bottom:
 
-    var(--space-sm);
+    var(--space-md);
 
   padding:
 
+    var(--space-xs)
+
     var(--space-2xs);
+
+  border:
+
+    1px solid
+
+    rgba(255, 255, 255, 0.05);
 
   border-radius:
 
@@ -610,53 +432,63 @@
 
   background:
 
-    rgba(
-
-      255,
-
-      255,
-
-      255,
-
-      0.05
-
-    );
+    rgba(255, 255, 255, 0.035);
 
   backdrop-filter:
 
-    blur(
-
-      var(--blur-glass)
-
-    );
+    blur(var(--blur-glass));
 
   -webkit-backdrop-filter:
 
-    blur(
+    blur(var(--blur-glass));
 
-      var(--blur-glass)
+  box-shadow:
 
-    );
+    0 1rem 2.5rem
+
+    rgba(0, 0, 0, 0.2);
 
 }
 
 /* ------------------------------------------------------------
 
-   前月・次月
+   前月 / 次月ボタン
 
    ------------------------------------------------------------ */
 
 .calendar-nav-btn {
 
-  width: 2.5rem;
+  width: 2.6rem;
 
-  height: 2.5rem;
+  height: 2.6rem;
 
-  font-size:
+  justify-self: center;
 
-    var(--font-size-xl);
+  font-size: 1.8rem;
 
-  font-weight: 500;
+  font-weight: 300;
+
+  line-height: 1;
+
+  color:
+
+    var(--color-accent);
+
+  background:
+
+    rgba(255, 255, 255, 0.045);
+
+}
+
+.calendar-nav-btn:active {
+
+  transform:
+
+    scale(0.88);
+
+  background:
+
+    rgba(201, 169, 106, 0.12);
 
 }
 
@@ -668,21 +500,19 @@
 
 .calendar-month-label {
 
-  flex: 1 1 auto;
-
   min-width: 0;
 
   text-align: center;
 
   font-size:
 
-    var(--font-size-lg);
+    1.08rem;
 
   font-weight: 700;
 
   letter-spacing:
 
-    0.02em;
+    0.04em;
 
   color:
 
@@ -690,11 +520,11 @@
 
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
 
    曜日
 
-   ============================================================ */
+   ------------------------------------------------------------ */
 
 .calendar-weekdays {
 
@@ -702,21 +532,19 @@
 
   grid-template-columns:
 
-    repeat(
+    repeat(7, minmax(0, 1fr));
 
-      7,
-
-      minmax(0, 1fr)
-
-    );
-
-  flex-shrink: 0;
+  align-items: center;
 
   width: 100%;
 
   margin-bottom:
 
     var(--space-2xs);
+
+  padding-inline:
+
+    var(--space-3xs);
 
 }
 
@@ -728,7 +556,9 @@
 
   justify-content: center;
 
-  min-height: 2rem;
+  min-width: 0;
+
+  height: 2rem;
 
   font-size:
 
@@ -740,33 +570,35 @@
 
     var(--color-text-secondary);
 
+  text-align: center;
+
 }
 
-/* 日曜 */
+/* 日曜日 */
 
 .calendar-weekday:first-child {
 
   color:
 
-    #ff7777;
+    #d98a8a;
 
 }
 
-/* 土曜 */
+/* 土曜日 */
 
 .calendar-weekday:last-child {
 
   color:
 
-    #6ea8ff;
+    #7fa7c9;
 
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
 
    日付グリッド
 
-   ============================================================ */
+   ------------------------------------------------------------ */
 
 .calendar-grid {
 
@@ -774,33 +606,57 @@
 
   grid-template-columns:
 
-    repeat(
+    repeat(7, minmax(0, 1fr));
 
-      7,
+  grid-auto-rows:
 
-      minmax(0, 1fr)
-
-    );
+    minmax(3.35rem, 1fr);
 
   gap:
 
     var(--space-3xs);
 
-  flex: 0 0 auto;
-
   width: 100%;
 
-  padding-bottom:
+  flex: 1 0 auto;
 
-    var(--space-lg);
+  padding:
+
+    var(--space-2xs)
+
+    var(--space-3xs)
+
+    var(--space-md);
+
+  border-radius:
+
+    var(--radius-lg);
+
+  background:
+
+    rgba(255, 255, 255, 0.025);
+
+  border:
+
+    1px solid
+
+    rgba(255, 255, 255, 0.035);
+
+  backdrop-filter:
+
+    blur(calc(var(--blur-glass) / 2));
+
+  -webkit-backdrop-filter:
+
+    blur(calc(var(--blur-glass) / 2));
 
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
 
    日付セル
 
-   ============================================================ */
+   ------------------------------------------------------------ */
 
 .calendar-day {
 
@@ -812,11 +668,13 @@
 
   justify-content: center;
 
-  aspect-ratio:
-
-    1 / 1;
-
   min-width: 0;
+
+  min-height: 3.35rem;
+
+  padding:
+
+    var(--space-3xs);
 
   border-radius:
 
@@ -824,17 +682,7 @@
 
   background:
 
-    rgba(
-
-      255,
-
-      255,
-
-      255,
-
-      0.045
-
-    );
+    transparent;
 
   color:
 
@@ -846,57 +694,27 @@
 
   font-weight: 500;
 
+  text-align: center;
+
   transition:
 
     transform
 
-    var(--duration-fast)
+      var(--duration-fast)
 
-    var(--easing-standard),
+      var(--easing-standard),
 
     background-color
 
-    var(--duration-base)
+      var(--duration-base)
 
-    var(--easing-standard);
+      var(--easing-standard),
 
-}
+    box-shadow
 
-.calendar-day:active {
+      var(--duration-base)
 
-  transform:
-
-    scale(0.94);
-
-  background:
-
-    rgba(
-
-      255,
-
-      255,
-
-      255,
-
-      0.10
-
-    );
-
-}
-
-/* ------------------------------------------------------------
-
-   空白セル
-
-   ------------------------------------------------------------ */
-
-.calendar-day--blank {
-
-  background:
-
-    transparent;
-
-  pointer-events: none;
+      var(--easing-standard);
 
 }
 
@@ -910,7 +728,7 @@
 
   position: relative;
 
-  z-index: 1;
+  z-index: 2;
 
   display: inline-flex;
 
@@ -918,51 +736,45 @@
 
   justify-content: center;
 
-  width: 2rem;
+  width: 2.15rem;
 
-  height: 2rem;
+  height: 2.15rem;
 
   border-radius:
 
     var(--radius-full);
 
+  line-height: 1;
+
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
 
-   今日
+   日付タップ
 
-   ============================================================ */
+   ------------------------------------------------------------ */
 
-.calendar-day.is-today {
+.calendar-day:not(
+
+  .calendar-day--blank
+
+):active {
+
+  transform:
+
+    scale(0.9);
 
   background:
 
-    color-mix(
-
-      in srgb,
-
-      var(--color-accent) 18%,
-
-      transparent
-
-    );
-
-  box-shadow:
-
-    inset 0 0 0 1px
-
-    color-mix(
-
-      in srgb,
-
-      var(--color-accent) 55%,
-
-      transparent
-
-    );
+    rgba(255, 255, 255, 0.055);
 
 }
+
+/* ------------------------------------------------------------
+
+   今日
+
+   ------------------------------------------------------------ */
 
 .calendar-day.is-today
 
@@ -976,39 +788,29 @@
 
     var(--color-accent-contrast);
 
-  font-weight: 700;
+  font-weight: 800;
 
-}
+  box-shadow:
 
-/* ============================================================
+    0 0.35rem 1.1rem
 
-   メモあり
-
-   ============================================================ */
-
-.calendar-day.has-note {
-
-  background:
-
-    rgba(
-
-      255,
-
-      255,
-
-      255,
-
-      0.07
-
-    );
+    rgba(201, 169, 106, 0.25);
 
 }
 
 /* ------------------------------------------------------------
 
-   メモありドット
+   メモあり
 
    ------------------------------------------------------------ */
+
+.calendar-day.has-note {
+
+  background:
+
+    rgba(255, 255, 255, 0.025);
+
+}
 
 .calendar-day-dot {
 
@@ -1018,13 +820,9 @@
 
   bottom: 0.3rem;
 
-  width: 0.3rem;
+  width: 0.28rem;
 
-  height: 0.3rem;
-
-  transform:
-
-    translateX(-50%);
+  height: 0.28rem;
 
   border-radius:
 
@@ -1034,389 +832,115 @@
 
     var(--color-accent);
 
+  transform:
+
+    translateX(-50%);
+
   box-shadow:
 
     0 0 0.45rem
 
-    color-mix(
-
-      in srgb,
-
-      var(--color-accent) 55%,
-
-      transparent
-
-    );
+    rgba(201, 169, 106, 0.4);
 
 }
 
-/* ============================================================
+/* 今日＋メモあり */
 
-   背景別：カレンダー面の視認性調整
+.calendar-day.is-today
 
-   ============================================================ */
+.calendar-day-dot {
+
+  background:
+
+    var(--color-accent-contrast);
+
+  box-shadow: none;
+
+}
 
 /* ------------------------------------------------------------
 
-   木目
+   空白セル
 
    ------------------------------------------------------------ */
 
-.calendar.calendar-bg--wood
+.calendar-day--blank {
 
-.calendar-nav {
+  pointer-events: none;
 
   background:
 
-    rgba(
+    transparent;
 
-      40,
+  box-shadow:
 
-      23,
-
-      10,
-
-      0.48
-
-    );
+    none;
 
 }
 
-.calendar.calendar-bg--wood
+/* ------------------------------------------------------------
 
-.calendar-day {
+   日曜日
 
-  background:
+   7列グリッドの1列目
 
-    rgba(
+   ------------------------------------------------------------ */
 
-      35,
+.calendar-grid
 
-      20,
+.calendar-day:nth-child(7n + 1)
 
-      9,
-
-      0.36
-
-    );
+.calendar-day-number {
 
   color:
 
-    #ffffff;
+    #d98a8a;
 
 }
 
-.calendar.calendar-bg--wood
+/* ------------------------------------------------------------
 
-.calendar-weekday,
+   土曜日
 
-.calendar.calendar-bg--wood
+   7列グリッドの7列目
 
-.calendar-month-label,
+   ------------------------------------------------------------ */
 
-.calendar.calendar-bg--wood
+.calendar-grid
 
-.calendar-title {
+.calendar-day:nth-child(7n)
+
+.calendar-day-number {
 
   color:
 
-    #ffffff;
+    #7fa7c9;
 
 }
 
-.calendar.calendar-bg--wood
+/* 今日の日曜日・土曜日は
 
-.calendar-weekday:first-child {
+   アクセント背景の文字色を優先
+
+   ------------------------------------------------------------ */
+
+.calendar-grid
+
+.calendar-day.is-today
+
+.calendar-day-number {
 
   color:
 
-    #ff9a9a;
-
-}
-
-.calendar.calendar-bg--wood
-
-.calendar-weekday:last-child {
-
-  color:
-
-    #9bc0ff;
+    var(--color-accent-contrast);
 
 }
 
 /* ------------------------------------------------------------
-
-   ブラック
-
-   ------------------------------------------------------------ */
-
-.calendar.calendar-bg--black
-
-.calendar-day {
-
-  background:
-
-    rgba(
-
-      255,
-
-      255,
-
-      255,
-
-      0.045
-
-    );
-
-}
-
-/* ------------------------------------------------------------
-
-   ブラックガラス
-
-   ------------------------------------------------------------ */
-
-.calendar.calendar-bg--black-glass
-
-.calendar-nav,
-
-.calendar.calendar-bg--black-glass
-
-.calendar-day {
-
-  background:
-
-    rgba(
-
-      255,
-
-      255,
-
-      255,
-
-      0.055
-
-    );
-
-  border:
-
-    1px solid
-
-    rgba(
-
-      255,
-
-      255,
-
-      255,
-
-      0.055
-
-    );
-
-  backdrop-filter:
-
-    blur(
-
-      calc(
-
-        var(--blur-glass) * 0.75
-
-      )
-
-    );
-
-  -webkit-backdrop-filter:
-
-    blur(
-
-      calc(
-
-        var(--blur-glass) * 0.75
-
-      )
-
-    );
-
-}
-
-/* ------------------------------------------------------------
-
-   ダークグレー
-
-   ------------------------------------------------------------ */
-
-.calendar.calendar-bg--dark-gray
-
-.calendar-day {
-
-  background:
-
-    rgba(
-
-      255,
-
-      255,
-
-      255,
-
-      0.055
-
-    );
-
-}
-
-/* ------------------------------------------------------------
-
-   ネイビー
-
-   ------------------------------------------------------------ */
-
-.calendar.calendar-bg--navy
-
-.calendar-nav {
-
-  background:
-
-    rgba(
-
-      90,
-
-      135,
-
-      205,
-
-      0.09
-
-    );
-
-}
-
-.calendar.calendar-bg--navy
-
-.calendar-day {
-
-  background:
-
-    rgba(
-
-      100,
-
-      145,
-
-      210,
-
-      0.07
-
-    );
-
-}
-
-/* ------------------------------------------------------------
-
-   ゴールド
-
-   ------------------------------------------------------------ */
-
-.calendar.calendar-bg--gold
-
-.calendar-nav {
-
-  background:
-
-    rgba(
-
-      227,
-
-      176,
-
-      75,
-
-      0.08
-
-    );
-
-}
-
-.calendar.calendar-bg--gold
-
-.calendar-day {
-
-  background:
-
-    rgba(
-
-      227,
-
-      176,
-
-      75,
-
-      0.055
-
-    );
-
-}
-
-/* ------------------------------------------------------------
-
-   抽象
-
-   ------------------------------------------------------------ */
-
-.calendar.calendar-bg--abstract
-
-.calendar-nav,
-
-.calendar.calendar-bg--abstract
-
-.calendar-day {
-
-  background:
-
-    rgba(
-
-      255,
-
-      255,
-
-      255,
-
-      0.055
-
-    );
-
-  backdrop-filter:
-
-    blur(
-
-      calc(
-
-        var(--blur-glass) * 0.55
-
-      )
-
-    );
-
-  -webkit-backdrop-filter:
-
-    blur(
-
-      calc(
-
-        var(--blur-glass) * 0.55
-
-      )
-
-    );
-
-}
-
-/* ============================================================
 
    メモ編集パネル
 
-   ============================================================ */
+   ------------------------------------------------------------ */
 
 .calendar-note-editor {
 
@@ -1426,11 +950,7 @@
 
   z-index:
 
-    calc(
-
-      var(--z-lock) + 25
-
-    );
+    calc(var(--z-lock) + 20);
 
   display: none;
 
@@ -1442,9 +962,15 @@
 
   gap:
 
-    var(--space-sm);
+    var(--space-md);
 
-  padding:
+  width: 100%;
+
+  height: 100vh;
+
+  height: 100dvh;
+
+  padding-top:
 
     max(
 
@@ -1452,15 +978,9 @@
 
       var(--safe-top)
 
-    )
+    );
 
-    max(
-
-      var(--space-md),
-
-      var(--safe-right)
-
-    )
+  padding-bottom:
 
     max(
 
@@ -1468,47 +988,47 @@
 
       var(--safe-bottom)
 
-    )
+    );
+
+  padding-left:
 
     max(
 
-      var(--space-md),
+      var(--space-lg),
 
       var(--safe-left)
 
     );
 
-  background:
+  padding-right:
 
-    rgba(
+    max(
 
-      0,
+      var(--space-lg),
 
-      0,
-
-      0,
-
-      0.62
+      var(--safe-right)
 
     );
+
+  background:
+
+    rgba(5, 5, 8, 0.96);
 
   backdrop-filter:
 
-    blur(
-
-      0.65rem
-
-    );
+    blur(var(--blur-glass));
 
   -webkit-backdrop-filter:
 
-    blur(
-
-      0.65rem
-
-    );
+    blur(var(--blur-glass));
 
 }
+
+/* ------------------------------------------------------------
+
+   メモ編集パネル表示
+
+   ------------------------------------------------------------ */
 
 .calendar-note-editor.is-open {
 
@@ -1518,33 +1038,31 @@
 
 /* ------------------------------------------------------------
 
-   メモ日付
+   選択日
 
    ------------------------------------------------------------ */
 
 .calendar-note-date-label {
 
-  width:
+  width: 100%;
 
-    min(
-
-      100%,
-
-      24rem
-
-    );
+  max-width: 24rem;
 
   text-align: center;
-
-  color:
-
-    var(--color-accent);
 
   font-size:
 
     var(--font-size-lg);
 
   font-weight: 700;
+
+  letter-spacing:
+
+    0.03em;
+
+  color:
+
+    var(--color-text-primary);
 
 }
 
@@ -1558,23 +1076,17 @@
 
   display: block;
 
-  width:
+  width: 100%;
 
-    min(
+  max-width: 24rem;
 
-      100%,
+  min-height: 9rem;
 
-      24rem
-
-    );
-
-  min-height: 8rem;
-
-  max-height: 18rem;
+  resize: none;
 
   padding:
 
-    var(--space-sm);
+    var(--space-md);
 
   border:
 
@@ -1586,13 +1098,11 @@
 
     var(--radius-lg);
 
-  outline: 0;
-
-  resize: vertical;
+  outline: none;
 
   background:
 
-    var(--color-surface-strong);
+    var(--color-surface);
 
   color:
 
@@ -1606,27 +1116,55 @@
 
     var(--font-size-md);
 
-  line-height: 1.5;
+  line-height: 1.6;
+
+  caret-color:
+
+    var(--color-accent);
+
+  backdrop-filter:
+
+    blur(var(--blur-glass));
+
+  -webkit-backdrop-filter:
+
+    blur(var(--blur-glass));
 
   box-shadow:
 
     var(--shadow-elevated);
 
-  backdrop-filter:
+  transition:
 
-    blur(
+    border-color
 
-      var(--blur-glass)
+      var(--duration-base)
 
-    );
+      var(--easing-standard),
 
-  -webkit-backdrop-filter:
+    background-color
 
-    blur(
+      var(--duration-base)
 
-      var(--blur-glass)
+      var(--easing-standard);
 
-    );
+}
+
+/* ------------------------------------------------------------
+
+   メモ入力フォーカス
+
+   ------------------------------------------------------------ */
+
+.calendar-note-input:focus {
+
+  border-color:
+
+    var(--color-accent);
+
+  background:
+
+    var(--color-surface-strong);
 
 }
 
@@ -1638,49 +1176,43 @@
 
 }
 
-.calendar-note-input:focus {
+/* ------------------------------------------------------------
 
-  border-color:
+   メモ操作ボタン領域
 
-    var(--color-accent);
-
-}
-
-/* ============================================================
-
-   メモ編集ボタン
-
-   ============================================================ */
+   ------------------------------------------------------------ */
 
 .calendar-note-actions {
 
-  display: flex;
+  display: grid;
 
-  width:
+  grid-template-columns:
 
-    min(
-
-      100%,
-
-      24rem
-
-    );
+    repeat(2, minmax(0, 1fr));
 
   gap:
 
     var(--space-sm);
 
+  width: 100%;
+
+  max-width: 24rem;
+
 }
 
-.calendar-note-btn {
+/* ------------------------------------------------------------
 
-  flex: 1 1 0;
+   メモ操作ボタン
+
+   ------------------------------------------------------------ */
+
+.calendar-note-btn {
 
   min-height: 3rem;
 
   padding:
 
-    var(--space-2xs)
+    var(--space-xs)
 
     var(--space-md);
 
@@ -1698,9 +1230,15 @@
 
     transform
 
-    var(--duration-fast)
+      var(--duration-fast)
 
-    var(--easing-standard);
+      var(--easing-standard),
+
+    background-color
+
+      var(--duration-base)
+
+      var(--easing-standard);
 
 }
 
@@ -1708,15 +1246,11 @@
 
   transform:
 
-    scale(0.96);
+    scale(0.95);
 
 }
 
-/* ------------------------------------------------------------
-
-   キャンセル
-
-   ------------------------------------------------------------ */
+/* キャンセル */
 
 .calendar-note-btn--cancel {
 
@@ -1730,11 +1264,7 @@
 
 }
 
-/* ------------------------------------------------------------
-
-   保存
-
-   ------------------------------------------------------------ */
+/* 保存 */
 
 .calendar-note-btn--save {
 
@@ -1748,33 +1278,281 @@
 
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
 
-   今日＋メモあり
+   背景別の見やすさ調整
 
-   ============================================================ */
+   ------------------------------------------------------------ */
 
-.calendar-day.is-today.has-note
+/* 木目 */
+
+.calendar.calendar-bg--wood
+
+.calendar-nav,
+
+.calendar.calendar-bg--wood
+
+.calendar-grid {
+
+  background:
+
+    rgba(42, 24, 10, 0.34);
+
+  border-color:
+
+    rgba(255, 255, 255, 0.08);
+
+}
+
+.calendar.calendar-bg--wood
+
+.calendar-header .icon-btn,
+
+.calendar.calendar-bg--wood
+
+.calendar-nav-btn {
+
+  background:
+
+    rgba(25, 14, 7, 0.42);
+
+}
+
+.calendar.calendar-bg--wood
+
+.calendar-title,
+
+.calendar.calendar-bg--wood
+
+.calendar-month-label,
+
+.calendar.calendar-bg--wood
+
+.calendar-weekday,
+
+.calendar.calendar-bg--wood
+
+.calendar-day {
+
+  color: #ffffff;
+
+}
+
+/* ブラック */
+
+.calendar.calendar-bg--black
+
+.calendar-nav,
+
+.calendar.calendar-bg--black
+
+.calendar-grid {
+
+  background:
+
+    rgba(255, 255, 255, 0.025);
+
+}
+
+/* ブラックガラス */
+
+.calendar.calendar-bg--black-glass
+
+.calendar-nav,
+
+.calendar.calendar-bg--black-glass
+
+.calendar-grid {
+
+  background:
+
+    rgba(255, 255, 255, 0.045);
+
+  border-color:
+
+    rgba(255, 255, 255, 0.065);
+
+  backdrop-filter:
+
+    blur(var(--blur-glass));
+
+  -webkit-backdrop-filter:
+
+    blur(var(--blur-glass));
+
+}
+
+/* ダークグレー */
+
+.calendar.calendar-bg--dark-gray
+
+.calendar-nav,
+
+.calendar.calendar-bg--dark-gray
+
+.calendar-grid {
+
+  background:
+
+    rgba(255, 255, 255, 0.04);
+
+}
+
+/* ネイビー */
+
+.calendar.calendar-bg--navy
+
+.calendar-nav,
+
+.calendar.calendar-bg--navy
+
+.calendar-grid {
+
+  background:
+
+    rgba(80, 120, 180, 0.07);
+
+  border-color:
+
+    rgba(110, 155, 220, 0.08);
+
+}
+
+/* ゴールド */
+
+.calendar.calendar-bg--gold
+
+.calendar-nav,
+
+.calendar.calendar-bg--gold
+
+.calendar-grid {
+
+  background:
+
+    rgba(201, 169, 106, 0.055);
+
+  border-color:
+
+    rgba(201, 169, 106, 0.10);
+
+}
+
+/* 抽象 */
+
+.calendar.calendar-bg--abstract
+
+.calendar-nav,
+
+.calendar.calendar-bg--abstract
+
+.calendar-grid {
+
+  background:
+
+    rgba(255, 255, 255, 0.04);
+
+  backdrop-filter:
+
+    blur(calc(var(--blur-glass) * 0.8));
+
+  -webkit-backdrop-filter:
+
+    blur(calc(var(--blur-glass) * 0.8));
+
+}
+
+/* ------------------------------------------------------------
+
+   背景別：今日のセル
+
+   ------------------------------------------------------------ */
+
+.calendar.calendar-bg--wood
+
+.calendar-day.is-today
+
+.calendar-day-number {
+
+  background:
+
+    rgba(255, 236, 190, 0.94);
+
+  color:
+
+    #3b2411;
+
+}
+
+.calendar.calendar-bg--navy
+
+.calendar-day.is-today
+
+.calendar-day-number {
+
+  background:
+
+    #5b8def;
+
+  color:
+
+    #07101e;
+
+}
+
+.calendar.calendar-bg--gold
+
+.calendar-day.is-today
+
+.calendar-day-number {
+
+  background:
+
+    #e3b04b;
+
+  color:
+
+    #14100a;
+
+}
+
+/* ------------------------------------------------------------
+
+   背景別：メモドット
+
+   ------------------------------------------------------------ */
+
+.calendar.calendar-bg--wood
 
 .calendar-day-dot {
 
   background:
 
-    var(--color-accent-contrast);
-
-  box-shadow: none;
+    #ffe0a3;
 
 }
 
-/* ============================================================
+.calendar.calendar-bg--navy
 
-   iPhone向けレイアウト調整
+.calendar-day-dot {
 
-   ============================================================ */
+  background:
+
+    #78a6ff;
+
+}
+
+.calendar.calendar-bg--gold
+
+.calendar-day-dot {
+
+  background:
+
+    #e3b04b;
+
+}
 
 /* ------------------------------------------------------------
-
-   小さい画面
 
    iPhone SE等
 
@@ -1788,7 +1566,7 @@
 
       max(
 
-        var(--space-sm),
+        var(--space-xs),
 
         var(--safe-left)
 
@@ -1798,7 +1576,7 @@
 
       max(
 
-        var(--space-sm),
+        var(--space-xs),
 
         var(--safe-right)
 
@@ -1808,13 +1586,25 @@
 
   .calendar-header {
 
-    gap:
+    grid-template-columns:
 
-      var(--space-2xs);
+      2.4rem
 
-    padding-bottom:
+      minmax(0, 1fr)
+
+      2.4rem;
+
+    margin-bottom:
 
       var(--space-sm);
+
+  }
+
+  .calendar-header .icon-btn {
+
+    width: 2.4rem;
+
+    height: 2.4rem;
 
   }
 
@@ -1826,19 +1616,19 @@
 
   }
 
-  .calendar-month-label {
-
-    font-size:
-
-      var(--font-size-md);
-
-  }
-
   .calendar-nav {
+
+    grid-template-columns:
+
+      2.5rem
+
+      minmax(0, 1fr)
+
+      2.5rem;
 
     margin-bottom:
 
-      var(--space-2xs);
+      var(--space-sm);
 
   }
 
@@ -1848,31 +1638,31 @@
 
     height: 2.25rem;
 
+    font-size: 1.5rem;
+
   }
 
-  .calendar-weekday {
-
-    min-height: 1.75rem;
+  .calendar-month-label {
 
     font-size:
 
-      var(--font-size-xs);
+      var(--font-size-md);
 
   }
 
   .calendar-grid {
 
-    gap:
+    grid-auto-rows:
 
-      0.15rem;
+      minmax(2.9rem, 1fr);
+
+    gap: 0.1rem;
 
   }
 
   .calendar-day {
 
-    border-radius:
-
-      var(--radius-sm);
+    min-height: 2.9rem;
 
     font-size:
 
@@ -1882,19 +1672,15 @@
 
   .calendar-day-number {
 
-    width: 1.75rem;
+    width: 1.9rem;
 
-    height: 1.75rem;
+    height: 1.9rem;
 
   }
 
   .calendar-day-dot {
 
     bottom: 0.2rem;
-
-    width: 0.25rem;
-
-    height: 0.25rem;
 
   }
 
@@ -1910,73 +1696,11 @@
 
   }
 
-  .calendar-note-date-label {
-
-    font-size:
-
-      var(--font-size-md);
-
-  }
-
-  .calendar-note-input {
-
-    min-height: 7rem;
-
-    font-size:
-
-      var(--font-size-sm);
-
-  }
-
-  .calendar-note-btn {
-
-    min-height: 2.75rem;
-
-    font-size:
-
-      var(--font-size-sm);
-
-  }
-
 }
 
 /* ------------------------------------------------------------
 
-   標準〜大型iPhone
-
-   ------------------------------------------------------------ */
-
-@media (min-width: 390px) {
-
-  .calendar-grid {
-
-    gap:
-
-      var(--space-2xs);
-
-  }
-
-  .calendar-day {
-
-    font-size:
-
-      var(--font-size-md);
-
-  }
-
-  .calendar-day-number {
-
-    width: 2.15rem;
-
-    height: 2.15rem;
-
-  }
-
-}
-
-/* ------------------------------------------------------------
-
-   Pro Max等
+   大きいiPhone
 
    ------------------------------------------------------------ */
 
@@ -2006,19 +1730,17 @@
 
   }
 
-  .calendar-header {
+  .calendar-grid {
 
-    padding-bottom:
+    grid-auto-rows:
 
-      var(--space-lg);
+      minmax(3.7rem, 1fr);
 
   }
 
-  .calendar-nav {
+  .calendar-day {
 
-    padding:
-
-      var(--space-xs);
+    min-height: 3.7rem;
 
   }
 
@@ -2032,11 +1754,11 @@
 
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
 
-   横向き時
+   横向き
 
-   ============================================================ */
+   ------------------------------------------------------------ */
 
 @media (
 
@@ -2054,7 +1776,7 @@
 
       max(
 
-        var(--space-sm),
+        var(--space-xs),
 
         var(--safe-top)
 
@@ -2064,7 +1786,7 @@
 
       max(
 
-        var(--space-sm),
+        var(--space-xs),
 
         var(--safe-bottom)
 
@@ -2074,7 +1796,7 @@
 
   .calendar-header {
 
-    padding-bottom:
+    margin-bottom:
 
       var(--space-2xs);
 
@@ -2088,25 +1810,19 @@
 
   }
 
-  .calendar-weekday {
-
-    min-height: 1.5rem;
-
-  }
-
   .calendar-grid {
+
+    grid-auto-rows:
+
+      minmax(2.5rem, 1fr);
 
     padding-bottom:
 
-      var(--space-sm);
+      var(--space-xs);
 
   }
 
   .calendar-day {
-
-    aspect-ratio:
-
-      auto;
 
     min-height: 2.5rem;
 
@@ -2114,11 +1830,11 @@
 
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
 
-   アクセシビリティ
+   モーション軽減
 
-   ============================================================ */
+   ------------------------------------------------------------ */
 
 @media (
 
@@ -2130,21 +1846,21 @@
 
   .calendar-day,
 
-  .calendar-note-btn {
+  .calendar-note-btn,
 
-    transition:
+  .calendar-nav-btn {
 
-      none;
+    transition: none;
 
   }
 
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
 
    タッチ端末
 
-   ============================================================ */
+   ------------------------------------------------------------ */
 
 @media (
 
@@ -2156,17 +1872,7 @@
 
 ) {
 
-  .calendar-day {
-
-    -webkit-tap-highlight-color:
-
-      transparent;
-
-    touch-action:
-
-      manipulation;
-
-  }
+  .calendar-day,
 
   .calendar-nav-btn,
 
@@ -2176,227 +1882,33 @@
 
       manipulation;
 
+    -webkit-tap-highlight-color:
+
+      transparent;
+
   }
 
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
 
-   背景が変更された際も各コンテンツを前面に維持
+   hidden属性
 
-   ============================================================ */
+   ------------------------------------------------------------ */
 
-.calendar-header,
+.calendar [hidden] {
 
-.calendar-nav,
+  display:
 
-.calendar-weekdays,
-
-.calendar-grid {
-
-  position: relative;
-
-  z-index: 1;
+    none !important;
 
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
 
-   背景プリセット上でもヘッダーボタンを見やすくする
+   画面非表示時は完全に操作不可
 
-   ============================================================ */
-
-.calendar.calendar-bg--wood
-
-.icon-btn,
-
-.calendar.calendar-bg--black
-
-.icon-btn,
-
-.calendar.calendar-bg--black-glass
-
-.icon-btn,
-
-.calendar.calendar-bg--dark-gray
-
-.icon-btn,
-
-.calendar.calendar-bg--navy
-
-.icon-btn,
-
-.calendar.calendar-bg--gold
-
-.icon-btn,
-
-.calendar.calendar-bg--abstract
-
-.icon-btn {
-
-  background:
-
-    rgba(
-
-      255,
-
-      255,
-
-      255,
-
-      0.09
-
-    );
-
-  backdrop-filter:
-
-    blur(
-
-      var(--blur-glass)
-
-    );
-
-  -webkit-backdrop-filter:
-
-    blur(
-
-      var(--blur-glass)
-
-    );
-
-}
-
-/* ============================================================
-
-   木目背景で今日を見やすくする
-
-   ============================================================ */
-
-.calendar.calendar-bg--wood
-
-.calendar-day.is-today {
-
-  background:
-
-    rgba(
-
-      0,
-
-      0,
-
-      0,
-
-      0.28
-
-    );
-
-  box-shadow:
-
-    inset 0 0 0 1px
-
-    rgba(
-
-      255,
-
-      255,
-
-      255,
-
-      0.25
-
-    );
-
-}
-
-/* ============================================================
-
-   ゴールド背景
-
-   ============================================================ */
-
-.calendar.calendar-bg--gold
-
-.calendar-day.is-today {
-
-  background:
-
-    rgba(
-
-      227,
-
-      176,
-
-      75,
-
-      0.18
-
-    );
-
-  box-shadow:
-
-    inset 0 0 0 1px
-
-    rgba(
-
-      227,
-
-      176,
-
-      75,
-
-      0.45
-
-    );
-
-}
-
-/* ============================================================
-
-   ネイビー背景
-
-   ============================================================ */
-
-.calendar.calendar-bg--navy
-
-.calendar-day.is-today {
-
-  background:
-
-    rgba(
-
-      91,
-
-      141,
-
-      239,
-
-      0.20
-
-    );
-
-  box-shadow:
-
-    inset 0 0 0 1px
-
-    rgba(
-
-      91,
-
-      141,
-
-      239,
-
-      0.45
-
-    );
-
-}
-
-/* ============================================================
-
-   最終：非表示時の操作を完全に止める
-
-   ============================================================ */
+   ------------------------------------------------------------ */
 
 .calendar:not(.is-open) {
 
