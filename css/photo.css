@@ -1,0 +1,1789 @@
+/* ============================================================
+
+   photo.css
+
+   Workspace内「写真」画面専用スタイル
+
+   ============================================================ */
+
+/* ------------------------------------------------------------
+
+   写真画面全体
+
+   ------------------------------------------------------------ */
+
+.photo {
+
+  position: fixed;
+
+  inset: 0;
+
+  z-index: calc(var(--z-lock) + 10);
+
+  display: none;
+
+  visibility: hidden;
+
+  flex-direction: column;
+
+  width: 100%;
+
+  height: 100vh;
+
+  height: 100dvh;
+
+  overflow-y: auto;
+
+  overflow-x: hidden;
+
+  -webkit-overflow-scrolling: touch;
+
+  overscroll-behavior: contain;
+
+  background:
+
+    radial-gradient(
+
+      circle at 50% -10%,
+
+      rgba(201, 169, 106, 0.08),
+
+      transparent 35%
+
+    ),
+
+    var(--color-bg);
+
+  color: var(--color-text-primary);
+
+  padding-top:
+
+    max(
+
+      var(--space-sm),
+
+      var(--safe-top)
+
+    );
+
+  padding-bottom:
+
+    max(
+
+      var(--space-lg),
+
+      var(--safe-bottom)
+
+    );
+
+  padding-left:
+
+    max(
+
+      var(--space-sm),
+
+      var(--safe-left)
+
+    );
+
+  padding-right:
+
+    max(
+
+      var(--space-sm),
+
+      var(--safe-right)
+
+    );
+
+  opacity: 0;
+
+  pointer-events: none;
+
+  transition:
+
+    opacity
+
+    var(--duration-base)
+
+    var(--easing-standard);
+
+}
+
+.photo.is-open {
+
+  display: flex;
+
+  visibility: visible;
+
+  opacity: 1;
+
+  pointer-events: auto;
+
+}
+
+/* ------------------------------------------------------------
+
+   背景プリセット
+
+   customization.js と対応
+
+   ------------------------------------------------------------ */
+
+.photo.photo-bg--default {
+
+  background:
+
+    radial-gradient(
+
+      circle at 50% -10%,
+
+      rgba(201, 169, 106, 0.08),
+
+      transparent 35%
+
+    ),
+
+    var(--color-bg);
+
+}
+
+.photo.photo-bg--wood {
+
+  background:
+
+    linear-gradient(
+
+      180deg,
+
+      #caa06a 0%,
+
+      #a97a45 55%,
+
+      #7d5730 100%
+
+    );
+
+}
+
+.photo.photo-bg--black {
+
+  background:
+
+    linear-gradient(
+
+      180deg,
+
+      #0a0a0a 0%,
+
+      #000000 100%
+
+    );
+
+}
+
+.photo.photo-bg--black-glass {
+
+  background:
+
+    linear-gradient(
+
+      180deg,
+
+      #101214 0%,
+
+      #24272b 100%
+
+    );
+
+}
+
+.photo.photo-bg--dark-gray {
+
+  background:
+
+    linear-gradient(
+
+      180deg,
+
+      #202020 0%,
+
+      #121212 100%
+
+    );
+
+}
+
+.photo.photo-bg--navy {
+
+  background:
+
+    linear-gradient(
+
+      180deg,
+
+      #05070d 0%,
+
+      #0d1a2e 100%
+
+    );
+
+}
+
+.photo.photo-bg--gold {
+
+  background:
+
+    radial-gradient(
+
+      ellipse 120% 60%
+
+      at 50% -10%,
+
+      rgba(201, 169, 106, 0.25),
+
+      transparent 60%
+
+    ),
+
+    linear-gradient(
+
+      180deg,
+
+      #14100a 0%,
+
+      #0a0705 100%
+
+    );
+
+}
+
+.photo.photo-bg--abstract {
+
+  background:
+
+    linear-gradient(
+
+      160deg,
+
+      #140a07 0%,
+
+      #241506 45%,
+
+      #0a0d14 100%
+
+    );
+
+}
+
+/* ------------------------------------------------------------
+
+   ヘッダー
+
+   ------------------------------------------------------------ */
+
+.photo-header {
+
+  display: grid;
+
+  grid-template-columns:
+
+    2.75rem
+
+    minmax(0, 1fr)
+
+    2.75rem;
+
+  align-items: center;
+
+  width: 100%;
+
+  min-height: 3rem;
+
+  flex-shrink: 0;
+
+  margin-bottom:
+
+    var(--space-md);
+
+}
+
+.photo-header .icon-btn {
+
+  width: 2.75rem;
+
+  height: 2.75rem;
+
+  background:
+
+    rgba(255, 255, 255, 0.055);
+
+  border:
+
+    1px solid
+
+    rgba(255, 255, 255, 0.035);
+
+  box-shadow:
+
+    0 0.45rem 1.2rem
+
+    rgba(0, 0, 0, 0.22);
+
+}
+
+.photo-header .icon-btn:active {
+
+  transform: scale(0.9);
+
+  background:
+
+    rgba(255, 255, 255, 0.09);
+
+}
+
+/* ------------------------------------------------------------
+
+   タイトル
+
+   ------------------------------------------------------------ */
+
+.photo-title {
+
+  min-width: 0;
+
+  padding-inline:
+
+    var(--space-xs);
+
+  overflow: hidden;
+
+  white-space: nowrap;
+
+  text-overflow: ellipsis;
+
+  text-align: center;
+
+  font-size:
+
+    var(--font-size-lg);
+
+  font-weight: 700;
+
+  letter-spacing:
+
+    0.03em;
+
+  color:
+
+    var(--color-text-primary);
+
+}
+
+/* ------------------------------------------------------------
+
+   上部エリア
+
+   ------------------------------------------------------------ */
+
+.photo-intro {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap:
+
+    var(--space-sm);
+
+  width: 100%;
+
+  margin-bottom:
+
+    var(--space-lg);
+
+  padding:
+
+    var(--space-md);
+
+  border:
+
+    1px solid
+
+    rgba(255, 255, 255, 0.05);
+
+  border-radius:
+
+    var(--radius-lg);
+
+  background:
+
+    rgba(255, 255, 255, 0.04);
+
+  backdrop-filter:
+
+    blur(var(--blur-glass));
+
+  -webkit-backdrop-filter:
+
+    blur(var(--blur-glass));
+
+  box-shadow:
+
+    0 1rem 2.5rem
+
+    rgba(0, 0, 0, 0.2);
+
+}
+
+/* ------------------------------------------------------------
+
+   上部テキスト
+
+   ------------------------------------------------------------ */
+
+.photo-intro-text {
+
+  flex: 1 1 auto;
+
+  min-width: 0;
+
+}
+
+.photo-intro-title {
+
+  margin: 0 0
+
+    var(--space-3xs);
+
+  font-size:
+
+    var(--font-size-lg);
+
+  font-weight: 700;
+
+  letter-spacing:
+
+    0.02em;
+
+  color:
+
+    var(--color-text-primary);
+
+}
+
+.photo-intro-description {
+
+  margin: 0;
+
+  font-size:
+
+    var(--font-size-sm);
+
+  font-weight: 500;
+
+  color:
+
+    var(--color-text-secondary);
+
+}
+
+/* ------------------------------------------------------------
+
+   ＋ 写真追加
+
+   ------------------------------------------------------------ */
+
+.photo-add-btn {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  width: 3rem;
+
+  height: 3rem;
+
+  border-radius:
+
+    var(--radius-full);
+
+  background:
+
+    var(--color-accent);
+
+  color:
+
+    var(--color-accent-contrast);
+
+  font-size: 1.8rem;
+
+  font-weight: 400;
+
+  line-height: 1;
+
+  box-shadow:
+
+    0 0.5rem 1.5rem
+
+    rgba(0, 0, 0, 0.25);
+
+  transition:
+
+    transform
+
+      var(--duration-fast)
+
+      var(--easing-standard);
+
+}
+
+.photo-add-btn:active {
+
+  transform:
+
+    scale(0.9);
+
+}
+
+/* ------------------------------------------------------------
+
+   非表示ファイル入力
+
+   ------------------------------------------------------------ */
+
+.photo-file-input {
+
+  position: absolute;
+
+  width: 1px;
+
+  height: 1px;
+
+  overflow: hidden;
+
+  opacity: 0;
+
+  pointer-events: none;
+
+}
+
+/* ------------------------------------------------------------
+
+   写真一覧
+
+   ------------------------------------------------------------ */
+
+.photo-gallery {
+
+  display: grid;
+
+  grid-template-columns:
+
+    repeat(2, minmax(0, 1fr));
+
+  gap:
+
+    var(--space-xs);
+
+  width: 100%;
+
+  padding-bottom:
+
+    var(--space-lg);
+
+}
+
+/* ------------------------------------------------------------
+
+   写真カード
+
+   ------------------------------------------------------------ */
+
+.photo-card {
+
+  position: relative;
+
+  width: 100%;
+
+  aspect-ratio: 1 / 1;
+
+  overflow: hidden;
+
+  border-radius:
+
+    var(--radius-md);
+
+  background:
+
+    rgba(255, 255, 255, 0.05);
+
+  border:
+
+    1px solid
+
+    rgba(255, 255, 255, 0.05);
+
+  box-shadow:
+
+    0 0.75rem 1.8rem
+
+    rgba(0, 0, 0, 0.2);
+
+  transition:
+
+    transform
+
+      var(--duration-fast)
+
+      var(--easing-standard),
+
+    opacity
+
+      var(--duration-base)
+
+      var(--easing-standard);
+
+}
+
+.photo-card:active {
+
+  transform:
+
+    scale(0.97);
+
+}
+
+/* ------------------------------------------------------------
+
+   写真本体
+
+   ------------------------------------------------------------ */
+
+.photo-card-image {
+
+  display: block;
+
+  width: 100%;
+
+  height: 100%;
+
+  object-fit: cover;
+
+  user-select: none;
+
+  -webkit-user-select: none;
+
+  -webkit-touch-callout: none;
+
+}
+
+/* ------------------------------------------------------------
+
+   写真カード下部グラデーション
+
+   ------------------------------------------------------------ */
+
+.photo-card::after {
+
+  content: "";
+
+  position: absolute;
+
+  left: 0;
+
+  right: 0;
+
+  bottom: 0;
+
+  height: 42%;
+
+  pointer-events: none;
+
+  background:
+
+    linear-gradient(
+
+      to top,
+
+      rgba(0, 0, 0, 0.62),
+
+      rgba(0, 0, 0, 0)
+
+    );
+
+}
+
+/* ------------------------------------------------------------
+
+   写真の日付
+
+   ------------------------------------------------------------ */
+
+.photo-card-date {
+
+  position: absolute;
+
+  left:
+
+    var(--space-xs);
+
+  right:
+
+    var(--space-xs);
+
+  bottom:
+
+    var(--space-xs);
+
+  z-index: 2;
+
+  overflow: hidden;
+
+  white-space: nowrap;
+
+  text-overflow: ellipsis;
+
+  font-size:
+
+    var(--font-size-xs);
+
+  font-weight: 600;
+
+  letter-spacing:
+
+    0.02em;
+
+  color:
+
+    rgba(255, 255, 255, 0.88);
+
+  text-shadow:
+
+    0 1px 0.3rem
+
+    rgba(0, 0, 0, 0.7);
+
+}
+
+/* ------------------------------------------------------------
+
+   写真削除ボタン
+
+   ------------------------------------------------------------ */
+
+.photo-delete-btn {
+
+  position: absolute;
+
+  top:
+
+    var(--space-2xs);
+
+  right:
+
+    var(--space-2xs);
+
+  z-index: 3;
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  width: 2rem;
+
+  height: 2rem;
+
+  border-radius:
+
+    var(--radius-full);
+
+  background:
+
+    rgba(0, 0, 0, 0.55);
+
+  color:
+
+    #ffffff;
+
+  font-size:
+
+    1rem;
+
+  line-height: 1;
+
+  backdrop-filter:
+
+    blur(0.5rem);
+
+  -webkit-backdrop-filter:
+
+    blur(0.5rem);
+
+  box-shadow:
+
+    0 0.25rem 0.8rem
+
+    rgba(0, 0, 0, 0.25);
+
+  transition:
+
+    transform
+
+      var(--duration-fast)
+
+      var(--easing-standard),
+
+    background-color
+
+      var(--duration-base)
+
+      var(--easing-standard);
+
+}
+
+.photo-delete-btn:active {
+
+  transform:
+
+    scale(0.88);
+
+  background:
+
+    rgba(0, 0, 0, 0.75);
+
+}
+
+/* ------------------------------------------------------------
+
+   写真が0枚のとき
+
+   ------------------------------------------------------------ */
+
+.photo-empty {
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  width: 100%;
+
+  min-height: 18rem;
+
+  padding:
+
+    var(--space-xl)
+
+    var(--space-md);
+
+  border:
+
+    1px solid
+
+    rgba(255, 255, 255, 0.05);
+
+  border-radius:
+
+    var(--radius-lg);
+
+  background:
+
+    rgba(255, 255, 255, 0.025);
+
+  text-align: center;
+
+}
+
+.photo-empty-icon {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  width: 4.5rem;
+
+  height: 4.5rem;
+
+  margin-bottom:
+
+    var(--space-md);
+
+  border-radius:
+
+    var(--radius-full);
+
+  background:
+
+    rgba(255, 255, 255, 0.06);
+
+  font-size:
+
+    2rem;
+
+}
+
+.photo-empty-title {
+
+  margin: 0 0
+
+    var(--space-2xs);
+
+  font-size:
+
+    var(--font-size-lg);
+
+  font-weight: 700;
+
+  color:
+
+    var(--color-text-primary);
+
+}
+
+.photo-empty-text {
+
+  max-width: 18rem;
+
+  margin: 0;
+
+  font-size:
+
+    var(--font-size-sm);
+
+  font-weight: 500;
+
+  line-height: 1.6;
+
+  color:
+
+    var(--color-text-secondary);
+
+}
+
+/* ------------------------------------------------------------
+
+   写真追加中
+
+   ------------------------------------------------------------ */
+
+.photo-loading {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap:
+
+    var(--space-2xs);
+
+  width: 100%;
+
+  padding:
+
+    var(--space-md);
+
+  border-radius:
+
+    var(--radius-md);
+
+  background:
+
+    rgba(255, 255, 255, 0.04);
+
+  font-size:
+
+    var(--font-size-sm);
+
+  color:
+
+    var(--color-text-secondary);
+
+}
+
+.photo-loading-spinner {
+
+  width: 1rem;
+
+  height: 1rem;
+
+  border:
+
+    2px solid
+
+    rgba(255, 255, 255, 0.15);
+
+  border-top-color:
+
+    var(--color-accent);
+
+  border-radius:
+
+    50%;
+
+  animation:
+
+    photo-spin
+
+    0.8s
+
+    linear
+
+    infinite;
+
+}
+
+@keyframes photo-spin {
+
+  to {
+
+    transform:
+
+      rotate(360deg);
+
+  }
+
+}
+
+/* ------------------------------------------------------------
+
+   写真拡大表示オーバーレイ
+
+   ------------------------------------------------------------ */
+
+.photo-viewer {
+
+  position: fixed;
+
+  inset: 0;
+
+  z-index:
+
+    calc(var(--z-lock) + 30);
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  padding:
+
+    max(
+
+      var(--space-md),
+
+      var(--safe-top)
+
+    )
+
+    max(
+
+      var(--space-md),
+
+      var(--safe-right)
+
+    )
+
+    max(
+
+      var(--space-md),
+
+      var(--safe-bottom)
+
+    )
+
+    max(
+
+      var(--space-md),
+
+      var(--safe-left)
+
+    );
+
+  background:
+
+    rgba(0, 0, 0, 0.92);
+
+  backdrop-filter:
+
+    blur(1rem);
+
+  -webkit-backdrop-filter:
+
+    blur(1rem);
+
+  opacity: 0;
+
+  visibility: hidden;
+
+  pointer-events: none;
+
+  transition:
+
+    opacity
+
+      var(--duration-base)
+
+      var(--easing-standard),
+
+    visibility
+
+      0s
+
+      linear
+
+      var(--duration-base);
+
+}
+
+.photo-viewer.is-open {
+
+  opacity: 1;
+
+  visibility: visible;
+
+  pointer-events: auto;
+
+  transition-delay: 0s;
+
+}
+
+/* ------------------------------------------------------------
+
+   拡大画像
+
+   ------------------------------------------------------------ */
+
+.photo-viewer-image {
+
+  display: block;
+
+  max-width: 100%;
+
+  max-height: 82vh;
+
+  max-height: 82dvh;
+
+  object-fit: contain;
+
+  border-radius:
+
+    var(--radius-sm);
+
+  box-shadow:
+
+    0 1.5rem 4rem
+
+    rgba(0, 0, 0, 0.6);
+
+}
+
+/* ------------------------------------------------------------
+
+   拡大表示 閉じるボタン
+
+   ------------------------------------------------------------ */
+
+.photo-viewer-close {
+
+  position: absolute;
+
+  top:
+
+    max(
+
+      var(--space-sm),
+
+      var(--safe-top)
+
+    );
+
+  right:
+
+    max(
+
+      var(--space-sm),
+
+      var(--safe-right)
+
+    );
+
+  z-index: 2;
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  width: 3rem;
+
+  height: 3rem;
+
+  border-radius:
+
+    var(--radius-full);
+
+  background:
+
+    rgba(255, 255, 255, 0.12);
+
+  color:
+
+    #ffffff;
+
+  font-size:
+
+    1.5rem;
+
+  backdrop-filter:
+
+    blur(0.75rem);
+
+  -webkit-backdrop-filter:
+
+    blur(0.75rem);
+
+}
+
+.photo-viewer-close:active {
+
+  transform:
+
+    scale(0.9);
+
+}
+
+/* ------------------------------------------------------------
+
+   写真ビューアの日付
+
+   ------------------------------------------------------------ */
+
+.photo-viewer-date {
+
+  position: absolute;
+
+  left:
+
+    max(
+
+      var(--space-md),
+
+      var(--safe-left)
+
+    );
+
+  right:
+
+    max(
+
+      var(--space-md),
+
+      var(--safe-right)
+
+    );
+
+  bottom:
+
+    max(
+
+      var(--space-lg),
+
+      var(--safe-bottom)
+
+    );
+
+  text-align: center;
+
+  font-size:
+
+    var(--font-size-sm);
+
+  font-weight: 600;
+
+  color:
+
+    rgba(255, 255, 255, 0.8);
+
+  text-shadow:
+
+    0 1px 0.4rem
+
+    rgba(0, 0, 0, 0.8);
+
+  pointer-events: none;
+
+}
+
+/* ------------------------------------------------------------
+
+   背景プリセット
+
+   customization.js の BACKGROUND_PRESETS に対応
+
+   ------------------------------------------------------------ */
+
+.photo.photo-bg--default {
+
+  background-color:
+
+    var(--color-bg);
+
+}
+
+.photo.photo-bg--wood {
+
+  background:
+
+    linear-gradient(
+
+      180deg,
+
+      #caa06a 0%,
+
+      #a97a45 55%,
+
+      #7d5730 100%
+
+    );
+
+}
+
+.photo.photo-bg--black {
+
+  background:
+
+    linear-gradient(
+
+      180deg,
+
+      #0a0a0a 0%,
+
+      #000000 100%
+
+    );
+
+}
+
+.photo.photo-bg--black-glass {
+
+  background:
+
+    linear-gradient(
+
+      180deg,
+
+      #101214 0%,
+
+      #24272b 100%
+
+    );
+
+}
+
+.photo.photo-bg--dark-gray {
+
+  background:
+
+    linear-gradient(
+
+      180deg,
+
+      #202020 0%,
+
+      #121212 100%
+
+    );
+
+}
+
+.photo.photo-bg--navy {
+
+  background:
+
+    linear-gradient(
+
+      180deg,
+
+      #05070d 0%,
+
+      #0d1a2e 100%
+
+    );
+
+}
+
+.photo.photo-bg--gold {
+
+  background:
+
+    radial-gradient(
+
+      ellipse 120% 60%
+
+      at 50% -10%,
+
+      rgba(201, 169, 106, 0.25),
+
+      transparent 60%
+
+    ),
+
+    linear-gradient(
+
+      180deg,
+
+      #14100a 0%,
+
+      #0a0705 100%
+
+    );
+
+}
+
+.photo.photo-bg--abstract {
+
+  background:
+
+    linear-gradient(
+
+      160deg,
+
+      #140a07 0%,
+
+      #241506 45%,
+
+      #0a0d14 100%
+
+    );
+
+}
+
+/* ------------------------------------------------------------
+
+   木目背景時のカード視認性
+
+   ------------------------------------------------------------ */
+
+.photo.photo-bg--wood
+
+.photo-card {
+
+  background:
+
+    rgba(15, 10, 5, 0.3);
+
+  border-color:
+
+    rgba(255, 255, 255, 0.12);
+
+}
+
+.photo.photo-bg--wood
+
+.photo-empty {
+
+  background:
+
+    rgba(15, 10, 5, 0.22);
+
+  border-color:
+
+    rgba(255, 255, 255, 0.1);
+
+}
+
+/* ------------------------------------------------------------
+
+   明るめ背景でもヘッダーを読みやすくする
+
+   ------------------------------------------------------------ */
+
+.photo.photo-bg--wood
+
+.photo-header {
+
+  text-shadow:
+
+    0 1px 0.5rem
+
+    rgba(0, 0, 0, 0.35);
+
+}
+
+/* ------------------------------------------------------------
+
+   iPhone SE等の狭い画面
+
+   ------------------------------------------------------------ */
+
+@media (max-width: 360px) {
+
+  .photo {
+
+    padding-left:
+
+      max(
+
+        var(--space-sm),
+
+        var(--safe-left)
+
+      );
+
+    padding-right:
+
+      max(
+
+        var(--space-sm),
+
+        var(--safe-right)
+
+      );
+
+  }
+
+  .photo-header {
+
+    gap:
+
+      var(--space-2xs);
+
+  }
+
+  .photo-title {
+
+    font-size:
+
+      var(--font-size-md);
+
+  }
+
+  .photo-gallery {
+
+    gap:
+
+      var(--space-2xs);
+
+  }
+
+  .photo-add-btn {
+
+    padding:
+
+      var(--space-2xs)
+
+      var(--space-sm);
+
+    font-size:
+
+      var(--font-size-sm);
+
+  }
+
+  .photo-empty {
+
+    min-height:
+
+      15rem;
+
+    padding:
+
+      var(--space-lg)
+
+      var(--space-sm);
+
+  }
+
+  .photo-empty-icon {
+
+    width:
+
+      4rem;
+
+    height:
+
+      4rem;
+
+    font-size:
+
+      1.75rem;
+
+  }
+
+}
+
+/* ------------------------------------------------------------
+
+   iPhone Pro Max等の広い画面
+
+   ------------------------------------------------------------ */
+
+@media (min-width: 430px) {
+
+  .photo-gallery {
+
+    gap:
+
+      var(--space-sm);
+
+  }
+
+  .photo-card {
+
+    border-radius:
+
+      var(--radius-lg);
+
+  }
+
+  .photo-main {
+
+    max-width:
+
+      32rem;
+
+    width:
+
+      100%;
+
+    margin-left:
+
+      auto;
+
+    margin-right:
+
+      auto;
+
+  }
+
+}
+
+/* ------------------------------------------------------------
+
+   横向き時
+
+   ------------------------------------------------------------ */
+
+@media (orientation: landscape) {
+
+  .photo-gallery {
+
+    grid-template-columns:
+
+      repeat(
+
+        3,
+
+        minmax(0, 1fr)
+
+      );
+
+  }
+
+  .photo-viewer-image {
+
+    max-height:
+
+      76vh;
+
+    max-height:
+
+      76dvh;
+
+  }
+
+}
+
+/* ------------------------------------------------------------
+
+   モーション軽減設定
+
+   ------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .photo,
+
+  .photo-card,
+
+  .photo-add-btn,
+
+  .photo-delete-btn,
+
+  .photo-viewer {
+
+    transition:
+
+      none;
+
+  }
+
+  .photo-loading-spinner {
+
+    animation:
+
+      none;
+
+  }
+
+}
+
+/* ------------------------------------------------------------
+
+   タッチ端末
+
+   ------------------------------------------------------------ */
+
+@media (hover: none) {
+
+  .photo-card:hover,
+
+  .photo-add-btn:hover,
+
+  .photo-delete-btn:hover {
+
+    transform:
+
+      none;
+
+  }
+
+}
+
+/* ------------------------------------------------------------
+
+   非表示属性を最優先
+
+   app.cssにも存在するが写真画面単体でも安全にする
+
+   ------------------------------------------------------------ */
+
+.photo[hidden],
+
+.photo-viewer[hidden],
+
+.photo-file-input[hidden] {
+
+  display:
+
+    none !important;
+
+}
