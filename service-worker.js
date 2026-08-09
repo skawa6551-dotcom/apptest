@@ -8,7 +8,7 @@
 
 // 今回の重要変更：
 
-// ・CACHE_VERSION を 10 に更新
+// ・CACHE_VERSION を 11 に更新
 
 // ・HTML / JS / CSS / JSON はネットワーク優先
 
