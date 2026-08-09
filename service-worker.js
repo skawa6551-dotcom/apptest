@@ -42,7 +42,7 @@
 
 // ------------------------------------------------------------
 
-const CACHE_VERSION = 9;
+const CACHE_VERSION = 10;
 
 const CACHE_NAME = `calculator-0209-cache-v${CACHE_VERSION}`;
 
