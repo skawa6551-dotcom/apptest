@@ -2361,7 +2361,7 @@ async function renderGallery() {
 
     if (
 
-      records.length === 0
+      allPhotos.length === 0
 
     ) {
 
@@ -2383,18 +2383,26 @@ async function renderGallery() {
 
       0;
 
-    records.forEach(
+    allPhotos.forEach(
 
       (record) => {
 
-        const card =
+       const card =
 
-          createPhotoCard(
+  record.source === 'shared'
 
-            record,
+    ? createSharedPhotoCard(
 
-          );
+        record,
 
+      )
+
+    : createPhotoCard(
+
+        record,
+
+      );
+      
         if (card) {
 
           fragment.appendChild(
