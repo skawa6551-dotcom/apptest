@@ -4,29 +4,21 @@
 
 // Calculator 0209 のオフライン対応＋Push通知を担う Service Worker。
 
-// ES Modulesは使用しない、通常のクラシックスクリプトとして実装する。
-
 //
 
-// 戦略：
+// 今回の重要変更：
 
-//   install               … 主要ファイルを事前キャッシュ
+// ・CACHE_VERSION を 10 に更新
 
-//   activate              … 古いキャッシュを削除
+// ・HTML / JS / CSS / JSON はネットワーク優先
 
-//   fetch                 … アプリコードはネットワーク優先
+// ・GitHub Pages更新後の古いキャッシュ残留を防止
 
-//                           静的ファイルはキャッシュ優先
+// ・同一オリジンのアプリコードは最新版取得を優先
 
-//   push                  … バックグラウンドPush通知を表示
-
-//   notificationclick     … 通知タップ時にアプリを開く／既存画面をフォーカス
-
-//   pushsubscriptionchange… Push購読変更時の再同期補助
+// ・オフライン時のみ保存済みキャッシュへフォールバック
 
 //
-
-// 【重要】
 
 // 通知タップだけでWorkspaceやMessagesへ直接アンロックしない。
 
@@ -44,7 +36,9 @@
 
 const CACHE_VERSION = 10;
 
-const CACHE_NAME = `calculator-0209-cache-v${CACHE_VERSION}`;
+const CACHE_NAME =
+
+  `calculator-0209-cache-v${CACHE_VERSION}`;
 
 // ------------------------------------------------------------
 
@@ -52,81 +46,85 @@ const CACHE_NAME = `calculator-0209-cache-v${CACHE_VERSION}`;
 
 // ------------------------------------------------------------
 
-const PRECACHE_URLS = Object.freeze([
+const PRECACHE_URLS =
 
-  './',
+  Object.freeze([
 
-  './index.html',
+    './',
 
-  './manifest.json',
+    './index.html',
 
-  './css/app.css',
+    './manifest.json',
 
-  './css/calculator.css',
+    './css/app.css',
 
-  './css/settings.css',
+    './css/calculator.css',
 
-  './css/workspace.css',
+    './css/settings.css',
 
-  './css/records.css',
+    './css/workspace.css',
 
-  './css/calendar.css',
+    './css/records.css',
 
-  './css/archive.css',
+    './css/calendar.css',
 
-  './css/pairing.css',
+    './css/archive.css',
 
-  './css/messages.css',
+    './css/pairing.css',
 
-  './js/app.js',
+    './css/messages.css',
 
-  './js/calculator.js',
+    './js/app.js',
 
-  './js/settings.js',
+    './js/calculator.js',
 
-  './js/storage.js',
+    './js/settings.js',
 
-  './js/themes.js',
+    './js/storage.js',
 
-  './js/sound.js',
+    './js/themes.js',
 
-  './js/auth.js',
+    './js/sound.js',
 
-  './js/router.js',
+    './js/auth.js',
 
-  './js/passcode.js',
+    './js/router.js',
 
-  './js/autolock.js',
+    './js/passcode.js',
 
-  './js/workspace.js',
+    './js/autolock.js',
 
-  './js/records.js',
+    './js/workspace.js',
 
-  './js/calendar.js',
+    './js/records.js',
 
-  './js/archive.js',
+    './js/calendar.js',
 
-  './js/firebase-config.js',
+    './js/archive.js',
 
-  './js/firebase.js',
+    './js/firebase-config.js',
 
-  './js/pairing.js',
+    './js/firebase.js',
 
-  './js/messages.js',
+    './js/pairing.js',
 
-  './js/customization.js',
+    './js/messages.js',
 
-  './js/notifications.js',
+    './js/customization.js',
 
-  './assets/icons/icon-192.png',
+    './js/notifications.js',
 
-  './assets/icons/icon-512.png',
+    './assets/icons/icon-192.png',
 
-  './assets/icons/icon-512-maskable.png',
+    './assets/icons/icon-512.png',
 
-]);
+    './assets/icons/icon-512-maskable.png',
 
-const OFFLINE_FALLBACK_URL = './index.html';
+  ]);
+
+const OFFLINE_FALLBACK_URL =
+
+  './index.html';
 
 // ------------------------------------------------------------
 
@@ -134,83 +132,121 @@ const OFFLINE_FALLBACK_URL = './index.html';
 
 // ------------------------------------------------------------
 
-self.addEventListener('install', (event) => {
+self.addEventListener(
 
-  event.waitUntil(precacheAppShell());
+  'install',
 
-  self.skipWaiting();
+  (event) => {
 
-});
+    event.waitUntil(
 
-async function precacheAppShell() {
-
-  const cache = await caches.open(CACHE_NAME);
-
-  try {
-
-    await cache.addAll(PRECACHE_URLS);
-
-  } catch (error) {
-
-    console.warn(
-
-      '[service-worker] 一括キャッシュに失敗したため、1件ずつ再試行します。',
-
-      error,
+      precacheAppShell(),
 
     );
 
+    self.skipWaiting();
+
+  },
+
+);
+
+// ------------------------------------------------------------
+
+// 主要ファイルをキャッシュ
+
+// ------------------------------------------------------------
+
+async function precacheAppShell() {
+
+  const cache =
+
+    await caches.open(
+
+      CACHE_NAME,
+
+    );
+
+  try {
+
     await Promise.all(
 
-      PRECACHE_URLS.map(async (url) => {
+      PRECACHE_URLS.map(
 
-        try {
+        async (url) => {
 
-          const response = await fetch(
+          try {
 
-            url,
+            const response =
 
-            {
+              await fetch(
 
-              cache: 'no-store',
+                url,
 
-            },
+                {
 
-          );
+                  cache:
 
-          if (response.ok) {
+                    'no-store',
 
-            await cache.put(
+                },
 
-              url,
+              );
 
-              response,
+            if (
 
-            );
+              response &&
 
-          } else {
+              response.ok
+
+            ) {
+
+              await cache.put(
+
+                url,
+
+                response.clone(),
+
+              );
+
+            } else {
+
+              console.warn(
+
+                `[service-worker] 事前キャッシュ取得失敗: ${url}`,
+
+              );
+
+            }
+
+          } catch (
+
+            error
+
+          ) {
 
             console.warn(
 
-              `[service-worker] キャッシュ対象の取得に失敗しました: ${url} (status: ${response.status})`,
+              `[service-worker] 事前キャッシュ中にエラー: ${url}`,
+
+              error,
 
             );
 
           }
 
-        } catch (fetchError) {
+        },
 
-          console.warn(
+      ),
 
-            `[service-worker] キャッシュ対象の取得中にエラーが発生しました: ${url}`,
+    );
 
-            fetchError,
+  } catch (error) {
 
-          );
+    console.warn(
 
-        }
+      '[service-worker] 事前キャッシュ全体でエラーが発生しました',
 
-      }),
+      error,
 
     );
 
@@ -224,45 +260,67 @@ async function precacheAppShell() {
 
 // ------------------------------------------------------------
 
-self.addEventListener('activate', (event) => {
+self.addEventListener(
 
-  event.waitUntil(
+  'activate',
 
-    Promise.all([
+  (event) => {
 
-      deleteOutdatedCaches(),
+    event.waitUntil(
 
-      self.clients.claim(),
+      activateWorker(),
 
-    ]),
+    );
 
-  );
+  },
 
-});
+);
+
+async function activateWorker() {
+
+  await deleteOutdatedCaches();
+
+  await self.clients.claim();
+
+}
+
+// ------------------------------------------------------------
+
+// 古いキャッシュ削除
+
+// ------------------------------------------------------------
 
 async function deleteOutdatedCaches() {
 
   try {
 
-    const cacheNames = await caches.keys();
+    const cacheNames =
 
-    const outdatedCacheNames =
+      await caches.keys();
+
+    const outdated =
 
       cacheNames.filter(
 
         (name) =>
 
-          name !== CACHE_NAME,
+          name !==
+
+          CACHE_NAME,
 
       );
 
     await Promise.all(
 
-      outdatedCacheNames.map(
+      outdated.map(
 
         (name) =>
 
-          caches.delete(name),
+          caches.delete(
+
+            name,
+
+          ),
 
       ),
 
@@ -272,7 +330,7 @@ async function deleteOutdatedCaches() {
 
     console.warn(
 
-      '[service-worker] 古いキャッシュの削除中にエラーが発生しました。',
+      '[service-worker] 古いキャッシュ削除に失敗しました',
 
       error,
 
@@ -288,73 +346,83 @@ async function deleteOutdatedCaches() {
 
 // ------------------------------------------------------------
 
-self.addEventListener('fetch', (event) => {
+self.addEventListener(
 
-  const { request } = event;
+  'fetch',
 
-  if (request.method !== 'GET') {
+  (event) => {
 
-    return;
+    const { request } =
 
-  }
+      event;
 
-  // Firebase / Cloudflare等、外部オリジンはキャッシュしない。
+    if (
 
-  if (
+      request.method !==
 
-    !request.url.startsWith(
+      'GET'
 
-      self.location.origin,
+    ) {
 
-    )
+      return;
 
-  ) {
+    }
 
-    return;
+    /*
 
-  }
+     * Firebase等の外部オリジンは
 
-  event.respondWith(
+     * Service Worker側でキャッシュしない。
 
-    handleFetch(request),
+     */
 
-  );
+    if (
 
-});
+      !request.url.startsWith(
 
-/**
+        self.location.origin,
 
- * 同一オリジンのGETリクエストを処理する。
+      )
 
- *
+    ) {
 
- * HTML / JavaScript / CSS / JSON：
+      return;
 
- *   ネットワーク優先
+    }
 
- *   GitHubへ反映した最新版を取得し、
+    event.respondWith(
 
- *   成功した場合はキャッシュも更新する。
+      handleFetch(
 
- *
+        request,
 
- * 画像等の静的ファイル：
+      ),
 
- *   キャッシュ優先
+    );
 
- *
+  },
 
- * ネットワークが利用できない場合：
+);
 
- *   保存済みキャッシュを利用する。
+// ------------------------------------------------------------
 
- */
+// GETリクエスト処理
 
-async function handleFetch(request) {
+// ------------------------------------------------------------
+
+async function handleFetch(
+
+  request,
+
+) {
 
   const requestUrl =
 
-    new URL(request.url);
+    new URL(
+
+      request.url,
+
+    );
 
   const pathname =
 
@@ -362,105 +430,163 @@ async function handleFetch(request) {
 
   const isAppCode =
 
-    request.mode === 'navigate' ||
+    request.mode ===
 
-    pathname.endsWith('.html') ||
+      'navigate' ||
 
-    pathname.endsWith('.js') ||
+    pathname.endsWith(
 
-    pathname.endsWith('.css') ||
+      '.html',
 
-    pathname.endsWith('.json');
+    ) ||
 
-  // ----------------------------------------------------------
+    pathname.endsWith(
 
-  // HTML / JS / CSS / JSON
+      '.js',
 
-  // ネットワーク優先
+    ) ||
 
-  // ----------------------------------------------------------
+    pathname.endsWith(
+
+      '.css',
+
+    ) ||
+
+    pathname.endsWith(
+
+      '.json',
+
+    );
+
+  /*
+
+   * HTML / JS / CSS / JSON は
+
+   * 必ずネットワーク優先。
+
+   */
 
   if (isAppCode) {
 
-    try {
+    return networkFirst(
 
-      const networkResponse =
+      request,
 
-        await fetch(
+    );
 
-          request,
+  }
 
-          {
+  /*
 
-            cache: 'no-store',
+   * 画像等はキャッシュ優先。
 
-          },
+   */
 
-        );
+  return cacheFirst(
 
-      if (
+    request,
 
-        networkResponse &&
+  );
 
-        networkResponse.ok
+}
 
-      ) {
+// ------------------------------------------------------------
 
-        const cache =
+// ネットワーク優先
 
-          await caches.open(
+// ------------------------------------------------------------
 
-            CACHE_NAME,
+async function networkFirst(
 
-          );
+  request,
 
-        await cache.put(
+) {
 
-          request,
+  try {
 
-          networkResponse.clone(),
+    const networkResponse =
 
-        );
-
-      }
-
-      return networkResponse;
-
-    } catch (error) {
-
-      const cachedResponse =
-
-        await caches.match(
-
-          request,
-
-        );
-
-      if (cachedResponse) {
-
-        return cachedResponse;
-
-      }
-
-      return respondWithOfflineFallback(
+      await fetch(
 
         request,
 
-        error,
+        {
+
+          cache:
+
+            'no-store',
+
+        },
+
+      );
+
+    if (
+
+      networkResponse &&
+
+      networkResponse.ok
+
+    ) {
+
+      const cache =
+
+        await caches.open(
+
+          CACHE_NAME,
+
+        );
+
+      await cache.put(
+
+        request,
+
+        networkResponse.clone(),
 
       );
 
     }
 
+    return networkResponse;
+
+  } catch (error) {
+
+    const cachedResponse =
+
+      await caches.match(
+
+        request,
+
+      );
+
+    if (cachedResponse) {
+
+      return cachedResponse;
+
+    }
+
+    return respondWithOfflineFallback(
+
+      request,
+
+      error,
+
+    );
+
   }
 
-  // ----------------------------------------------------------
+}
 
-  // 画像等の静的ファイル
+// ------------------------------------------------------------
 
-  // キャッシュ優先
+// キャッシュ優先
 
-  // ----------------------------------------------------------
+// ------------------------------------------------------------
+
+async function cacheFirst(
+
+  request,
+
+) {
 
   const cachedResponse =
 
@@ -480,7 +606,11 @@ async function handleFetch(request) {
 
     const networkResponse =
 
-      await fetch(request);
+      await fetch(
+
+        request,
+
+      );
 
     if (
 
@@ -508,17 +638,21 @@ async function handleFetch(request) {
 
         )
 
-        .catch((error) => {
+        .catch(
 
-          console.warn(
+          (error) => {
 
-            '[service-worker] 動的キャッシュへの保存に失敗しました。',
+            console.warn(
 
-            error,
+              '[service-worker] 動的キャッシュ保存に失敗しました',
 
-          );
+              error,
 
-        });
+            );
+
+          },
+
+        );
 
     }
 
@@ -537,6 +671,12 @@ async function handleFetch(request) {
   }
 
 }
+
+// ------------------------------------------------------------
+
+// オフラインフォールバック
+
+// ------------------------------------------------------------
 
 async function respondWithOfflineFallback(
 
@@ -590,13 +730,15 @@ async function respondWithOfflineFallback(
 
         'Service Unavailable',
 
-      headers: new Headers({
+      headers:
 
-        'Content-Type':
+        new Headers({
 
-          'text/plain; charset=UTF-8',
+          'Content-Type':
 
-      }),
+            'text/plain; charset=UTF-8',
+
+        }),
 
     },
 
@@ -610,17 +752,31 @@ async function respondWithOfflineFallback(
 
 // ------------------------------------------------------------
 
-self.addEventListener('push', (event) => {
+self.addEventListener(
 
-  event.waitUntil(
+  'push',
 
-    handlePushEvent(event),
+  (event) => {
 
-  );
+    event.waitUntil(
 
-});
+      handlePushEvent(
 
-async function handlePushEvent(event) {
+        event,
+
+      ),
+
+    );
+
+  },
+
+);
+
+async function handlePushEvent(
+
+  event,
+
+) {
 
   let payload = {};
 
@@ -662,7 +818,9 @@ async function handlePushEvent(event) {
 
       'string' &&
 
-    payload.title.trim() !== ''
+    payload.title.trim() !==
+
+      ''
 
       ? payload.title
 
@@ -674,7 +832,9 @@ async function handlePushEvent(event) {
 
       'string' &&
 
-    payload.body.trim() !== ''
+    payload.body.trim() !==
+
+      ''
 
       ? payload.body
 
@@ -716,7 +876,9 @@ async function handlePushEvent(event) {
 
       'string' &&
 
-    payload.tag.trim() !== ''
+    payload.tag.trim() !==
+
+      ''
 
       ? payload.tag
 
@@ -740,9 +902,13 @@ async function handlePushEvent(event) {
 
     tag,
 
-    renotify: false,
+    renotify:
 
-    requireInteraction: false,
+      false,
+
+    requireInteraction:
+
+      false,
 
     data: {
 
@@ -774,7 +940,7 @@ async function handlePushEvent(event) {
 
     console.error(
 
-      '[service-worker] Push通知の表示に失敗しました。',
+      '[service-worker] Push通知の表示に失敗しました',
 
       error,
 
@@ -828,6 +994,12 @@ async function handleNotificationClick(
 
     ).href;
 
+  const notificationData =
+
+    notification?.data ??
+
+    {};
+
   try {
 
     const clientList =
@@ -876,6 +1048,50 @@ async function handleNotificationClick(
 
       ) {
 
+        try {
+
+          client.postMessage({
+
+            type:
+
+              'calculator-0209-notification-click',
+
+            roomId:
+
+              notificationData.roomId ??
+
+              null,
+
+            messageId:
+
+              notificationData.messageId ??
+
+              null,
+
+            senderId:
+
+              notificationData.senderId ??
+
+              null,
+
+          });
+
+        } catch (
+
+          messageError
+
+        ) {
+
+          console.warn(
+
+            '[service-worker] 通知タップ情報の送信に失敗しました',
+
+            messageError,
+
+          );
+
+        }
+
         if (
 
           typeof client.focus ===
@@ -910,7 +1126,7 @@ async function handleNotificationClick(
 
     console.error(
 
-      '[service-worker] 通知タップ後のアプリ起動に失敗しました。',
+      '[service-worker] 通知タップ後のアプリ起動に失敗しました',
 
       error,
 
@@ -936,7 +1152,11 @@ self.addEventListener(
 
     event.waitUntil(
 
-      handlePushSubscriptionChange(),
+      handlePushSubscriptionChange(
+
+        event,
+
+      ),
 
     );
 
@@ -944,9 +1164,103 @@ self.addEventListener(
 
 );
 
-async function handlePushSubscriptionChange() {
+async function handlePushSubscriptionChange(
+
+  event,
+
+) {
 
   try {
+
+    const applicationServerKey =
+
+      event.oldSubscription?.options
+
+        ?.applicationServerKey;
+
+    let newSubscription =
+
+      event.newSubscription ??
+
+      null;
+
+    /*
+
+     * ブラウザ側で新しい購読が自動生成されなかった場合、
+
+     * 旧購読からapplicationServerKeyを取得できれば
+
+     * 再購読を試みる。
+
+     */
+
+    if (
+
+      !newSubscription &&
+
+      applicationServerKey
+
+    ) {
+
+      try {
+
+        newSubscription =
+
+          await self.registration
+
+            .pushManager
+
+            .subscribe({
+
+              userVisibleOnly:
+
+                true,
+
+              applicationServerKey,
+
+            });
+
+      } catch (
+
+        subscribeError
+
+      ) {
+
+        console.warn(
+
+          '[service-worker] Push通知の再購読に失敗しました',
+
+          subscribeError,
+
+        );
+
+      }
+
+    }
+
+    /*
+
+     * Service Worker自身からFirestoreへ直接書き込まず、
+
+     * 開いているアプリへ購読変更を通知する。
+
+     *
+
+     * app.js側では
+
+     * calculator-0209-push-subscription-changed
+
+     * または
+
+     * PUSH_SUBSCRIPTION_CHANGED
+
+     * を受信すると
+
+     * Notifications.syncRegistrationOnStartup()
+
+     * を実行する。
+
+     */
 
     const clientList =
 
@@ -962,29 +1276,59 @@ async function handlePushSubscriptionChange() {
 
       });
 
-    await Promise.all(
+    const message = {
 
-      clientList.map(
+      type:
 
-        (client) =>
+        'calculator-0209-push-subscription-changed',
 
-          client.postMessage({
+      subscription:
 
-            type:
+        newSubscription
 
-              'PUSH_SUBSCRIPTION_CHANGED',
+          ? newSubscription.toJSON()
 
-          }),
+          : null,
 
-      ),
+    };
+
+    clientList.forEach(
+
+      (client) => {
+
+        try {
+
+          client.postMessage(
+
+            message,
+
+          );
+
+        } catch (
+
+          messageError
+
+        ) {
+
+          console.warn(
+
+            '[service-worker] Push購読変更の通知に失敗しました',
+
+            messageError,
+
+          );
+
+        }
+
+      },
 
     );
 
   } catch (error) {
 
-    console.warn(
+    console.error(
 
-      '[service-worker] Push購読変更の通知に失敗しました。',
+      '[service-worker] pushsubscriptionchange処理に失敗しました',
 
       error,
 
@@ -993,3 +1337,137 @@ async function handlePushSubscriptionChange() {
   }
 
 }
+
+// ------------------------------------------------------------
+
+// Service Workerへのメッセージ
+
+// ------------------------------------------------------------
+
+self.addEventListener(
+
+  'message',
+
+  (event) => {
+
+    const message =
+
+      event.data;
+
+    if (
+
+      !message ||
+
+      typeof message.type !==
+
+        'string'
+
+    ) {
+
+      return;
+
+    }
+
+    if (
+
+      message.type ===
+
+      'SKIP_WAITING'
+
+    ) {
+
+      self.skipWaiting();
+
+      return;
+
+    }
+
+    if (
+
+      message.type ===
+
+      'CLEAR_APP_CACHE'
+
+    ) {
+
+      event.waitUntil(
+
+        clearAppCaches(),
+
+      );
+
+    }
+
+  },
+
+);
+
+/**
+
+ * このアプリが作成したキャッシュを削除する。
+
+ */
+
+async function clearAppCaches() {
+
+  try {
+
+    const cacheNames =
+
+      await caches.keys();
+
+    const targets =
+
+      cacheNames.filter(
+
+        (cacheName) =>
+
+          cacheName.startsWith(
+
+            CACHE_PREFIX,
+
+          ),
+
+      );
+
+    await Promise.all(
+
+      targets.map(
+
+        (cacheName) =>
+
+          caches.delete(
+
+            cacheName,
+
+          ),
+
+      ),
+
+    );
+
+  } catch (error) {
+
+    console.error(
+
+      '[service-worker] キャッシュ削除に失敗しました',
+
+      error,
+
+    );
+
+  }
+
+}
+
+// ------------------------------------------------------------
+
+// Service Worker起動確認
+
+// ------------------------------------------------------------
+
+console.info(
+
+  `[service-worker] ${CACHE_NAME} loaded`,
+
+);
