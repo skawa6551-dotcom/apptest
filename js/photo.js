@@ -87,6 +87,20 @@ const activeObjectUrls =
 
   new Set();
 
+// ------------------------------------------------------------
+
+// Firebase共有写真 状態
+
+// ------------------------------------------------------------
+
+let currentRoomId = null;
+
+let currentUid = null;
+
+let unsubscribePhotos = null;
+
+let sharedPhotos = [];
+
 // ============================================================
 
 // ステータス表示
