@@ -2,43 +2,9 @@
 
 // messages.js
 
-// Workspace内「メッセージ」画面のDOM生成・開閉・リアルタイム送受信・
+// メッセージ画面のDOM生成・表示/非表示・送受信・既読・リアクション・
 
-// 既読表示・入力中表示・オンライン状態・長押しアクション（リアクション/
-
-// コピー/削除）を管理するモジュール。records.js/calendar.js/archive.jsと
-
-// 同じ設計方針：
-
-//
-
-//   ・DOM生成・開閉・画面の中身の更新 … このファイル（messages.js）
-
-//   ・画面遷移の調整（Workspace⇔Messages） … router.js
-
-//   ・クリックの解釈・ディスパッチ … app.js
-
-//   ・Firebaseとの通信 … firebase.js経由
-
-//
-
-// 【例外】長押し（ポインター押下の継続時間）検知だけは、app.jsの
-
-// data-action委譲では表現できない「時間に基づくジェスチャー」のため、
-
-// このファイル自身がメッセージ一覧要素へpointerdown/pointermove/
-
-// pointerup/pointercancelを登録する。既存のkeypad長押し風フィードバック
-
-// （app.js内のhandleKeypadPointerDown等）と同じ、局所的な例外として扱う。
-
-//
-
-// Firestoreのリアルタイム購読（メッセージ／ルーム）は、開いている間
-
-// だけ張り続ける必要があるリスナーのため、open()で購読を開始し、
-
-// close()で必ず解除する。
+// 長押しメニュー・入力欄制御・背景カスタマイズ反映を担当する。
 
 // ============================================================
 
@@ -48,117 +14,573 @@ import Settings from './settings.js';
 
 import Customization from './customization.js';
 
-/** メッセージ画面のDOMを差し込む先のコンテナのid */
+// ------------------------------------------------------------
 
-const CONTAINER_ID = 'messages';
-
-/** 長押しと判定するまでの保持時間（ms） */
-
-const LONG_PRESS_MS = 500;
-
-/** 長押し判定中、これ以上動いたらキャンセルするしきい値（px） */
-
-const LONG_PRESS_MOVE_THRESHOLD = 10;
-
-/** 入力中表示を「まだ入力中」とみなす有効期限（ms） */
-
-const TYPING_STALE_MS = 4000;
-
-/** 入力中状態の書き込みを間引く間隔（ms） */
-
-const TYPING_WRITE_THROTTLE_MS = 1500;
-
-/** 入力が止まってから、自分から「入力中」を明示的に解除するまでの時間（ms） */
-
-const TYPING_STOP_DEBOUNCE_MS = 2000;
-
-/** オンライン状態のハートビート間隔（ms） */
-
-const PRESENCE_HEARTBEAT_MS = 20000;
-
-/** state:'online'でもlastSeenAtがこれより古ければオフライン扱いにする猶予（ms） */
-
-const PRESENCE_ONLINE_STALE_MS = 45000;
-
-/**
-
- * この値（px）以内なら「最下部付近にいる」とみなし、新着到着時に自動スクロール
-
- * する。これより上までスクロールして過去メッセージを読んでいる場合は、
-
- * 新着が来ても自動では動かさない。
-
- */
-
-const SCROLL_NEAR_BOTTOM_THRESHOLD_PX = 80;
-
-/**
-
- * 絵文字のみで構成されたメッセージかどうかを判定する正規表現。
-
- * 絵文字だけのメッセージは、通常の吹き出し（背景・パディング）を持たず、
-
- * 大きな文字だけで表示する（一般的なメッセージアプリの挙動に合わせる）。
-
- */
-
-const EMOJI_ONLY_PATTERN = /^(?:\s*\p{Extended_Pictographic}\uFE0F?\s*)+$/u;
-
-/** 長押しメニューのクイックリアクション候補 */
-
-const QUICK_REACTIONS = Object.freeze(['👍', '❤️', '😂', '😮', '😢', '🙏']);
+// 定数
 
 // ------------------------------------------------------------
 
-// モジュール内の状態
+const CONTAINER_ID = 'messages';
+
+const LONG_PRESS_MS = 500;
+
+// ------------------------------------------------------------
+
+// 状態
 
 // ------------------------------------------------------------
 
 let isBuilt = false;
 
-/** customization.jsの購読解除関数。 */
+let unsubscribeMessages = null;
 
 let unsubscribeCustomization = null;
 
-let unsubscribeMessages = null;
+let selectedMessageId = null;
 
-let unsubscribeRoom = null;
-
-let currentRoomId = null;
-
-let currentUid = null;
-
-let otherUid = null;
-
-/** 直近のルームドキュメントの中身（memberIds/typing/presence等） */
-
-let latestRoomData = null;
-
-/** 直近のメッセージ一覧（長押しアクション時にidから本文等を引くためのキャッシュ） */
-
-let latestMessages = [];
-
-/** 直近の描画で存在が確認済みのメッセージid集合（新規メッセージの入場アニメーション判定用） */
-
-let knownMessageIds = new Set();
-
-let typingHideTimeoutId = null;
-
-let typingStopTimer = null;
-
-let lastTypingWriteAt = 0;
-
-let presenceHeartbeatId = null;
+let selectedMessageData = null;
 
 let longPressTimer = null;
 
-let longPressStartX = 0;
+let typingTimer = null;
 
-let longPressStartY = 0;
+// ------------------------------------------------------------
 
-/** 長押しで選択中のメッセージ（アクションシートの対象） */
+// DOM取得
 
-let selectedMessage = null;
+// ------------------------------------------------------------
+
+function getContainer() {
+
+  return document.getElementById(
+
+    CONTAINER_ID,
+
+  );
+
+}
+
+// ------------------------------------------------------------
+
+// 背景反映
+
+// ------------------------------------------------------------
+
+function renderBackground() {
+
+  const container =
+
+    getContainer();
+
+  if (!container) {
+
+    return;
+
+  }
+
+  const presetId =
+
+    Customization
+
+      .getCached()
+
+      .backgrounds
+
+      ?.messages;
+
+  Customization.applyBackgroundClass(
+
+    container,
+
+    'messages',
+
+    presetId,
+
+  );
+
+  /*
+
+   * iPhone PWAで背景クラス変更直後の再描画が遅れる場合の補助。
+
+   */
+
+  container.style.display =
+
+    container.classList.contains(
+
+      'is-open',
+
+    )
+
+      ? 'flex'
+
+      : '';
+
+  window.requestAnimationFrame(
+
+    () => {
+
+      container.style.display =
+
+        '';
+
+    },
+
+  );
+
+}
+
+// ------------------------------------------------------------
+
+// ヘッダー生成
+
+// ------------------------------------------------------------
+
+function createHeader() {
+
+  const header =
+
+    document.createElement(
+
+      'header',
+
+    );
+
+  header.className =
+
+    'messages-header';
+
+  const backButton =
+
+    document.createElement(
+
+      'button',
+
+    );
+
+  backButton.type =
+
+    'button';
+
+  backButton.className =
+
+    'icon-btn';
+
+  backButton.dataset.action =
+
+    'close-messages';
+
+  backButton.setAttribute(
+
+    'aria-label',
+
+    '戻る',
+
+  );
+
+  backButton.textContent =
+
+    '‹';
+
+  const title =
+
+    document.createElement(
+
+      'h2',
+
+    );
+
+  title.className =
+
+    'messages-title';
+
+  title.textContent =
+
+    'メッセージ';
+
+  const lockButton =
+
+    document.createElement(
+
+      'button',
+
+    );
+
+  lockButton.type =
+
+    'button';
+
+  lockButton.className =
+
+    'icon-btn';
+
+  lockButton.dataset.action =
+
+    'lock-now';
+
+  lockButton.setAttribute(
+
+    'aria-label',
+
+    '今すぐロック',
+
+  );
+
+  lockButton.textContent =
+
+    '🔒';
+
+  header.appendChild(
+
+    backButton,
+
+  );
+
+  header.appendChild(
+
+    title,
+
+  );
+
+  header.appendChild(
+
+    lockButton,
+
+  );
+
+  return header;
+
+}
+
+// ------------------------------------------------------------
+
+// メッセージ一覧生成
+
+// ------------------------------------------------------------
+
+function createMessageList() {
+
+  const list =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  list.id =
+
+    'messagesList';
+
+  list.className =
+
+    'messages-list';
+
+  return list;
+
+}
+
+// ------------------------------------------------------------
+
+// 入力エリア生成
+
+// ------------------------------------------------------------
+
+function createComposer() {
+
+  const composer =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  composer.className =
+
+    'messages-composer';
+
+  const textarea =
+
+    document.createElement(
+
+      'textarea',
+
+    );
+
+  textarea.id =
+
+    'messagesInput';
+
+  textarea.className =
+
+    'messages-input';
+
+  textarea.rows =
+
+    1;
+
+  textarea.maxLength =
+
+    2000;
+
+  textarea.placeholder =
+
+    'メッセージを入力';
+
+  textarea.setAttribute(
+
+    'aria-label',
+
+    'メッセージ入力',
+
+  );
+
+  const sendButton =
+
+    document.createElement(
+
+      'button',
+
+    );
+
+  sendButton.type =
+
+    'button';
+
+  sendButton.className =
+
+    'messages-send-btn';
+
+  sendButton.dataset.action =
+
+    'send-message';
+
+  sendButton.setAttribute(
+
+    'aria-label',
+
+    '送信',
+
+  );
+
+  sendButton.textContent =
+
+    '送信';
+
+  composer.appendChild(
+
+    textarea,
+
+  );
+
+  composer.appendChild(
+
+    sendButton,
+
+  );
+
+  return composer;
+
+}
+
+// ------------------------------------------------------------
+
+// 長押しアクションシート
+
+// ------------------------------------------------------------
+
+function createActionSheet() {
+
+  const overlay =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  overlay.id =
+
+    'messageActionSheet';
+
+  overlay.className =
+
+    'message-action-sheet';
+
+  const panel =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  panel.className =
+
+    'message-action-panel';
+
+  const reactions =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  reactions.className =
+
+    'message-reactions';
+
+  ['❤️', '👍', '😂', '😮', '😢']
+
+    .forEach(
+
+      (emoji) => {
+
+        const button =
+
+          document.createElement(
+
+            'button',
+
+          );
+
+        button.type =
+
+          'button';
+
+        button.className =
+
+          'message-reaction-btn';
+
+        button.dataset.action =
+
+          'react';
+
+        button.dataset.emoji =
+
+          emoji;
+
+        button.textContent =
+
+          emoji;
+
+        reactions.appendChild(
+
+          button,
+
+        );
+
+      },
+
+    );
+
+  const copyButton =
+
+    document.createElement(
+
+      'button',
+
+    );
+
+  copyButton.type =
+
+    'button';
+
+  copyButton.className =
+
+    'message-action-btn';
+
+  copyButton.dataset.action =
+
+    'copy-message';
+
+  copyButton.textContent =
+
+    'コピー';
+
+  const deleteButton =
+
+    document.createElement(
+
+      'button',
+
+    );
+
+  deleteButton.type =
+
+    'button';
+
+  deleteButton.className =
+
+    'message-action-btn message-action-btn--danger';
+
+  deleteButton.dataset.action =
+
+    'delete-message';
+
+  deleteButton.textContent =
+
+    '削除';
+
+  const cancelButton =
+
+    document.createElement(
+
+      'button',
+
+    );
+
+  cancelButton.type =
+
+    'button';
+
+  cancelButton.className =
+
+    'message-action-btn';
+
+  cancelButton.dataset.action =
+
+    'cancel-action-sheet';
+
+  cancelButton.textContent =
+
+    'キャンセル';
+
+  panel.appendChild(
+
+    reactions,
+
+  );
+
+  panel.appendChild(
+
+    copyButton,
+
+  );
+
+  panel.appendChild(
+
+    deleteButton,
+
+  );
+
+  panel.appendChild(
+
+    cancelButton,
+
+  );
+
+  overlay.appendChild(
+
+    panel,
+
+  );
+
+  return overlay;
+
+}
 
 // ------------------------------------------------------------
 
@@ -166,299 +588,95 @@ let selectedMessage = null;
 
 // ------------------------------------------------------------
 
-function getContainer() {
-
-  return document.getElementById(CONTAINER_ID);
-
-}
-
-function createContainer() {
-
-  const container = document.createElement('div');
-
-  container.id = CONTAINER_ID;
-
-  container.className = 'messages';
-
-  container.setAttribute('aria-hidden', 'true');
-
-  document.body.appendChild(container);
-
-  return container;
-
-}
-
-function createHeader() {
-
-  const header = document.createElement('header');
-
-  header.className = 'messages-header';
-
-  const backButton = document.createElement('button');
-
-  backButton.type = 'button';
-
-  backButton.className = 'icon-btn';
-
-  backButton.dataset.action = 'close-messages';
-
-  backButton.setAttribute('aria-label', '戻る');
-
-  backButton.textContent = '‹';
-
-  const titleGroup = document.createElement('div');
-
-  titleGroup.className = 'messages-title-group';
-
-  const title = document.createElement('h2');
-
-  title.className = 'messages-title';
-
-  title.textContent = 'メッセージ';
-
-  const status = document.createElement('p');
-
-  status.id = 'messagesStatusLine';
-
-  status.className = 'messages-status';
-
-  status.setAttribute('aria-live', 'polite');
-
-  titleGroup.appendChild(title);
-
-  titleGroup.appendChild(status);
-
-  const lockButton = document.createElement('button');
-
-  lockButton.type = 'button';
-
-  lockButton.className = 'icon-btn';
-
-  lockButton.dataset.action = 'lock-now';
-
-  lockButton.setAttribute('aria-label', '今すぐロック');
-
-  lockButton.textContent = '🔒';
-
-  header.appendChild(backButton);
-
-  header.appendChild(titleGroup);
-
-  header.appendChild(lockButton);
-
-  return header;
-
-}
-
-/**
-
- * Firestoreの購読エラー時にだけ表示する、控えめな通知バナーを作る。
-
- * 技術的なエラー内容は表示せず、自然な日本語の案内のみを出す。
-
- * 通常は非表示（.is-open が付いたときだけ表示する）。
-
- * @returns {HTMLElement}
-
- */
-
-function createConnectionErrorBanner() {
-
-  const banner = document.createElement('p');
-
-  banner.id = 'messagesConnectionError';
-
-  banner.className = 'messages-connection-error';
-
-  banner.textContent = '通信が不安定なようです。しばらくすると自動的に復帰します。';
-
-  banner.setAttribute('aria-live', 'assertive');
-
-  return banner;
-
-}
-
-function createMessageList() {
-
-  const list = document.createElement('div');
-
-  list.id = 'messagesList';
-
-  list.className = 'messages-list';
-
-  list.setAttribute('aria-live', 'polite');
-
-  list.addEventListener('pointerdown', handleListPointerDown);
-
-  list.addEventListener('pointermove', handleListPointerMove);
-
-  list.addEventListener('pointerup', handleListPointerEnd);
-
-  list.addEventListener('pointercancel', handleListPointerEnd);
-
-  return list;
-
-}
-
-function createComposer() {
-
-  const composer = document.createElement('div');
-
-  composer.className = 'messages-composer';
-
-  const input = document.createElement('textarea');
-
-  input.id = 'messagesInput';
-
-  input.className = 'messages-input';
-
-  input.rows = 1;
-
-  input.placeholder = 'メッセージを入力…';
-
-  const sendButton = document.createElement('button');
-
-  sendButton.type = 'button';
-
-  sendButton.className = 'messages-send-btn';
-
-  sendButton.dataset.action = 'send-message';
-
-  sendButton.setAttribute('aria-label', '送信');
-
-  sendButton.innerHTML =
-
-    '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-
-    '<path d="M3.4 20.6 21 12 3.4 3.4 3 10l12 2-12 2 .4 6.6Z" fill="currentColor"/>' +
-
-    '</svg>';
-
-  composer.appendChild(input);
-
-  composer.appendChild(sendButton);
-
-  return composer;
-
-}
-
-function createActionSheet() {
-
-  const sheet = document.createElement('div');
-
-  sheet.id = 'messagesActionSheet';
-
-  sheet.className = 'messages-action-sheet';
-
-  const preview = document.createElement('p');
-
-  preview.id = 'messagesActionPreview';
-
-  preview.className = 'messages-action-preview';
-
-  const reactionsRow = document.createElement('div');
-
-  reactionsRow.className = 'messages-action-reactions';
-
-  QUICK_REACTIONS.forEach((emoji) => {
-
-    const button = document.createElement('button');
-
-    button.type = 'button';
-
-    button.className = 'messages-action-emoji-btn';
-
-    button.dataset.action = 'react';
-
-    button.dataset.emoji = emoji;
-
-    button.textContent = emoji;
-
-    reactionsRow.appendChild(button);
-
-  });
-
-  const copyButton = document.createElement('button');
-
-  copyButton.type = 'button';
-
-  copyButton.className = 'messages-action-btn';
-
-  copyButton.dataset.action = 'copy-message';
-
-  copyButton.textContent = 'コピー';
-
-  const deleteButton = document.createElement('button');
-
-  deleteButton.type = 'button';
-
-  deleteButton.id = 'messagesActionDelete';
-
-  deleteButton.className = 'messages-action-btn messages-action-btn--danger';
-
-  deleteButton.dataset.action = 'delete-message';
-
-  deleteButton.textContent = '削除';
-
-  const cancelButton = document.createElement('button');
-
-  cancelButton.type = 'button';
-
-  cancelButton.className = 'messages-action-btn messages-action-btn--cancel';
-
-  cancelButton.dataset.action = 'cancel-action-sheet';
-
-  cancelButton.textContent = 'キャンセル';
-
-  sheet.appendChild(preview);
-
-  sheet.appendChild(reactionsRow);
-
-  sheet.appendChild(copyButton);
-
-  sheet.appendChild(deleteButton);
-
-  sheet.appendChild(cancelButton);
-
-  return sheet;
-
-}
-
 export function create() {
 
-  if (isBuilt) return;
+  if (isBuilt) {
 
-  const container = getContainer() ?? createContainer();
+    return;
 
-  const fragment = document.createDocumentFragment();
+  }
 
-  fragment.appendChild(createHeader());
+  const container =
 
-  fragment.appendChild(createConnectionErrorBanner());
+    getContainer();
 
-  fragment.appendChild(createMessageList());
+  if (!container) {
 
-  fragment.appendChild(createComposer());
+    console.warn(
 
-  fragment.appendChild(createActionSheet());
-
-  container.replaceChildren(fragment);
-
-  if (unsubscribeCustomization) unsubscribeCustomization();
-
-  unsubscribeCustomization = Customization.subscribe((customization) => {
-
-    Customization.applyBackgroundClass(
-
-      container,
-
-      'messages',
-
-      customization.backgrounds?.messages,
+      `[messages.js] #${CONTAINER_ID} が見つかりません`,
 
     );
 
-  });
+    return;
+
+  }
+
+  const fragment =
+
+    document.createDocumentFragment();
+
+  fragment.appendChild(
+
+    createHeader(),
+
+  );
+
+  fragment.appendChild(
+
+    createMessageList(),
+
+  );
+
+  fragment.appendChild(
+
+    createComposer(),
+
+  );
+
+  fragment.appendChild(
+
+    createActionSheet(),
+
+  );
+
+  container.appendChild(
+
+    fragment,
+
+  );
+
+  /*
+
+   * 背景変更を購読して即時反映する。
+
+   */
+
+  if (
+
+    unsubscribeCustomization
+
+  ) {
+
+    unsubscribeCustomization();
+
+  }
+
+  unsubscribeCustomization =
+
+    Customization.subscribe(
+
+      () => {
+
+        renderBackground();
+
+      },
+
+    );
+
+  renderBackground();
+
+  registerMessagePointerEvents();
 
   isBuilt = true;
 
@@ -466,1515 +684,23 @@ export function create() {
 
 // ------------------------------------------------------------
 
-// メッセージ一覧の描画
+// 表示
 
 // ------------------------------------------------------------
 
-function formatMessageTime(timestamp) {
-
-  if (!timestamp || typeof timestamp.toDate !== 'function') {
-
-    return '送信中…';
-
-  }
-
-  return formatClockTime(timestamp.toDate());
-
-}
-
-function formatClockTime(date) {
-
-  const hours = String(date.getHours()).padStart(2, '0');
-
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-
-  return `${hours}:${minutes}`;
-
-}
-
-function isReadByOther(message) {
-
-  if (!otherUid) return false;
-
-  return (
-
-    Array.isArray(message.readBy) &&
-
-    message.readBy.includes(otherUid)
-
-  );
-
-}
-
-function createReactionsRow(reactions) {
-
-  const entries = Object.values(reactions ?? {});
-
-  if (entries.length === 0) return null;
-
-  const counts = {};
-
-  entries.forEach((emoji) => {
-
-    counts[emoji] = (counts[emoji] ?? 0) + 1;
-
-  });
-
-  const row = document.createElement('div');
-
-  row.className = 'messages-reactions';
-
-  Object.entries(counts).forEach(([emoji, count]) => {
-
-    const badge = document.createElement('span');
-
-    badge.className = 'messages-reaction-badge';
-
-    badge.textContent = count > 1 ? `${emoji} ${count}` : emoji;
-
-    row.appendChild(badge);
-
-  });
-
-  return row;
-
-}
-
-function createMessageBubble(message, isNew) {
-
-  const isOwn = message.senderId === currentUid;
-
-  const isEmojiOnly = EMOJI_ONLY_PATTERN.test(message.text ?? '');
-
-  const row = document.createElement('div');
-
-  row.className =
-
-    `messages-row ${isOwn ? 'messages-row--own' : 'messages-row--other'}` +
-
-    `${isNew ? ' messages-row--enter' : ''}`;
-
-  row.dataset.messageId = message.id;
-
-  const bubble = document.createElement('div');
-
-  bubble.className =
-
-    `messages-bubble${isEmojiOnly ? ' messages-bubble--emoji-only' : ''}`;
-
-  const text = document.createElement('p');
-
-  text.className = 'messages-bubble-text';
-
-  text.textContent = message.text ?? '';
-
-  const footer = document.createElement('div');
-
-  footer.className = 'messages-bubble-footer';
-
-  const time = document.createElement('span');
-
-  time.className = 'messages-bubble-time';
-
-  time.textContent = formatMessageTime(message.timestamp);
-
-  footer.appendChild(time);
-
-  if (isOwn) {
-
-    const isRead = isReadByOther(message);
-
-    const receipt = document.createElement('span');
-
-    receipt.className =
-
-      `messages-receipt${isRead ? ' is-read' : ''}`;
-
-    receipt.textContent = isRead ? '✓✓' : '✓';
-
-    receipt.setAttribute(
-
-      'aria-label',
-
-      isRead ? '既読' : '送信済み',
-
-    );
-
-    footer.appendChild(receipt);
-
-  }
-
-  bubble.appendChild(text);
-
-  bubble.appendChild(footer);
-
-  row.appendChild(bubble);
-
-  const reactionsRow = createReactionsRow(message.reactions);
-
-  if (reactionsRow) {
-
-    row.appendChild(reactionsRow);
-
-  }
-
-  return row;
-
-}
-
-function createTypingIndicatorRow() {
-
-  const row = document.createElement('div');
-
-  row.id = 'messagesTypingRow';
-
-  row.className = 'messages-row messages-row--other';
-
-  const bubble = document.createElement('div');
-
-  bubble.className =
-
-    'messages-bubble messages-typing-bubble';
-
-  for (let i = 0; i < 3; i += 1) {
-
-    const dot = document.createElement('span');
-
-    dot.className = 'messages-typing-dot';
-
-    bubble.appendChild(dot);
-
-  }
-
-  row.appendChild(bubble);
-
-  return row;
-
-}
-
-function isListNearBottom(listEl) {
-
-  return (
-
-    listEl.scrollHeight -
-
-      listEl.scrollTop -
-
-      listEl.clientHeight <
-
-    SCROLL_NEAR_BOTTOM_THRESHOLD_PX
-
-  );
-
-}
-
-function renderMessages(messageList) {
-
-  const listEl = document.getElementById('messagesList');
-
-  if (!listEl) {
-
-    latestMessages = messageList;
-
-    return;
-
-  }
-
-  const isFirstRender =
-
-    knownMessageIds.size === 0 &&
-
-    messageList.length > 0;
-
-  const wasNearBottom =
-
-    isListNearBottom(listEl);
-
-  latestMessages = messageList;
-
-  const fragment =
-
-    document.createDocumentFragment();
-
-  const currentIds = new Set();
-
-  let newestIsOwnAndNew = false;
-
-  messageList.forEach((message, index) => {
-
-    currentIds.add(message.id);
-
-    const isNew =
-
-      !knownMessageIds.has(message.id);
-
-    if (
-
-      isNew &&
-
-      index === messageList.length - 1 &&
-
-      message.senderId === currentUid
-
-    ) {
-
-      newestIsOwnAndNew = true;
-
-    }
-
-    fragment.appendChild(
-
-      createMessageBubble(message, isNew),
-
-    );
-
-  });
-
-  listEl.replaceChildren(fragment);
-
-  knownMessageIds = currentIds;
-
-  updateTypingIndicatorDisplay();
-
-  if (
-
-    isFirstRender ||
-
-    wasNearBottom ||
-
-    newestIsOwnAndNew
-
-  ) {
-
-    listEl.scrollTop = listEl.scrollHeight;
-
-  }
-
-  if (Settings.isReadReceiptsEnabled()) {
-
-    messageList.forEach((message) => {
-
-      if (message.senderId === currentUid) return;
-
-      const readBy = message.readBy ?? [];
-
-      if (readBy.includes(currentUid)) return;
-
-      Firebase.markMessageAsRead(
-
-        currentRoomId,
-
-        message.id,
-
-        currentUid,
-
-        readBy,
-
-      ).catch((error) => {
-
-        console.error(
-
-          '[messages.js] 既読の更新に失敗しました',
-
-          error,
-
-        );
-
-      });
-
-    });
-
-  }
-
-}
-
-// ------------------------------------------------------------
-
-// ルーム情報
-
-// ------------------------------------------------------------
-
-function isOtherTyping() {
-
-  if (!latestRoomData || !otherUid) return false;
-
-  const entry =
-
-    latestRoomData.typing?.[otherUid];
-
-  if (
-
-    !entry ||
-
-    typeof entry.toMillis !== 'function'
-
-  ) {
-
-    return false;
-
-  }
-
-  return (
-
-    Date.now() - entry.toMillis() <
-
-    TYPING_STALE_MS
-
-  );
-
-}
-
-function updateTypingIndicatorDisplay() {
-
-  const listEl =
-
-    document.getElementById('messagesList');
-
-  if (!listEl) return;
-
-  const existingRow =
-
-    document.getElementById(
-
-      'messagesTypingRow',
-
-    );
-
-  if (isOtherTyping()) {
-
-    if (!existingRow) {
-
-      const wasNearBottom =
-
-        isListNearBottom(listEl);
-
-      listEl.appendChild(
-
-        createTypingIndicatorRow(),
-
-      );
-
-      if (wasNearBottom) {
-
-        listEl.scrollTop =
-
-          listEl.scrollHeight;
-
-      }
-
-    }
-
-  } else if (existingRow) {
-
-    existingRow.remove();
-
-  }
-
-}
-
-function scheduleTypingStaleCheck() {
-
-  if (typingHideTimeoutId) {
-
-    clearTimeout(
-
-      typingHideTimeoutId,
-
-    );
-
-    typingHideTimeoutId = null;
-
-  }
-
-  const entry =
-
-    latestRoomData?.typing?.[
-
-      otherUid
-
-    ];
-
-  if (
-
-    !entry ||
-
-    typeof entry.toMillis !== 'function'
-
-  ) {
-
-    return;
-
-  }
-
-  const remaining =
-
-    TYPING_STALE_MS -
-
-    (Date.now() - entry.toMillis());
-
-  if (remaining > 0) {
-
-    typingHideTimeoutId =
-
-      setTimeout(
-
-        updateTypingIndicatorDisplay,
-
-        remaining + 50,
-
-      );
-
-  }
-
-}
-
-function computeStatusText() {
-
-  if (!otherUid) return '';
-
-  if (isOtherTyping()) {
-
-    return '入力中…';
-
-  }
-
-  const presence =
-
-    latestRoomData?.presence?.[
-
-      otherUid
-
-    ];
-
-  if (
-
-    !presence ||
-
-    !presence.lastSeenAt ||
-
-    typeof presence.lastSeenAt
-
-      .toMillis !== 'function'
-
-  ) {
-
-    return '';
-
-  }
-
-  const elapsed =
-
-    Date.now() -
-
-    presence.lastSeenAt.toMillis();
-
-  if (
-
-    presence.state === 'online' &&
-
-    elapsed <
-
-      PRESENCE_ONLINE_STALE_MS
-
-  ) {
-
-    return 'オンライン';
-
-  }
-
-  return `最終オンライン ${formatClockTime(
-
-    presence.lastSeenAt.toDate(),
-
-  )}`;
-
-}
-
-function updateStatusLine() {
-
-  const el =
-
-    document.getElementById(
-
-      'messagesStatusLine',
-
-    );
-
-  if (el) {
-
-    el.textContent =
-
-      computeStatusText();
-
-  }
-
-}
-
-function showConnectionError() {
-
-  const banner =
-
-    document.getElementById(
-
-      'messagesConnectionError',
-
-    );
-
-  if (banner) {
-
-    banner.classList.add('is-open');
-
-  }
-
-}
-
-function hideConnectionError() {
-
-  const banner =
-
-    document.getElementById(
-
-      'messagesConnectionError',
-
-    );
-
-  if (banner) {
-
-    banner.classList.remove('is-open');
-
-  }
-
-}
-
-function onRoomUpdate(roomData) {
-
-  latestRoomData = roomData;
-
-  if (
-
-    Array.isArray(
-
-      roomData.memberIds,
-
-    )
-
-  ) {
-
-    otherUid =
-
-      roomData.memberIds.find(
-
-        (id) => id !== currentUid,
-
-      ) ?? null;
-
-  }
-
-  updateStatusLine();
-
-  updateTypingIndicatorDisplay();
-
-  scheduleTypingStaleCheck();
-
-}
-
-// ------------------------------------------------------------
-
-// 送信・入力中通知
-
-// ------------------------------------------------------------
-
-export function getInputValue() {
-
-  const input =
-
-    document.getElementById(
-
-      'messagesInput',
-
-    );
-
-  return input
-
-    ? input.value
-
-    : '';
-
-}
-
-export function clearInput() {
-
-  const input =
-
-    document.getElementById(
-
-      'messagesInput',
-
-    );
-
-  if (!input) return;
-
-  input.value = '';
-
-  input.style.height = 'auto';
-
-}
-
-export function autoResizeInput() {
-
-  const input =
-
-    document.getElementById(
-
-      'messagesInput',
-
-    );
-
-  if (!input) return;
-
-  input.style.height = 'auto';
-
-  input.style.height =
-
-    `${input.scrollHeight}px`;
-
-}
-
-export function notifyTyping() {
-
-  if (
-
-    !currentRoomId ||
-
-    !currentUid
-
-  ) {
-
-    return;
-
-  }
-
-  const now = Date.now();
-
-  if (
-
-    now - lastTypingWriteAt >
-
-    TYPING_WRITE_THROTTLE_MS
-
-  ) {
-
-    lastTypingWriteAt = now;
-
-    Firebase.updateTypingState(
-
-      currentRoomId,
-
-      currentUid,
-
-      true,
-
-    ).catch(() => {});
-
-  }
-
-  if (typingStopTimer) {
-
-    clearTimeout(
-
-      typingStopTimer,
-
-    );
-
-  }
-
-  typingStopTimer = setTimeout(
-
-    () => {
-
-      lastTypingWriteAt = 0;
-
-      Firebase.updateTypingState(
-
-        currentRoomId,
-
-        currentUid,
-
-        false,
-
-      ).catch(() => {});
-
-    },
-
-    TYPING_STOP_DEBOUNCE_MS,
-
-  );
-
-}
-
-export async function sendMessage() {
-
-  const text =
-
-    getInputValue();
-
-  if (
-
-    text.trim() === '' ||
-
-    !currentRoomId
-
-  ) {
-
-    return;
-
-  }
-
-  if (typingStopTimer) {
-
-    clearTimeout(
-
-      typingStopTimer,
-
-    );
-
-    typingStopTimer = null;
-
-  }
-
-  lastTypingWriteAt = 0;
-
-  if (currentUid) {
-
-    Firebase.updateTypingState(
-
-      currentRoomId,
-
-      currentUid,
-
-      false,
-
-    ).catch(() => {});
-
-  }
-
-  const uid =
-
-    Firebase.getCurrentUid();
-
-  const clientId =
-
-    Firebase.getOrCreateClientId();
-
-  clearInput();
-
-  const messageId =
-
-    await Firebase.sendTextMessage(
-
-      currentRoomId,
-
-      uid,
-
-      clientId,
-
-      text,
-
-    );
-
-  if (!messageId) return;
-
-  Firebase.requestNotificationSend(
-
-    currentRoomId,
-
-    messageId,
-
-  ).catch((error) => {
-
-    console.warn(
-
-      '[messages.js] Push通知の送信依頼に失敗しました',
-
-      error,
-
-    );
-
-  });
-
-}
-
-// ------------------------------------------------------------
-
-// オンライン状態
-
-// ------------------------------------------------------------
-
-function handleVisibilityChange() {
-
-  if (
-
-    !currentRoomId ||
-
-    !currentUid
-
-  ) {
-
-    return;
-
-  }
-
-  if (
-
-    !Settings.isOnlineVisibilityEnabled()
-
-  ) {
-
-    return;
-
-  }
-
-  if (
-
-    document.visibilityState ===
-
-    'hidden'
-
-  ) {
-
-    Firebase.updatePresence(
-
-      currentRoomId,
-
-      currentUid,
-
-      false,
-
-    ).catch(() => {});
-
-  } else {
-
-    Firebase.updatePresence(
-
-      currentRoomId,
-
-      currentUid,
-
-      true,
-
-    ).catch(() => {});
-
-  }
-
-}
-
-function startPresence() {
-
-  if (
-
-    !currentRoomId ||
-
-    !currentUid
-
-  ) {
-
-    return;
-
-  }
-
-  if (
-
-    !Settings.isOnlineVisibilityEnabled()
-
-  ) {
-
-    Firebase.updatePresence(
-
-      currentRoomId,
-
-      currentUid,
-
-      false,
-
-    ).catch(() => {});
-
-    return;
-
-  }
-
-  Firebase.updatePresence(
-
-    currentRoomId,
-
-    currentUid,
-
-    true,
-
-  ).catch(() => {});
-
-  presenceHeartbeatId =
-
-    setInterval(() => {
-
-      Firebase.updatePresence(
-
-        currentRoomId,
-
-        currentUid,
-
-        true,
-
-      ).catch(() => {});
-
-    }, PRESENCE_HEARTBEAT_MS);
-
-  document.addEventListener(
-
-    'visibilitychange',
-
-    handleVisibilityChange,
-
-  );
-
-}
-
-function stopPresence() {
-
-  if (presenceHeartbeatId) {
-
-    clearInterval(
-
-      presenceHeartbeatId,
-
-    );
-
-    presenceHeartbeatId = null;
-
-  }
-
-  document.removeEventListener(
-
-    'visibilitychange',
-
-    handleVisibilityChange,
-
-  );
-
-  if (
-
-    currentRoomId &&
-
-    currentUid
-
-  ) {
-
-    Firebase.updatePresence(
-
-      currentRoomId,
-
-      currentUid,
-
-      false,
-
-    ).catch(() => {});
-
-  }
-
-}
-
-// ------------------------------------------------------------
-
-// キーボード表示時の対応
-
-// ------------------------------------------------------------
-
-function handleViewportResize() {
+export function open() {
 
   const container =
 
     getContainer();
 
-  if (
-
-    !container ||
-
-    !window.visualViewport
-
-  ) {
+  if (!container) {
 
     return;
 
   }
 
-  const viewport =
-
-    window.visualViewport;
-
-  const keyboardInset =
-
-    Math.max(
-
-      0,
-
-      window.innerHeight -
-
-        viewport.height -
-
-        viewport.offsetTop,
-
-    );
-
-  container.style.paddingBottom =
-
-    keyboardInset > 0
-
-      ? `${keyboardInset}px`
-
-      : '';
-
-  const listEl =
-
-    document.getElementById(
-
-      'messagesList',
-
-    );
-
-  if (
-
-    listEl &&
-
-    isListNearBottom(listEl)
-
-  ) {
-
-    listEl.scrollTop =
-
-      listEl.scrollHeight;
-
-  }
-
-}
-
-function startKeyboardAvoidance() {
-
-  if (!window.visualViewport) {
-
-    return;
-
-  }
-
-  window.visualViewport.addEventListener(
-
-    'resize',
-
-    handleViewportResize,
-
-  );
-
-}
-
-function stopKeyboardAvoidance() {
-
-  if (!window.visualViewport) {
-
-    return;
-
-  }
-
-  window.visualViewport.removeEventListener(
-
-    'resize',
-
-    handleViewportResize,
-
-  );
-
-  const container =
-
-    getContainer();
-
-  if (container) {
-
-    container.style.paddingBottom =
-
-      '';
-
-  }
-
-}
-
-// ------------------------------------------------------------
-
-// 長押しアクション
-
-// ------------------------------------------------------------
-
-function clearLongPressTimer() {
-
-  if (longPressTimer) {
-
-    clearTimeout(
-
-      longPressTimer,
-
-    );
-
-    longPressTimer = null;
-
-  }
-
-}
-
-function handleListPointerDown(event) {
-
-  const row =
-
-    event.target.closest(
-
-      '.messages-row',
-
-    );
-
-  if (
-
-    !row ||
-
-    !row.dataset.messageId
-
-  ) {
-
-    return;
-
-  }
-
-  clearLongPressTimer();
-
-  longPressStartX =
-
-    event.clientX;
-
-  longPressStartY =
-
-    event.clientY;
-
-  longPressTimer =
-
-    setTimeout(() => {
-
-      openActionSheetForMessage(
-
-        row.dataset.messageId,
-
-      );
-
-    }, LONG_PRESS_MS);
-
-}
-
-function handleListPointerMove(event) {
-
-  if (!longPressTimer) {
-
-    return;
-
-  }
-
-  const dx =
-
-    Math.abs(
-
-      event.clientX -
-
-        longPressStartX,
-
-    );
-
-  const dy =
-
-    Math.abs(
-
-      event.clientY -
-
-        longPressStartY,
-
-    );
-
-  if (
-
-    dx >
-
-      LONG_PRESS_MOVE_THRESHOLD ||
-
-    dy >
-
-      LONG_PRESS_MOVE_THRESHOLD
-
-  ) {
-
-    clearLongPressTimer();
-
-  }
-
-}
-
-function handleListPointerEnd() {
-
-  clearLongPressTimer();
-
-}
-
-function openActionSheetForMessage(
-
-  messageId,
-
-) {
-
-  const message =
-
-    latestMessages.find(
-
-      (entry) =>
-
-        entry.id === messageId,
-
-    );
-
-  if (!message) return;
-
-  selectedMessage = message;
-
-  const preview =
-
-    document.getElementById(
-
-      'messagesActionPreview',
-
-    );
-
-  if (preview) {
-
-    preview.textContent =
-
-      (message.text ?? '')
-
-        .slice(0, 60);
-
-  }
-
-  const deleteButton =
-
-    document.getElementById(
-
-      'messagesActionDelete',
-
-    );
-
-  if (deleteButton) {
-
-    deleteButton.hidden =
-
-      message.senderId !==
-
-      currentUid;
-
-  }
-
-  const sheet =
-
-    document.getElementById(
-
-      'messagesActionSheet',
-
-    );
-
-  if (sheet) {
-
-    sheet.classList.add(
-
-      'is-open',
-
-    );
-
-  }
-
-}
-
-export function closeActionSheet() {
-
-  const sheet =
-
-    document.getElementById(
-
-      'messagesActionSheet',
-
-    );
-
-  if (sheet) {
-
-    sheet.classList.remove(
-
-      'is-open',
-
-    );
-
-  }
-
-  selectedMessage = null;
-
-}
-
-export function reactToSelectedMessage(
-
-  emoji,
-
-) {
-
-  if (
-
-    !selectedMessage ||
-
-    !currentRoomId ||
-
-    !currentUid
-
-  ) {
-
-    return;
-
-  }
-
-  const myCurrentReaction =
-
-    selectedMessage.reactions?.[
-
-      currentUid
-
-    ];
-
-  const nextEmoji =
-
-    myCurrentReaction === emoji
-
-      ? null
-
-      : emoji;
-
-  Firebase.setMessageReaction(
-
-    currentRoomId,
-
-    selectedMessage.id,
-
-    currentUid,
-
-    nextEmoji,
-
-  ).catch((error) => {
-
-    console.error(
-
-      '[messages.js] リアクションの更新に失敗しました',
-
-      error,
-
-    );
-
-  });
-
-  closeActionSheet();
-
-}
-
-export async function copySelectedMessage() {
-
-  if (!selectedMessage) {
-
-    return;
-
-  }
-
-  const text =
-
-    selectedMessage.text ?? '';
-
-  closeActionSheet();
-
-  if (
-
-    navigator.clipboard &&
-
-    typeof navigator.clipboard
-
-      .writeText === 'function'
-
-  ) {
-
-    await navigator.clipboard.writeText(
-
-      text,
-
-    );
-
-  }
-
-}
-
-export async function deleteSelectedMessage() {
-
-  if (
-
-    !selectedMessage ||
-
-    !currentRoomId
-
-  ) {
-
-    return;
-
-  }
-
-  if (
-
-    selectedMessage.senderId !==
-
-    currentUid
-
-  ) {
-
-    return;
-
-  }
-
-  const messageId =
-
-    selectedMessage.id;
-
-  closeActionSheet();
-
-  await Firebase.deleteMessage(
-
-    currentRoomId,
-
-    messageId,
-
-  );
-
-}
-
-// ------------------------------------------------------------
-
-// 画面の開閉
-
-// ------------------------------------------------------------
-
-export async function open() {
-
-  const container =
-
-    getContainer();
-
-  if (!container) return;
+  renderBackground();
 
   container.classList.add(
 
@@ -1990,137 +716,41 @@ export async function open() {
 
   );
 
-  hideConnectionError();
+  container.scrollTop =
 
-  startKeyboardAvoidance();
+    0;
 
-  currentRoomId =
+  startMessageSubscription();
 
-    Firebase.getLocalRoomId();
+  window.requestAnimationFrame(
 
-  if (!currentRoomId) {
+    () => {
 
-    console.warn(
+      renderBackground();
 
-      '[messages.js] ルームIDが見つからないため、メッセージを購読できません。',
+    },
 
-    );
-
-    return;
-
-  }
-
-  currentUid =
-
-    await Firebase.ensureSignedIn();
-
-  stopSubscriptions();
-
-  knownMessageIds =
-
-    new Set();
-
-  unsubscribeMessages =
-
-    Firebase.subscribeToMessages(
-
-      currentRoomId,
-
-      (messages) => {
-
-        hideConnectionError();
-
-        renderMessages(
-
-          messages,
-
-        );
-
-      },
-
-      () =>
-
-        showConnectionError(),
-
-    );
-
-  unsubscribeRoom =
-
-    Firebase.subscribeToRoom(
-
-      currentRoomId,
-
-      (roomData) => {
-
-        hideConnectionError();
-
-        onRoomUpdate(
-
-          roomData,
-
-        );
-
-      },
-
-      () =>
-
-        showConnectionError(),
-
-    );
-
-  startPresence();
+  );
 
 }
 
+// ------------------------------------------------------------
+
+// 非表示
+
+// ------------------------------------------------------------
+
 export function close() {
-
-  stopSubscriptions();
-
-  stopPresence();
-
-  stopKeyboardAvoidance();
-
-  clearLongPressTimer();
-
-  closeActionSheet();
-
-  if (typingStopTimer) {
-
-    clearTimeout(
-
-      typingStopTimer,
-
-    );
-
-    typingStopTimer = null;
-
-  }
-
-  if (
-
-    currentRoomId &&
-
-    currentUid
-
-  ) {
-
-    Firebase.updateTypingState(
-
-      currentRoomId,
-
-      currentUid,
-
-      false,
-
-    ).catch(() => {});
-
-  }
 
   const container =
 
     getContainer();
 
-  if (!container) return;
+  if (!container) {
+
+    return;
+
+  }
 
   container.classList.remove(
 
@@ -2136,39 +766,1329 @@ export function close() {
 
   );
 
+  stopMessageSubscription();
+
+  closeActionSheet();
+
+  clearTypingTimer();
+
 }
 
-function stopSubscriptions() {
+// ------------------------------------------------------------
 
-  if (unsubscribeMessages) {
+// Firestore購読開始
 
-    unsubscribeMessages();
+// ------------------------------------------------------------
 
-    unsubscribeMessages = null;
+function startMessageSubscription() {
+
+  stopMessageSubscription();
+
+  const roomId =
+
+    Firebase.getLocalRoomId();
+
+  if (!roomId) {
+
+    return;
 
   }
 
-  if (unsubscribeRoom) {
+  unsubscribeMessages =
 
-    unsubscribeRoom();
+    Firebase.subscribeToMessages(
 
-    unsubscribeRoom = null;
+      roomId,
 
-  }
+      (messages) => {
 
-  if (typingHideTimeoutId) {
+        renderMessages(
 
-    clearTimeout(
+          messages,
 
-      typingHideTimeoutId,
+        );
+
+      },
+
+      (error) => {
+
+        console.warn(
+
+          '[messages.js] メッセージ購読に失敗しました',
+
+          error,
+
+        );
+
+      },
 
     );
 
-    typingHideTimeoutId = null;
+}
+
+// ------------------------------------------------------------
+
+// Firestore購読停止
+
+// ------------------------------------------------------------
+
+function stopMessageSubscription() {
+
+  if (
+
+    unsubscribeMessages
+
+  ) {
+
+    unsubscribeMessages();
+
+    unsubscribeMessages =
+
+      null;
 
   }
 
 }
+
+// ------------------------------------------------------------
+
+// メッセージ描画
+
+// ------------------------------------------------------------
+
+function renderMessages(
+
+  messages,
+
+) {
+
+  const list =
+
+    document.getElementById(
+
+      'messagesList',
+
+    );
+
+  if (!list) {
+
+    return;
+
+  }
+
+  const currentUid =
+
+    Firebase.getCurrentUid();
+
+  const fragment =
+
+    document.createDocumentFragment();
+
+  messages.forEach(
+
+    (message) => {
+
+      fragment.appendChild(
+
+        createMessageElement(
+
+          message,
+
+          currentUid,
+
+        ),
+
+      );
+
+    },
+
+  );
+
+  list.replaceChildren(
+
+    fragment,
+
+  );
+
+  list.scrollTop =
+
+    list.scrollHeight;
+
+  markVisibleMessagesAsRead(
+
+    messages,
+
+  );
+
+}
+
+// ------------------------------------------------------------
+
+// 1件分のメッセージDOM
+
+// ------------------------------------------------------------
+
+function createMessageElement(
+
+  message,
+
+  currentUid,
+
+) {
+
+  const wrapper =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  wrapper.className =
+
+    'message-row';
+
+  const isOwn =
+
+    message.senderId ===
+
+    currentUid;
+
+  wrapper.classList.toggle(
+
+    'message-row--own',
+
+    isOwn,
+
+  );
+
+  wrapper.dataset.messageId =
+
+    message.id;
+
+  const bubble =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  bubble.className =
+
+    'message-bubble';
+
+  bubble.dataset.messageId =
+
+    message.id;
+
+  bubble.dataset.senderId =
+
+    message.senderId ?? '';
+
+  const text =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  text.className =
+
+    'message-text';
+
+  text.textContent =
+
+    message.text ?? '';
+
+  bubble.appendChild(
+
+    text,
+
+  );
+
+  const meta =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  meta.className =
+
+    'message-meta';
+
+  if (
+
+    isOwn &&
+
+    Array.isArray(
+
+      message.readBy,
+
+    ) &&
+
+    message.readBy.some(
+
+      (uid) =>
+
+        uid !==
+
+        currentUid,
+
+    )
+
+  ) {
+
+    const read =
+
+      document.createElement(
+
+        'span',
+
+      );
+
+    read.className =
+
+      'message-read';
+
+    read.textContent =
+
+      '既読';
+
+    meta.appendChild(
+
+      read,
+
+    );
+
+  }
+
+  if (
+
+    message.reactions &&
+
+    typeof message.reactions ===
+
+      'object'
+
+  ) {
+
+    const reactionList =
+
+      document.createElement(
+
+        'div',
+
+      );
+
+    reactionList.className =
+
+      'message-reaction-list';
+
+    Object.values(
+
+      message.reactions,
+
+    ).forEach(
+
+      (emoji) => {
+
+        if (
+
+          typeof emoji !==
+
+          'string'
+
+        ) {
+
+          return;
+
+        }
+
+        const reaction =
+
+          document.createElement(
+
+            'span',
+
+          );
+
+        reaction.className =
+
+          'message-reaction';
+
+        reaction.textContent =
+
+          emoji;
+
+        reactionList.appendChild(
+
+          reaction,
+
+        );
+
+      },
+
+    );
+
+    if (
+
+      reactionList.children
+
+        .length > 0
+
+    ) {
+
+      bubble.appendChild(
+
+        reactionList,
+
+      );
+
+    }
+
+  }
+
+  if (
+
+    meta.children.length >
+
+    0
+
+  ) {
+
+    bubble.appendChild(
+
+      meta,
+
+    );
+
+  }
+
+  wrapper.appendChild(
+
+    bubble,
+
+  );
+
+  return wrapper;
+
+}
+
+// ------------------------------------------------------------
+
+// 既読処理
+
+// ------------------------------------------------------------
+
+function markVisibleMessagesAsRead(
+
+  messages,
+
+) {
+
+  if (
+
+    !Settings.isReadReceiptsEnabled()
+
+  ) {
+
+    return;
+
+  }
+
+  const roomId =
+
+    Firebase.getLocalRoomId();
+
+  const currentUid =
+
+    Firebase.getCurrentUid();
+
+  if (
+
+    !roomId ||
+
+    !currentUid
+
+  ) {
+
+    return;
+
+  }
+
+  messages.forEach(
+
+    (message) => {
+
+      if (
+
+        !message ||
+
+        !message.id
+
+      ) {
+
+        return;
+
+      }
+
+      if (
+
+        message.senderId ===
+
+        currentUid
+
+      ) {
+
+        return;
+
+      }
+
+      const readBy =
+
+        Array.isArray(
+
+          message.readBy,
+
+        )
+
+          ? message.readBy
+
+          : [];
+
+      if (
+
+        readBy.includes(
+
+          currentUid,
+
+        )
+
+      ) {
+
+        return;
+
+      }
+
+      Firebase.markMessageAsRead(
+
+        roomId,
+
+        message.id,
+
+        currentUid,
+
+      ).catch(
+
+        (error) => {
+
+          console.warn(
+
+            '[messages.js] 既読更新に失敗しました',
+
+            error,
+
+          );
+
+        },
+
+      );
+
+    },
+
+  );
+
+}
+
+// ------------------------------------------------------------
+
+// 送信
+
+// ------------------------------------------------------------
+
+export async function sendMessage() {
+
+  const input =
+
+    document.getElementById(
+
+      'messagesInput',
+
+    );
+
+  if (!input) {
+
+    return;
+
+  }
+
+  const text =
+
+    input.value.trim();
+
+  if (!text) {
+
+    return;
+
+  }
+
+  const roomId =
+
+    Firebase.getLocalRoomId();
+
+  const currentUid =
+
+    Firebase.getCurrentUid();
+
+  if (
+
+    !roomId ||
+
+    !currentUid
+
+  ) {
+
+    throw new Error(
+
+      'ルームに接続されていません。',
+
+    );
+
+  }
+
+  await Firebase.sendMessage(
+
+    roomId,
+
+    {
+
+      text,
+
+      senderId:
+
+        currentUid,
+
+    },
+
+  );
+
+  input.value =
+
+    '';
+
+  autoResizeInput();
+
+  input.focus();
+
+}
+
+// ------------------------------------------------------------
+
+// 入力欄自動リサイズ
+
+// ------------------------------------------------------------
+
+export function autoResizeInput() {
+
+  const input =
+
+    document.getElementById(
+
+      'messagesInput',
+
+    );
+
+  if (!input) {
+
+    return;
+
+  }
+
+  input.style.height =
+
+    'auto';
+
+  const maxHeight =
+
+    120;
+
+  input.style.height =
+
+    `${Math.min(
+
+      input.scrollHeight,
+
+      maxHeight,
+
+    )}px`;
+
+  input.style.overflowY =
+
+    input.scrollHeight >
+
+    maxHeight
+
+      ? 'auto'
+
+      : 'hidden';
+
+}
+
+// ------------------------------------------------------------
+
+// 入力中通知
+
+// ------------------------------------------------------------
+
+export function notifyTyping() {
+
+  clearTypingTimer();
+
+  const roomId =
+
+    Firebase.getLocalRoomId();
+
+  const currentUid =
+
+    Firebase.getCurrentUid();
+
+  if (
+
+    !roomId ||
+
+    !currentUid
+
+  ) {
+
+    return;
+
+  }
+
+  if (
+
+    typeof Firebase.setTypingState ===
+
+    'function'
+
+  ) {
+
+    Firebase.setTypingState(
+
+      roomId,
+
+      currentUid,
+
+      true,
+
+    ).catch(
+
+      (error) => {
+
+        console.warn(
+
+          '[messages.js] 入力中状態の更新に失敗しました',
+
+          error,
+
+        );
+
+      },
+
+    );
+
+    typingTimer =
+
+      window.setTimeout(
+
+        () => {
+
+          Firebase.setTypingState(
+
+            roomId,
+
+            currentUid,
+
+            false,
+
+          ).catch(
+
+            () => {},
+
+          );
+
+          typingTimer =
+
+            null;
+
+        },
+
+        1500,
+
+      );
+
+  }
+
+}
+
+function clearTypingTimer() {
+
+  if (
+
+    typingTimer !==
+
+    null
+
+  ) {
+
+    window.clearTimeout(
+
+      typingTimer,
+
+    );
+
+    typingTimer =
+
+      null;
+
+  }
+
+}
+
+// ------------------------------------------------------------
+
+// 長押し
+
+// ------------------------------------------------------------
+
+function registerMessagePointerEvents() {
+
+  const list =
+
+    document.getElementById(
+
+      'messagesList',
+
+    );
+
+  if (!list) {
+
+    return;
+
+  }
+
+  list.addEventListener(
+
+    'pointerdown',
+
+    handleMessagePointerDown,
+
+  );
+
+  list.addEventListener(
+
+    'pointerup',
+
+    cancelLongPress,
+
+  );
+
+  list.addEventListener(
+
+    'pointercancel',
+
+    cancelLongPress,
+
+  );
+
+  list.addEventListener(
+
+    'pointerleave',
+
+    cancelLongPress,
+
+  );
+
+}
+
+function handleMessagePointerDown(
+
+  event,
+
+) {
+
+  if (
+
+    !(
+
+      event.target instanceof
+
+      Element
+
+    )
+
+  ) {
+
+    return;
+
+  }
+
+  const bubble =
+
+    event.target.closest(
+
+      '.message-bubble',
+
+    );
+
+  if (!bubble) {
+
+    return;
+
+  }
+
+  cancelLongPress();
+
+  const messageId =
+
+    bubble.dataset.messageId;
+
+  const senderId =
+
+    bubble.dataset.senderId;
+
+  if (!messageId) {
+
+    return;
+
+  }
+
+  longPressTimer =
+
+    window.setTimeout(
+
+      () => {
+
+        selectedMessageId =
+
+          messageId;
+
+        selectedMessageData =
+
+          {
+
+            senderId:
+
+              senderId ??
+
+              '',
+
+            text:
+
+              bubble.querySelector(
+
+                '.message-text',
+
+              )?.textContent ??
+
+              '',
+
+          };
+
+        openActionSheet();
+
+      },
+
+      LONG_PRESS_MS,
+
+    );
+
+}
+
+function cancelLongPress() {
+
+  if (
+
+    longPressTimer !==
+
+    null
+
+  ) {
+
+    window.clearTimeout(
+
+      longPressTimer,
+
+    );
+
+    longPressTimer =
+
+      null;
+
+  }
+
+}
+
+// ------------------------------------------------------------
+
+// アクションシート開閉
+
+// ------------------------------------------------------------
+
+function openActionSheet() {
+
+  const sheet =
+
+    document.getElementById(
+
+      'messageActionSheet',
+
+    );
+
+  if (!sheet) {
+
+    return;
+
+  }
+
+  const deleteButton =
+
+    sheet.querySelector(
+
+      '[data-action="delete-message"]',
+
+    );
+
+  if (
+
+    deleteButton
+
+  ) {
+
+    const currentUid =
+
+      Firebase.getCurrentUid();
+
+    deleteButton.hidden =
+
+      !selectedMessageData ||
+
+      selectedMessageData.senderId !==
+
+        currentUid;
+
+  }
+
+  sheet.classList.add(
+
+    'is-open',
+
+  );
+
+  sheet.setAttribute(
+
+    'aria-hidden',
+
+    'false',
+
+  );
+
+}
+
+export function closeActionSheet() {
+
+  const sheet =
+
+    document.getElementById(
+
+      'messageActionSheet',
+
+    );
+
+  if (sheet) {
+
+    sheet.classList.remove(
+
+      'is-open',
+
+    );
+
+    sheet.setAttribute(
+
+      'aria-hidden',
+
+      'true',
+
+    );
+
+  }
+
+  selectedMessageId =
+
+    null;
+
+  selectedMessageData =
+
+    null;
+
+  cancelLongPress();
+
+}
+
+// ------------------------------------------------------------
+
+// コピー
+
+// ------------------------------------------------------------
+
+export async function copySelectedMessage() {
+
+  if (
+
+    !selectedMessageData
+
+  ) {
+
+    return;
+
+  }
+
+  const text =
+
+    selectedMessageData.text ??
+
+    '';
+
+  if (
+
+    navigator.clipboard &&
+
+    typeof navigator.clipboard.writeText ===
+
+      'function'
+
+  ) {
+
+    await navigator.clipboard.writeText(
+
+      text,
+
+    );
+
+  } else {
+
+    const textarea =
+
+      document.createElement(
+
+        'textarea',
+
+      );
+
+    textarea.value =
+
+      text;
+
+    textarea.style.position =
+
+      'fixed';
+
+    textarea.style.opacity =
+
+      '0';
+
+    document.body.appendChild(
+
+      textarea,
+
+    );
+
+    textarea.select();
+
+    document.execCommand(
+
+      'copy',
+
+    );
+
+    textarea.remove();
+
+  }
+
+  closeActionSheet();
+
+}
+
+// ------------------------------------------------------------
+
+// 削除
+
+// ------------------------------------------------------------
+
+export async function deleteSelectedMessage() {
+
+  if (
+
+    !selectedMessageId ||
+
+    !selectedMessageData
+
+  ) {
+
+    return;
+
+  }
+
+  const roomId =
+
+    Firebase.getLocalRoomId();
+
+  const currentUid =
+
+    Firebase.getCurrentUid();
+
+  if (
+
+    !roomId ||
+
+    !currentUid
+
+  ) {
+
+    return;
+
+  }
+
+  if (
+
+    selectedMessageData.senderId !==
+
+    currentUid
+
+  ) {
+
+    closeActionSheet();
+
+    return;
+
+  }
+
+  const messageId =
+
+    selectedMessageId;
+
+  closeActionSheet();
+
+  await Firebase.deleteMessage(
+
+    roomId,
+
+    messageId,
+
+  );
+
+}
+
+// ------------------------------------------------------------
+
+// リアクション
+
+// ------------------------------------------------------------
+
+export function reactToSelectedMessage(
+
+  emoji,
+
+) {
+
+  if (
+
+    !selectedMessageId ||
+
+    typeof emoji !==
+
+      'string'
+
+  ) {
+
+    return;
+
+  }
+
+  const roomId =
+
+    Firebase.getLocalRoomId();
+
+  const currentUid =
+
+    Firebase.getCurrentUid();
+
+  if (
+
+    !roomId ||
+
+    !currentUid
+
+  ) {
+
+    return;
+
+  }
+
+  const messageId =
+
+    selectedMessageId;
+
+  Firebase.setMessageReaction(
+
+    roomId,
+
+    messageId,
+
+    currentUid,
+
+    emoji,
+
+  ).catch(
+
+    (error) => {
+
+      console.warn(
+
+        '[messages.js] リアクション更新に失敗しました',
+
+        error,
+
+      );
+
+    },
+
+  );
+
+  closeActionSheet();
+
+}
+
+// ------------------------------------------------------------
+
+// 外部から背景再反映
+
+// ------------------------------------------------------------
+
+export function refreshCustomization() {
+
+  renderBackground();
+
+}
+
+// ------------------------------------------------------------
+
+// 開いているか
+
+// ------------------------------------------------------------
 
 export function isOpen() {
 
@@ -2188,6 +2108,12 @@ export function isOpen() {
 
 }
 
+// ------------------------------------------------------------
+
+// default export
+
+// ------------------------------------------------------------
+
 const Messages = {
 
   create,
@@ -2198,23 +2124,21 @@ const Messages = {
 
   isOpen,
 
-  getInputValue,
-
-  clearInput,
+  sendMessage,
 
   autoResizeInput,
-
-  sendMessage,
 
   notifyTyping,
 
   closeActionSheet,
 
-  reactToSelectedMessage,
-
   copySelectedMessage,
 
   deleteSelectedMessage,
+
+  reactToSelectedMessage,
+
+  refreshCustomization,
 
 };
 
