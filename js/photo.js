@@ -8,7 +8,7 @@
 
 //
 
-// ・iPhoneで写真選択
+// ・iPhoneから写真を選択
 
 // ・IndexedDBへ写真保存
 
@@ -18,7 +18,17 @@
 
 // ・写真プレビュー
 
+// ・写真削除
+
 // ・背景カスタマイズ
+
+//
+
+// iPhone対策：
+
+// ・写真選択は label for="photoFileInput" を使用
+
+// ・file.type が空でも保存対象にする
 
 // ============================================================
 
@@ -80,7 +90,7 @@ const activeObjectUrls =
 
 // ============================================================
 
-// IndexedDB
+// IndexedDBを開く
 
 // ============================================================
 
@@ -100,7 +110,13 @@ function openDatabase() {
 
         if (
 
-          !('indexedDB' in window)
+          !(
+
+            'indexedDB' in
+
+            window
+
+          )
 
         ) {
 
@@ -186,9 +202,25 @@ function openDatabase() {
 
           () => {
 
+            const db =
+
+              request.result;
+
+            db.onversionchange =
+
+              () => {
+
+                db.close();
+
+                databasePromise =
+
+                  null;
+
+              };
+
             resolve(
 
-              request.result,
+              db,
 
             );
 
@@ -197,6 +229,10 @@ function openDatabase() {
         request.onerror =
 
           () => {
+
+            databasePromise =
+
+              null;
 
             reject(
 
@@ -234,127 +270,7 @@ function openDatabase() {
 
 // ============================================================
 
-// IndexedDB共通処理
-
-// ============================================================
-
-async function runStoreTransaction(
-
-  mode,
-
-  callback,
-
-) {
-
-  const db =
-
-    await openDatabase();
-
-  return new Promise(
-
-    (resolve, reject) => {
-
-      const transaction =
-
-        db.transaction(
-
-          PHOTO_STORE_NAME,
-
-          mode,
-
-        );
-
-      const store =
-
-        transaction.objectStore(
-
-          PHOTO_STORE_NAME,
-
-        );
-
-      let result;
-
-      try {
-
-        result =
-
-          callback(
-
-            store,
-
-            transaction,
-
-          );
-
-      } catch (error) {
-
-        reject(
-
-          error,
-
-        );
-
-        return;
-
-      }
-
-      transaction.oncomplete =
-
-        () => {
-
-          resolve(
-
-            result,
-
-          );
-
-        };
-
-      transaction.onerror =
-
-        () => {
-
-          reject(
-
-            transaction.error ??
-
-            new Error(
-
-              '写真データの処理に失敗しました。',
-
-            ),
-
-          );
-
-        };
-
-      transaction.onabort =
-
-        () => {
-
-          reject(
-
-            transaction.error ??
-
-            new Error(
-
-              '写真データの処理が中断されました。',
-
-            ),
-
-          );
-
-        };
-
-    },
-
-  );
-
-}
-
-// ============================================================
-
-// ID生成
+// 写真ID生成
 
 // ============================================================
 
@@ -384,13 +300,17 @@ function createPhotoId() {
 
       .slice(2),
 
-  ].join('-');
+  ].join(
+
+    '-',
+
+  );
 
 }
 
 // ============================================================
 
-// 写真保存
+// 写真1枚を保存
 
 // ============================================================
 
@@ -399,6 +319,16 @@ async function savePhotoFile(
   file,
 
 ) {
+
+  /*
+
+   * iPhoneでは写真選択時に
+
+   * file.type が空文字になる場合があるため、
+
+   * MIMEタイプだけでは弾かない。
+
+   */
 
   if (
 
@@ -410,19 +340,9 @@ async function savePhotoFile(
 
   }
 
-  if (
+  const db =
 
-    !file.type.startsWith(
-
-      'image/',
-
-    )
-
-  ) {
-
-    return null;
-
-  }
+    await openDatabase();
 
   const record = {
 
@@ -444,7 +364,11 @@ async function savePhotoFile(
 
     size:
 
-      file.size,
+      Number(
+
+        file.size,
+
+      ) || 0,
 
     createdAt:
 
@@ -456,29 +380,111 @@ async function savePhotoFile(
 
   };
 
-  await runStoreTransaction(
+  return new Promise(
 
-    'readwrite',
+    (resolve, reject) => {
 
-    (store) => {
+      const transaction =
 
-      store.put(
+        db.transaction(
 
-        record,
+          PHOTO_STORE_NAME,
 
-      );
+          'readwrite',
+
+        );
+
+      const store =
+
+        transaction.objectStore(
+
+          PHOTO_STORE_NAME,
+
+        );
+
+      const request =
+
+        store.put(
+
+          record,
+
+        );
+
+      request.onerror =
+
+        () => {
+
+          reject(
+
+            request.error ??
+
+            new Error(
+
+              '写真の保存に失敗しました。',
+
+            ),
+
+          );
+
+        };
+
+      transaction.oncomplete =
+
+        () => {
+
+          resolve(
+
+            record,
+
+          );
+
+        };
+
+      transaction.onerror =
+
+        () => {
+
+          reject(
+
+            transaction.error ??
+
+            new Error(
+
+              '写真の保存に失敗しました。',
+
+            ),
+
+          );
+
+        };
+
+      transaction.onabort =
+
+        () => {
+
+          reject(
+
+            transaction.error ??
+
+            new Error(
+
+              '写真の保存が中断されました。',
+
+            ),
+
+          );
+
+        };
 
     },
 
   );
 
-  return record;
-
 }
 
 // ============================================================
 
-// 全写真取得
+// 保存済み写真をすべて取得
 
 // ============================================================
 
@@ -534,9 +540,17 @@ async function loadAllPhotos() {
 
             (a, b) =>
 
-              b.createdAt -
+              Number(
 
-              a.createdAt,
+                b.createdAt,
+
+              ) -
+
+              Number(
+
+                a.createdAt,
+
+              ),
 
           );
 
@@ -574,7 +588,7 @@ async function loadAllPhotos() {
 
 // ============================================================
 
-// 写真削除
+// 写真1枚を削除
 
 // ============================================================
 
@@ -590,17 +604,83 @@ async function deletePhotoById(
 
   }
 
-  await runStoreTransaction(
+  const db =
 
-    'readwrite',
+    await openDatabase();
 
-    (store) => {
+  return new Promise(
 
-      store.delete(
+    (resolve, reject) => {
 
-        photoId,
+      const transaction =
 
-      );
+        db.transaction(
+
+          PHOTO_STORE_NAME,
+
+          'readwrite',
+
+        );
+
+      const store =
+
+        transaction.objectStore(
+
+          PHOTO_STORE_NAME,
+
+        );
+
+      const request =
+
+        store.delete(
+
+          photoId,
+
+        );
+
+      request.onerror =
+
+        () => {
+
+          reject(
+
+            request.error ??
+
+            new Error(
+
+              '写真の削除に失敗しました。',
+
+            ),
+
+          );
+
+        };
+
+      transaction.oncomplete =
+
+        () => {
+
+          resolve();
+
+        };
+
+      transaction.onerror =
+
+        () => {
+
+          reject(
+
+            transaction.error ??
+
+            new Error(
+
+              '写真の削除に失敗しました。',
+
+            ),
+
+          );
+
+        };
 
     },
 
@@ -610,19 +690,85 @@ async function deletePhotoById(
 
 // ============================================================
 
-// 全写真削除
+// 全写真を削除
 
 // ============================================================
 
 async function deleteAllPhotoRecords() {
 
-  await runStoreTransaction(
+  const db =
 
-    'readwrite',
+    await openDatabase();
 
-    (store) => {
+  return new Promise(
 
-      store.clear();
+    (resolve, reject) => {
+
+      const transaction =
+
+        db.transaction(
+
+          PHOTO_STORE_NAME,
+
+          'readwrite',
+
+        );
+
+      const store =
+
+        transaction.objectStore(
+
+          PHOTO_STORE_NAME,
+
+        );
+
+      const request =
+
+        store.clear();
+
+      request.onerror =
+
+        () => {
+
+          reject(
+
+            request.error ??
+
+            new Error(
+
+              '全写真の削除に失敗しました。',
+
+            ),
+
+          );
+
+        };
+
+      transaction.oncomplete =
+
+        () => {
+
+          resolve();
+
+        };
+
+      transaction.onerror =
+
+        () => {
+
+          reject(
+
+            transaction.error ??
+
+            new Error(
+
+              '全写真の削除に失敗しました。',
+
+            ),
+
+          );
+
+        };
 
     },
 
@@ -1266,7 +1412,7 @@ function revokeAllObjectUrls() {
 
 // ============================================================
 
-// 写真カード
+// 写真カード生成
 
 // ============================================================
 
@@ -1308,31 +1454,47 @@ function createPhotoCard(
 
     document.createElement(
 
-      'button',
+      'div',
 
     );
-
-  card.type =
-
-    'button';
 
   card.className =
 
     'photo-card';
 
-  card.dataset.action =
-
-    'open-photo-preview';
-
-  card.dataset.photoUrl =
-
-    objectUrl;
-
   card.dataset.photoId =
 
     record.id;
 
-  card.setAttribute(
+  const openButton =
+
+    document.createElement(
+
+      'button',
+
+    );
+
+  openButton.type =
+
+    'button';
+
+  openButton.className =
+
+    'photo-card-open';
+
+  openButton.dataset.action =
+
+    'open-photo-preview';
+
+  openButton.dataset.photoUrl =
+
+    objectUrl;
+
+  openButton.dataset.photoId =
+
+    record.id;
+
+  openButton.setAttribute(
 
     'aria-label',
 
@@ -1369,6 +1531,24 @@ function createPhotoCard(
   image.loading =
 
     'lazy';
+
+  openButton.appendChild(
+
+    image,
+
+  );
+
+  const info =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  info.className =
+
+    'photo-card-info';
 
   const date =
 
@@ -1426,21 +1606,27 @@ function createPhotoCard(
 
     '×';
 
-  card.appendChild(
-
-    image,
-
-  );
-
-  card.appendChild(
+  info.appendChild(
 
     date,
 
   );
 
-  card.appendChild(
+  info.appendChild(
 
     deleteButton,
+
+  );
+
+  card.appendChild(
+
+    openButton,
+
+  );
+
+  card.appendChild(
+
+    info,
 
   );
 
@@ -1672,7 +1858,7 @@ async function renderGallery() {
 
 // ============================================================
 
-// 写真選択後の保存
+// 選択された写真を保存
 
 // ============================================================
 
@@ -1694,6 +1880,14 @@ async function handleSelectedFiles(
 
   }
 
+  /*
+
+   * iPhone対策：
+
+   * file.type が空でも File であれば保存対象にする。
+
+   */
+
   const imageFiles =
 
     Array.from(
@@ -1704,13 +1898,7 @@ async function handleSelectedFiles(
 
       (file) =>
 
-        file instanceof File &&
-
-        file.type.startsWith(
-
-          'image/',
-
-        ),
+        file instanceof File,
 
     );
 
@@ -1797,6 +1985,14 @@ function registerFileInputListener() {
             )
 
           : [];
+
+      /*
+
+       * 同じ写真を連続で選んでも
+
+       * changeイベントが発火できるようにする。
+
+       */
 
       input.value =
 
@@ -2218,15 +2414,15 @@ export function getPhotoUrlFromTarget(
 
   }
 
-  const card =
+  const owner =
 
     target.closest(
 
-      '.photo-card',
+      '[data-photo-url]',
 
     );
 
-  return card?.dataset.photoUrl ??
+  return owner?.dataset.photoUrl ??
 
     '';
 
@@ -2270,7 +2466,7 @@ export function getPhotoIdFromTarget(
 
 // ============================================================
 
-// プレビューをターゲットから開く
+// ターゲットからプレビューを開く
 
 // ============================================================
 
@@ -2352,11 +2548,135 @@ export async function deletePhoto(
 
 // ============================================================
 
-// 背景反映
+// ターゲットから写真削除
 
 // ============================================================
 
-function renderBackground() {
+export async function deletePhotoFromTarget(
+
+  target,
+
+) {
+
+  const photoId =
+
+    getPhotoIdFromTarget(
+
+      target,
+
+    );
+
+  if (!photoId) {
+
+    return;
+
+  }
+
+  const confirmed =
+
+    window.confirm(
+
+      'この写真を削除しますか？',
+
+    );
+
+  if (!confirmed) {
+
+    return;
+
+  }
+
+  await deletePhoto(
+
+    photoId,
+
+  );
+
+}
+
+// ============================================================
+
+// 全写真削除
+
+// ============================================================
+
+export async function deleteAllPhotos() {
+
+  const confirmed =
+
+    window.confirm(
+
+      '保存している写真をすべて削除しますか？',
+
+    );
+
+  if (!confirmed) {
+
+    return;
+
+  }
+
+  try {
+
+    closePreview();
+
+    await deleteAllPhotoRecords();
+
+    await renderGallery();
+
+  } catch (error) {
+
+    console.error(
+
+      '[photo.js] 全写真の削除に失敗しました',
+
+      error,
+
+    );
+
+  }
+
+}
+
+// ============================================================
+
+// 写真選択
+
+// ============================================================
+
+export function selectPhotos() {
+
+  const input =
+
+    document.getElementById(
+
+      FILE_INPUT_ID,
+
+    );
+
+  if (!input) {
+
+    console.warn(
+
+      '[photo.js] 写真選択inputが見つかりません',
+
+    );
+
+    return;
+
+  }
+
+  input.click();
+
+}
+
+// ============================================================
+
+// 背景カスタマイズ
+
+// ============================================================
+
+function applyBackground() {
 
   const container =
 
@@ -2368,23 +2688,55 @@ function renderBackground() {
 
   }
 
-  const presetId =
+  const cached =
 
-    Customization
+    Customization.getCached();
 
-      .getCached()
+  const backgroundId =
 
-      .backgrounds
+    cached?.backgrounds?.photo ??
 
-      ?.photo;
+    'default';
 
-  Customization.applyBackgroundClass(
+  /*
 
-    container,
+   * 過去に付けた背景クラスを削除。
 
-    'photo',
+   */
 
-    presetId,
+  Array.from(
+
+    container.classList,
+
+  ).forEach(
+
+    (className) => {
+
+      if (
+
+        className.startsWith(
+
+          'custom-bg-',
+
+        )
+
+      ) {
+
+        container.classList.remove(
+
+          className,
+
+        );
+
+      }
+
+    },
+
+  );
+
+  container.classList.add(
+
+    `custom-bg-${backgroundId}`,
 
   );
 
@@ -2392,69 +2744,11 @@ function renderBackground() {
 
 // ============================================================
 
-// 初期構築
+// カスタマイズ購読
 
 // ============================================================
 
-export function create() {
-
-  if (isBuilt) {
-
-    return;
-
-  }
-
-  const container =
-
-    getContainer() ??
-
-    createContainer();
-
-  const fragment =
-
-    document.createDocumentFragment();
-
-  fragment.appendChild(
-
-    createHeader(),
-
-  );
-
-  fragment.appendChild(
-
-    createIntro(),
-
-  );
-
-  fragment.appendChild(
-
-    createFileInput(),
-
-  );
-
-  fragment.appendChild(
-
-    createMain(),
-
-  );
-
-  fragment.appendChild(
-
-    createViewer(),
-
-  );
-
-  container.replaceChildren(
-
-    fragment,
-
-  );
-
-  registerFileInputListener();
-
-  registerAddLabelKeyboard();
-
-  renderBackground();
+function subscribeCustomization() {
 
   if (
 
@@ -2462,47 +2756,151 @@ export function create() {
 
   ) {
 
-    unsubscribeCustomization();
+    return;
 
   }
 
-  unsubscribeCustomization =
+  const unsubscribe =
 
     Customization.subscribe(
 
       () => {
 
-        renderBackground();
+        applyBackground();
 
       },
 
     );
 
-  isBuilt =
+  if (
 
-    true;
+    typeof unsubscribe ===
+
+    'function'
+
+  ) {
+
+    unsubscribeCustomization =
+
+      unsubscribe;
+
+  }
 
 }
 
 // ============================================================
 
-// 開く
+// 写真画面構築
 
 // ============================================================
 
-export function open() {
+export function build() {
 
-  const container =
+  let container =
 
     getContainer();
 
-  if (!container) {
+  if (
 
-    return;
+    container &&
+
+    isBuilt
+
+  ) {
+
+    applyBackground();
+
+    return container;
 
   }
 
-  renderBackground();
+  if (!container) {
+
+    container =
+
+      createContainer();
+
+  }
+
+  container.replaceChildren();
+
+  const fileInput =
+
+    createFileInput();
+
+  const header =
+
+    createHeader();
+
+  const intro =
+
+    createIntro();
+
+  const main =
+
+    createMain();
+
+  const viewer =
+
+    createViewer();
+
+  container.appendChild(
+
+    fileInput,
+
+  );
+
+  container.appendChild(
+
+    header,
+
+  );
+
+  container.appendChild(
+
+    intro,
+
+  );
+
+  container.appendChild(
+
+    main,
+
+  );
+
+  container.appendChild(
+
+    viewer,
+
+  );
+
+  registerFileInputListener();
+
+  registerAddLabelKeyboard();
+
+  subscribeCustomization();
+
+  applyBackground();
+
+  isBuilt =
+
+    true;
+
+  return container;
+
+}
+
+// ============================================================
+
+// 写真画面を開く
+
+// ============================================================
+
+export async function open() {
+
+  const container =
+
+    build();
 
   container.classList.add(
 
@@ -2518,17 +2916,15 @@ export function open() {
 
   );
 
-  container.scrollTop =
+  applyBackground();
 
-    0;
-
-  renderGallery();
+  await renderGallery();
 
 }
 
 // ============================================================
 
-// 閉じる
+// 写真画面を閉じる
 
 // ============================================================
 
@@ -2560,15 +2956,11 @@ export function close() {
 
   );
 
-  container.scrollTop =
-
-    0;
-
 }
 
 // ============================================================
 
-// 開いているか
+// 写真画面表示状態
 
 // ============================================================
 
@@ -2578,117 +2970,15 @@ export function isOpen() {
 
     getContainer();
 
-  return container
+  return Boolean(
 
-    ? container.classList.contains(
+    container &&
 
-        'is-open',
+    container.classList.contains(
 
-      )
+      'is-open',
 
-    : false;
-
-}
-
-// ============================================================
-
-// 互換用：写真選択
-
-// ============================================================
-
-export function selectPhotos() {
-
-  const input =
-
-    document.getElementById(
-
-      FILE_INPUT_ID,
-
-    );
-
-  if (!input) {
-
-    return;
-
-  }
-
-  input.click();
-
-}
-
-// ============================================================
-
-// 全写真削除
-
-// ============================================================
-
-export async function clearPhotos() {
-
-  try {
-
-    closePreview();
-
-    await deleteAllPhotoRecords();
-
-    revokeAllObjectUrls();
-
-    await renderGallery();
-
-  } catch (error) {
-
-    console.error(
-
-      '[photo.js] 全写真の削除に失敗しました',
-
-      error,
-
-    );
-
-  }
-
-}
-
-// ============================================================
-
-// 背景再反映
-
-// ============================================================
-
-export function refreshCustomization() {
-
-  renderBackground();
-
-}
-
-// ============================================================
-
-// app.js側から削除操作を呼ぶための公開関数
-
-// ============================================================
-
-export async function deletePhotoFromTarget(
-
-  target,
-
-) {
-
-  const photoId =
-
-    getPhotoIdFromTarget(
-
-      target,
-
-    );
-
-  if (!photoId) {
-
-    return;
-
-  }
-
-  await deletePhoto(
-
-    photoId,
+    ),
 
   );
 
@@ -2696,19 +2986,99 @@ export async function deletePhotoFromTarget(
 
 // ============================================================
 
-// default export
+// 再描画
+
+// ============================================================
+
+export async function refresh() {
+
+  if (!isBuilt) {
+
+    return;
+
+  }
+
+  applyBackground();
+
+  await renderGallery();
+
+}
+
+// ============================================================
+
+// 初期化
+
+// ============================================================
+
+export function init() {
+
+  build();
+
+}
+
+// ============================================================
+
+// 破棄
+
+// ============================================================
+
+export function destroy() {
+
+  closePreview();
+
+  revokeAllObjectUrls();
+
+  if (
+
+    typeof unsubscribeCustomization ===
+
+    'function'
+
+  ) {
+
+    try {
+
+      unsubscribeCustomization();
+
+    } catch (error) {
+
+      console.warn(
+
+        '[photo.js] カスタマイズ購読解除に失敗しました',
+
+        error,
+
+      );
+
+    }
+
+  }
+
+  unsubscribeCustomization =
+
+    null;
+
+}
+
+// ============================================================
+
+// Photo API
 
 // ============================================================
 
 const Photo = {
 
-  create,
+  init,
+
+  build,
 
   open,
 
   close,
 
   isOpen,
+
+  refresh,
 
   selectPhotos,
 
@@ -2726,9 +3096,7 @@ const Photo = {
 
   deletePhotoFromTarget,
 
-  clearPhotos,
-
-  refreshCustomization,
+  deleteAllPhotos,
 
 };
 
