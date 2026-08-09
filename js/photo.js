@@ -2,77 +2,71 @@
 
 // photo.js
 
-// Workspace内「写真」画面を管理するモジュール。
+// Workspace内「写真」画面
 
 //
 
-// 【担当するもの】
+// ・写真画面DOM生成
 
-// ・写真画面のDOM生成
+// ・写真選択
 
-// ・画面の開閉
+// ・写真一覧表示
 
-// ・写真一覧の描画
+// ・写真拡大表示
 
-// ・写真追加UI
-
-// ・写真プレビュー
-
-// ・背景カスタマイズの反映
+// ・背景カスタマイズ
 
 //
 
-// 【担当しないもの】
+// 写真データの共有保存は後続工程で実装する。
 
-// ・Workspace⇔写真の画面遷移 → router.js
-
-// ・クリックイベントの解釈 → app.js
-
-// ・共有写真のFirestore保存 → 後続工程
-
-//
-
-// Phase1では、まず写真画面そのものを完成させる。
+// 現段階では選択した写真を端末メモリ上で表示する。
 
 // ============================================================
 
 import Customization from './customization.js';
 
-/** 写真画面コンテナID */
+// ------------------------------------------------------------
 
-const CONTAINER_ID = 'photo';
+// 定数
 
-/** 二重生成防止 */
+// ------------------------------------------------------------
 
-let isBuilt = false;
+const CONTAINER_ID =
 
-/** customization.js購読解除関数 */
+  'photo';
 
-let unsubscribeCustomization = null;
+// ------------------------------------------------------------
 
-/**
+// 状態
 
- * 現在プレビュー中のObject URL。
+// ------------------------------------------------------------
 
- * 新しい画像を開くとき／画面を閉じるときに解放する。
+let isBuilt =
 
- */
+  false;
 
-let currentPreviewObjectUrl = null;
+let unsubscribeCustomization =
 
-/* ------------------------------------------------------------
-
-   コンテナ
-
-   ------------------------------------------------------------ */
+  null;
 
 /**
 
- * #photo を取得する。
+ * 現在作成しているObject URL。
 
- * @returns {HTMLElement|null}
+ * 写真一覧を削除する際に解放する。
 
  */
+
+const photoObjectUrls =
+
+  new Set();
+
+// ============================================================
+
+// コンテナ
+
+// ============================================================
 
 function getContainer() {
 
@@ -84,19 +78,15 @@ function getContainer() {
 
 }
 
-/**
-
- * 写真画面のコンテナを作成する。
-
- * @returns {HTMLElement}
-
- */
-
 function createContainer() {
 
   const container =
 
-    document.createElement('div');
+    document.createElement(
+
+      'div',
+
+    );
 
   container.id =
 
@@ -124,23 +114,11 @@ function createContainer() {
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   ヘッダー
+// ヘッダー
 
-   ------------------------------------------------------------ */
-
-/**
-
- * 戻る / 写真 / ロック
-
- * のヘッダーを作成する。
-
- *
-
- * @returns {HTMLElement}
-
- */
+// ============================================================
 
 function createHeader() {
 
@@ -264,25 +242,15 @@ function createHeader() {
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   上部説明
+// 上部カード
 
-   ------------------------------------------------------------ */
-
-/**
-
- * 写真画面上部の説明部分を作る。
-
- *
-
- * @returns {HTMLElement}
-
- */
+// ============================================================
 
 function createIntro() {
 
-  const section =
+  const intro =
 
     document.createElement(
 
@@ -290,7 +258,7 @@ function createIntro() {
 
     );
 
-  section.className =
+  intro.className =
 
     'photo-intro';
 
@@ -350,7 +318,7 @@ function createIntro() {
 
   );
 
-  // 写真追加ボタン
+  // ＋ボタン
 
   const addButton =
 
@@ -384,39 +352,27 @@ function createIntro() {
 
     '＋';
 
-  section.appendChild(
+  intro.appendChild(
 
     textWrap,
 
   );
 
-  section.appendChild(
+  intro.appendChild(
 
     addButton,
 
   );
 
-  return section;
+  return intro;
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   写真選択input
+// 写真選択input
 
-   ------------------------------------------------------------ */
-
-/**
-
- * iPhoneの写真ライブラリを開くための
-
- * 非表示inputを作る。
-
- *
-
- * @returns {HTMLInputElement}
-
- */
+// ============================================================
 
 function createFileInput() {
 
@@ -460,25 +416,15 @@ function createFileInput() {
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   写真グリッド
+// メイン領域
 
-   ------------------------------------------------------------ */
+// ============================================================
 
-/**
+function createMain() {
 
- * 写真一覧のグリッドを作る。
-
- *
-
- * @returns {HTMLElement}
-
- */
-
-function createGrid() {
-
-  const grid =
+  const main =
 
     document.createElement(
 
@@ -486,33 +432,51 @@ function createGrid() {
 
     );
 
-  grid.id =
+  main.className =
 
-    'photoGrid';
+    'photo-main';
 
-  grid.className =
+  // 写真一覧
 
-    'photo-grid';
+  const gallery =
 
-  return grid;
+    document.createElement(
+
+      'div',
+
+    );
+
+  gallery.id =
+
+    'photoGallery';
+
+  gallery.className =
+
+    'photo-gallery';
+
+  // 空状態
+
+  gallery.appendChild(
+
+    createEmptyState(),
+
+  );
+
+  main.appendChild(
+
+    gallery,
+
+  );
+
+  return main;
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   空状態
+// 空状態
 
-   ------------------------------------------------------------ */
-
-/**
-
- * 写真がまだ無い場合の表示を作る。
-
- *
-
- * @returns {HTMLElement}
-
- */
+// ============================================================
 
 function createEmptyState() {
 
@@ -582,7 +546,7 @@ function createEmptyState() {
 
   description.className =
 
-    'photo-empty-description';
+    'photo-empty-text';
 
   description.textContent =
 
@@ -610,139 +574,13 @@ function createEmptyState() {
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   写真プレビュー
+// 写真カード
 
-   ------------------------------------------------------------ */
+// ============================================================
 
-/**
-
- * 写真を拡大表示するプレビュー画面を作る。
-
- *
-
- * @returns {HTMLElement}
-
- */
-
-function createPreview() {
-
-  const preview =
-
-    document.createElement(
-
-      'div',
-
-    );
-
-  preview.id =
-
-    'photoPreview';
-
-  preview.className =
-
-    'photo-preview';
-
-  preview.setAttribute(
-
-    'aria-hidden',
-
-    'true',
-
-  );
-
-  // 閉じるボタン
-
-  const closeButton =
-
-    document.createElement(
-
-      'button',
-
-    );
-
-  closeButton.type =
-
-    'button';
-
-  closeButton.className =
-
-    'photo-preview-close';
-
-  closeButton.dataset.action =
-
-    'close-photo-preview';
-
-  closeButton.setAttribute(
-
-    'aria-label',
-
-    '写真を閉じる',
-
-  );
-
-  closeButton.textContent =
-
-    '×';
-
-  // 拡大画像
-
-  const image =
-
-    document.createElement(
-
-      'img',
-
-    );
-
-  image.id =
-
-    'photoPreviewImage';
-
-  image.className =
-
-    'photo-preview-image';
-
-  image.alt =
-
-    '選択した写真';
-
-  preview.appendChild(
-
-    closeButton,
-
-  );
-
-  preview.appendChild(
-
-    image,
-
-  );
-
-  return preview;
-
-}
-
-/* ------------------------------------------------------------
-
-   1枚分の写真
-
-   ------------------------------------------------------------ */
-
-/**
-
- * 選択されたFileから写真カードを作る。
-
- *
-
- * @param {File} file
-
- * @returns {HTMLElement|null}
-
- */
-
-function createPhotoItem(
+function createPhotoCard(
 
   file,
 
@@ -772,7 +610,13 @@ function createPhotoItem(
 
     );
 
-  const button =
+  photoObjectUrls.add(
+
+    objectUrl,
+
+  );
+
+  const card =
 
     document.createElement(
 
@@ -780,31 +624,31 @@ function createPhotoItem(
 
     );
 
-  button.type =
+  card.type =
 
     'button';
 
-  button.className =
+  card.className =
 
-    'photo-item';
+    'photo-card';
 
-  button.dataset.action =
+  card.dataset.action =
 
     'open-photo-preview';
 
-  button.dataset.photoUrl =
+  card.dataset.photoUrl =
 
     objectUrl;
 
-  button.setAttribute(
+  card.setAttribute(
 
     'aria-label',
 
     file.name
 
-      ? `${file.name}を表示`
+      ? `${file.name}を開く`
 
-      : '写真を表示',
+      : '写真を開く',
 
   );
 
@@ -818,7 +662,7 @@ function createPhotoItem(
 
   image.className =
 
-    'photo-item-image';
+    'photo-card-image';
 
   image.src =
 
@@ -826,41 +670,37 @@ function createPhotoItem(
 
   image.alt =
 
-    file.name || '写真';
+    file.name ||
+
+    '写真';
 
   image.loading =
 
     'lazy';
 
-  button.appendChild(
+  card.appendChild(
 
     image,
 
   );
 
-  return button;
+  return card;
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   空状態の表示切替
+// 空状態更新
 
-   ------------------------------------------------------------ */
-
-/**
-
- * 写真が1枚以上ある場合は空状態を隠す。
-
- */
+// ============================================================
 
 function updateEmptyState() {
 
-  const grid =
+  const gallery =
 
     document.getElementById(
 
-      'photoGrid',
+      'photoGallery',
 
     );
 
@@ -874,7 +714,7 @@ function updateEmptyState() {
 
   if (
 
-    !grid ||
+    !gallery ||
 
     !empty
 
@@ -884,31 +724,25 @@ function updateEmptyState() {
 
   }
 
-  const hasPhotos =
+  const hasPhoto =
 
-    grid.querySelector(
+    gallery.querySelector(
 
-      '.photo-item',
+      '.photo-card',
 
     ) !== null;
 
   empty.hidden =
 
-    hasPhotos;
+    hasPhoto;
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   写真選択
+// 写真選択
 
-   ------------------------------------------------------------ */
-
-/**
-
- * iPhoneの写真選択画面を開く。
-
- */
+// ============================================================
 
 export function selectPhotos() {
 
@@ -920,17 +754,11 @@ export function selectPhotos() {
 
     );
 
-  if (!input) return;
+  if (!input) {
 
-  /*
+    return;
 
-   * 同じ写真を続けて選んだ場合でも
-
-   * changeイベントが発火するように、
-
-   * 選択前にvalueを空にする。
-
-   */
+  }
 
   input.value =
 
@@ -940,23 +768,11 @@ export function selectPhotos() {
 
 }
 
-/**
+// ============================================================
 
- * file inputで選択された写真を
+// 選択写真追加
 
- * グリッドへ追加する。
-
- *
-
- * Phase1では端末メモリ上だけに保持する。
-
- * Firestore / Storage共有は後続工程で追加する。
-
- *
-
- * @param {FileList|File[]} files
-
- */
+// ============================================================
 
 export function addSelectedPhotos(
 
@@ -964,17 +780,17 @@ export function addSelectedPhotos(
 
 ) {
 
-  const grid =
+  const gallery =
 
     document.getElementById(
 
-      'photoGrid',
+      'photoGallery',
 
     );
 
   if (
 
-    !grid ||
+    !gallery ||
 
     !files
 
@@ -996,19 +812,19 @@ export function addSelectedPhotos(
 
     (file) => {
 
-      const item =
+      const card =
 
-        createPhotoItem(
+        createPhotoCard(
 
           file,
 
         );
 
-      if (item) {
+      if (card) {
 
         fragment.appendChild(
 
-          item,
+          card,
 
         );
 
@@ -1018,7 +834,7 @@ export function addSelectedPhotos(
 
   );
 
-  grid.appendChild(
+  gallery.appendChild(
 
     fragment,
 
@@ -1028,23 +844,111 @@ export function addSelectedPhotos(
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   プレビューを開く
+// プレビュー生成
 
-   ------------------------------------------------------------ */
+// ============================================================
 
-/**
+function createViewer() {
 
- * 指定されたObject URLの写真を
+  const viewer =
 
- * 全画面プレビューで表示する。
+    document.createElement(
 
- *
+      'div',
 
- * @param {string} objectUrl
+    );
 
- */
+  viewer.id =
+
+    'photoViewer';
+
+  viewer.className =
+
+    'photo-viewer';
+
+  viewer.setAttribute(
+
+    'aria-hidden',
+
+    'true',
+
+  );
+
+  const closeButton =
+
+    document.createElement(
+
+      'button',
+
+    );
+
+  closeButton.type =
+
+    'button';
+
+  closeButton.className =
+
+    'photo-viewer-close';
+
+  closeButton.dataset.action =
+
+    'close-photo-preview';
+
+  closeButton.setAttribute(
+
+    'aria-label',
+
+    '写真を閉じる',
+
+  );
+
+  closeButton.textContent =
+
+    '×';
+
+  const image =
+
+    document.createElement(
+
+      'img',
+
+    );
+
+  image.id =
+
+    'photoViewerImage';
+
+  image.className =
+
+    'photo-viewer-image';
+
+  image.alt =
+
+    '選択した写真';
+
+  viewer.appendChild(
+
+    closeButton,
+
+  );
+
+  viewer.appendChild(
+
+    image,
+
+  );
+
+  return viewer;
+
+}
+
+// ============================================================
+
+// プレビューを開く
+
+// ============================================================
 
 export function openPreview(
 
@@ -1066,11 +970,11 @@ export function openPreview(
 
   }
 
-  const preview =
+  const viewer =
 
     document.getElementById(
 
-      'photoPreview',
+      'photoViewer',
 
     );
 
@@ -1078,13 +982,13 @@ export function openPreview(
 
     document.getElementById(
 
-      'photoPreviewImage',
+      'photoViewerImage',
 
     );
 
   if (
 
-    !preview ||
+    !viewer ||
 
     !image
 
@@ -1094,21 +998,17 @@ export function openPreview(
 
   }
 
-  currentPreviewObjectUrl =
-
-    objectUrl;
-
   image.src =
 
     objectUrl;
 
-  preview.classList.add(
+  viewer.classList.add(
 
     'is-open',
 
   );
 
-  preview.setAttribute(
+  viewer.setAttribute(
 
     'aria-hidden',
 
@@ -1118,31 +1018,19 @@ export function openPreview(
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   プレビューを閉じる
+// プレビューを閉じる
 
-   ------------------------------------------------------------ */
-
-/**
-
- * 写真プレビューを閉じる。
-
- *
-
- * 写真グリッドでも同じObject URLを使用しているため、
-
- * ここではURL.revokeObjectURL()は実行しない。
-
- */
+// ============================================================
 
 export function closePreview() {
 
-  const preview =
+  const viewer =
 
     document.getElementById(
 
-      'photoPreview',
+      'photoViewer',
 
     );
 
@@ -1150,19 +1038,19 @@ export function closePreview() {
 
     document.getElementById(
 
-      'photoPreviewImage',
+      'photoViewerImage',
 
     );
 
-  if (preview) {
+  if (viewer) {
 
-    preview.classList.remove(
+    viewer.classList.remove(
 
       'is-open',
 
     );
 
-    preview.setAttribute(
+    viewer.setAttribute(
 
       'aria-hidden',
 
@@ -1182,155 +1070,41 @@ export function closePreview() {
 
   }
 
-  currentPreviewObjectUrl =
+}
 
-    null;
+// ============================================================
+
+// 写真URL取得
+
+// ============================================================
+
+export function getPhotoUrlFromTarget(
+
+  target,
+
+) {
+
+  if (
+
+    !(target instanceof HTMLElement)
+
+  ) {
+
+    return '';
+
+  }
+
+  return target.dataset.photoUrl ??
+
+    '';
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   Object URL解放
+// file inputイベント
 
-   ------------------------------------------------------------ */
-
-/**
-
- * 写真グリッド内で使用している
-
- * Object URLをすべて解放する。
-
- *
-
- * 現在は画面を閉じても写真一覧を残すため
-
- * 通常のclose()では呼ばない。
-
- *
-
- * 将来、写真一覧を再構築するときや
-
- * destroy()を追加した場合に利用できる。
-
- */
-
-function revokeAllPhotoUrls() {
-
-  const grid =
-
-    document.getElementById(
-
-      'photoGrid',
-
-    );
-
-  if (!grid) return;
-
-  const items =
-
-    grid.querySelectorAll(
-
-      '.photo-item[data-photo-url]',
-
-    );
-
-  items.forEach(
-
-    (item) => {
-
-      const url =
-
-        item.dataset.photoUrl;
-
-      if (url) {
-
-        try {
-
-          URL.revokeObjectURL(
-
-            url,
-
-          );
-
-        } catch (error) {
-
-          console.warn(
-
-            '[photo.js] Object URLの解放に失敗しました',
-
-            error,
-
-          );
-
-        }
-
-      }
-
-    },
-
-  );
-
-  currentPreviewObjectUrl =
-
-    null;
-
-}
-
-/* ------------------------------------------------------------
-
-   背景反映
-
-   ------------------------------------------------------------ */
-
-/**
-
- * customization.jsの現在値から
-
- * 写真画面の背景を反映する。
-
- */
-
-function renderBackground() {
-
-  const container =
-
-    getContainer();
-
-  if (!container) return;
-
-  const presetId =
-
-    Customization
-
-      .getCached()
-
-      .backgrounds
-
-      ?.photo;
-
-  Customization.applyBackgroundClass(
-
-    container,
-
-    'photo',
-
-    presetId,
-
-  );
-
-}
-
-/* ------------------------------------------------------------
-
-   file inputイベント
-
-   ------------------------------------------------------------ */
-
-/**
-
- * 写真選択input専用のchangeイベントを登録する。
-
- */
+// ============================================================
 
 function registerFileInputListener() {
 
@@ -1342,7 +1116,11 @@ function registerFileInputListener() {
 
     );
 
-  if (!input) return;
+  if (!input) {
+
+    return;
+
+  }
 
   input.addEventListener(
 
@@ -1374,11 +1152,51 @@ function registerFileInputListener() {
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   外部から背景再反映
+// 背景反映
 
-   ------------------------------------------------------------ */
+// ============================================================
+
+function renderBackground() {
+
+  const container =
+
+    getContainer();
+
+  if (!container) {
+
+    return;
+
+  }
+
+  const presetId =
+
+    Customization
+
+      .getCached()
+
+      .backgrounds
+
+      ?.photo;
+
+  Customization.applyBackgroundClass(
+
+    container,
+
+    'photo',
+
+    presetId,
+
+  );
+
+}
+
+// ============================================================
+
+// 外部から背景再反映
+
+// ============================================================
 
 export function refreshCustomization() {
 
@@ -1386,11 +1204,75 @@ export function refreshCustomization() {
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   初期構築
+// 写真一覧クリア
 
-   ------------------------------------------------------------ */
+// ============================================================
+
+export function clearPhotos() {
+
+  closePreview();
+
+  photoObjectUrls.forEach(
+
+    (url) => {
+
+      try {
+
+        URL.revokeObjectURL(
+
+          url,
+
+        );
+
+      } catch (error) {
+
+        console.warn(
+
+          '[photo.js] Object URLの解放に失敗しました',
+
+          error,
+
+        );
+
+      }
+
+    },
+
+  );
+
+  photoObjectUrls.clear();
+
+  const gallery =
+
+    document.getElementById(
+
+      'photoGallery',
+
+    );
+
+  if (!gallery) {
+
+    return;
+
+  }
+
+  gallery.replaceChildren(
+
+    createEmptyState(),
+
+  );
+
+  updateEmptyState();
+
+}
+
+// ============================================================
+
+// 初期構築
+
+// ============================================================
 
 export function create() {
 
@@ -1428,25 +1310,15 @@ export function create() {
 
   );
 
-  const grid =
+  fragment.appendChild(
 
-    createGrid();
-
-  grid.appendChild(
-
-    createEmptyState(),
+    createMain(),
 
   );
 
   fragment.appendChild(
 
-    grid,
-
-  );
-
-  fragment.appendChild(
-
-    createPreview(),
+    createViewer(),
 
   );
 
@@ -1488,11 +1360,11 @@ export function create() {
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   開く
+// 開く
 
-   ------------------------------------------------------------ */
+// ============================================================
 
 export function open() {
 
@@ -1505,14 +1377,6 @@ export function open() {
     return;
 
   }
-
-  /*
-
-   * 設定変更直後でも
-
-   * 最新背景を確実に反映する。
-
-   */
 
   renderBackground();
 
@@ -1534,23 +1398,13 @@ export function open() {
 
     0;
 
-  window.requestAnimationFrame(
-
-    () => {
-
-      renderBackground();
-
-    },
-
-  );
-
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   閉じる
+// 閉じる
 
-   ------------------------------------------------------------ */
+// ============================================================
 
 export function close() {
 
@@ -1586,11 +1440,11 @@ export function close() {
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   開いているか
+// 開いているか
 
-   ------------------------------------------------------------ */
+// ============================================================
 
 export function isOpen() {
 
@@ -1610,107 +1464,11 @@ export function isOpen() {
 
 }
 
-/* ------------------------------------------------------------
+// ============================================================
 
-   data-action補助
+// default export
 
-   ------------------------------------------------------------ */
-
-/**
-
- * app.jsから
-
- * open-photo-preview の対象URLを取得するときに使う。
-
- *
-
- * @param {HTMLElement} target
-
- * @returns {string}
-
- */
-
-export function getPhotoUrlFromTarget(
-
-  target,
-
-) {
-
-  if (
-
-    !(target instanceof HTMLElement)
-
-  ) {
-
-    return '';
-
-  }
-
-  return (
-
-    target.dataset.photoUrl ??
-
-    ''
-
-  );
-
-}
-
-/* ------------------------------------------------------------
-
-   写真一覧リセット
-
-   ------------------------------------------------------------ */
-
-/**
-
- * 現在画面上に表示している写真を
-
- * すべて削除する。
-
- *
-
- * Phase1の写真はObject URLのみなので、
-
- * 削除時にURLも解放する。
-
- */
-
-export function clearPhotos() {
-
-  closePreview();
-
-  revokeAllPhotoUrls();
-
-  const grid =
-
-    document.getElementById(
-
-      'photoGrid',
-
-    );
-
-  if (!grid) {
-
-    return;
-
-  }
-
-  grid.replaceChildren(
-
-    createEmptyState(),
-
-  );
-
-  updateEmptyState();
-
-}
-
-/* ------------------------------------------------------------
-
-   default export
-
-   ------------------------------------------------------------ */
+// ============================================================
 
 const Photo = {
 
@@ -1730,9 +1488,9 @@ const Photo = {
 
   closePreview,
 
-  clearPhotos,
-
   getPhotoUrlFromTarget,
+
+  clearPhotos,
 
   refreshCustomization,
 
