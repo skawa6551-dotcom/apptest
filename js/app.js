@@ -3422,11 +3422,13 @@ function handlePhotoScreenClick(
 
     ];
 
-  if (handler) {
+if (handler) {
 
-    handler(target,);
+  handler(
 
-  }
+    target,
+
+  );
 
 }
 
