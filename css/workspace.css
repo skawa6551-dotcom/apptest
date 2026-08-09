@@ -1,286 +1,1049 @@
 /* ============================================================
+
    workspace.css
-   Workspace（#workspace / .workspace。旧Secret Home）専用のスタイル。
-   色・余白・角丸・影・モーション・Safe Area等はすべて app.css で
-   定義済みのCSS変数のみを参照し、新しい変数は一切追加しない。
-   app.css / calculator.css / settings.css には触れない。
+
+   Workspace（#workspace）専用スタイル。
+
+   背景変更を確実に反映するため、
+
+   各プリセットクラスで background / background-color を
+
+   明示的に上書きする。
+
    ============================================================ */
 
 /* ------------------------------------------------------------
-   画面全体を覆う固定レイヤー
+
+   画面全体
+
    ------------------------------------------------------------ */
+
 .workspace {
+
   position: fixed;
+
   inset: 0;
+
   z-index: calc(var(--z-lock) + 10);
 
   display: none;
+
   visibility: hidden;
+
   flex-direction: column;
 
+  background: var(--color-bg);
+
   background-color: var(--color-bg);
+
   color: var(--color-text-primary);
 
   overflow: auto;
+
   -webkit-overflow-scrolling: touch;
+
   overscroll-behavior: contain;
 
   opacity: 0;
+
   pointer-events: none;
-  transition: opacity var(--duration-base) var(--easing-standard);
+
+  transition:
+
+    opacity var(--duration-base) var(--easing-standard),
+
+    background var(--duration-base) var(--easing-standard),
+
+    background-color var(--duration-base) var(--easing-standard);
 
   padding-top: max(var(--space-md), var(--safe-top));
+
   padding-bottom: max(var(--space-md), var(--safe-bottom));
+
   padding-left: max(var(--space-md), var(--safe-left));
+
   padding-right: max(var(--space-md), var(--safe-right));
+
+  min-height: 100vh;
+
+  min-height: 100dvh;
+
 }
 
 .workspace.is-open {
+
   display: flex;
+
   visibility: visible;
+
   opacity: 1;
+
   pointer-events: auto;
+
 }
 
 /* ------------------------------------------------------------
-   背景プリセット（Phase1.6）
-   customization.jsのBACKGROUND_PRESETSに対応するクラス。'default'は
-   無指定＝上の.workspaceが元々持つ既定の見た目のため、専用クラスは無い。
-   色はプリセット固有の値のため、app.cssの共有トークンではなく
-   このファイル内に閉じた固定値として持たせる（archive.cssの
-   背景プリセットと同じ考え方）。
+
+   背景プリセット
+
+   customization.js の
+
+   workspace-bg--xxxx と完全一致させる。
+
    ------------------------------------------------------------ */
-.workspace.workspace-bg--wood {
-  background: linear-gradient(180deg, #caa06a 0%, #a97a45 55%, #7d5730 100%);
+
+/* デフォルト */
+
+.workspace.workspace-bg--default {
+
+  background: var(--color-bg);
+
+  background-color: var(--color-bg);
+
 }
+
+/* 木目 */
+
+.workspace.workspace-bg--wood {
+
+  background:
+
+    repeating-linear-gradient(
+
+      178deg,
+
+      rgba(255, 255, 255, 0) 0px,
+
+      rgba(90, 45, 15, 0.08) 2px,
+
+      rgba(255, 255, 255, 0) 5px,
+
+      rgba(255, 235, 205, 0.1) 8px
+
+    ),
+
+    repeating-linear-gradient(
+
+      178deg,
+
+      #cfa268 0px,
+
+      #b98750 65px,
+
+      #d5aa72 130px,
+
+      #a97542 200px,
+
+      #c18d55 270px
+
+    ),
+
+    linear-gradient(
+
+      180deg,
+
+      #d8ad78 0%,
+
+      #b5824e 55%,
+
+      #8b5e35 100%
+
+    );
+
+  background-color: #a87545;
+
+}
+
+/* ブラック */
 
 .workspace.workspace-bg--black {
-  background: linear-gradient(180deg, #0a0a0a 0%, #000000 100%);
+
+  background:
+
+    linear-gradient(
+
+      180deg,
+
+      #111111 0%,
+
+      #050505 45%,
+
+      #000000 100%
+
+    );
+
+  background-color: #000000;
+
 }
+
+/* ブラックガラス */
 
 .workspace.workspace-bg--black-glass {
-  background: linear-gradient(180deg, #101214 0%, #24272b 100%);
+
+  background:
+
+    radial-gradient(
+
+      circle at 30% 10%,
+
+      rgba(255, 255, 255, 0.08),
+
+      transparent 28%
+
+    ),
+
+    linear-gradient(
+
+      160deg,
+
+      #25282d 0%,
+
+      #15171a 45%,
+
+      #08090b 100%
+
+    );
+
+  background-color: #111317;
+
 }
+
+/* ダークグレー */
 
 .workspace.workspace-bg--dark-gray {
-  background: linear-gradient(180deg, #202020 0%, #121212 100%);
+
+  background:
+
+    linear-gradient(
+
+      180deg,
+
+      #343434 0%,
+
+      #242424 45%,
+
+      #131313 100%
+
+    );
+
+  background-color: #202020;
+
 }
+
+/* ネイビー */
 
 .workspace.workspace-bg--navy {
-  background: linear-gradient(180deg, #05070d 0%, #0d1a2e 100%);
+
+  background:
+
+    radial-gradient(
+
+      circle at 50% 0%,
+
+      rgba(70, 110, 180, 0.2),
+
+      transparent 45%
+
+    ),
+
+    linear-gradient(
+
+      180deg,
+
+      #101a2d 0%,
+
+      #08101f 55%,
+
+      #030711 100%
+
+    );
+
+  background-color: #07101e;
+
 }
+
+/* ゴールド */
 
 .workspace.workspace-bg--gold {
-  background: radial-gradient(ellipse 120% 60% at 50% -10%, rgba(201, 169, 106, 0.25), transparent 60%),
-    linear-gradient(180deg, #14100a 0%, #0a0705 100%);
+
+  background:
+
+    radial-gradient(
+
+      ellipse 120% 65% at 50% -10%,
+
+      rgba(235, 196, 112, 0.32),
+
+      transparent 60%
+
+    ),
+
+    linear-gradient(
+
+      165deg,
+
+      #3b2a12 0%,
+
+      #1d1408 50%,
+
+      #090603 100%
+
+    );
+
+  background-color: #171006;
+
 }
 
+/* 抽象グラデーション */
+
 .workspace.workspace-bg--abstract {
-  background: linear-gradient(160deg, #140a07 0%, #241506 45%, #0a0d14 100%);
+
+  background:
+
+    radial-gradient(
+
+      circle at 15% 15%,
+
+      rgba(141, 68, 160, 0.28),
+
+      transparent 34%
+
+    ),
+
+    radial-gradient(
+
+      circle at 85% 30%,
+
+      rgba(42, 108, 173, 0.26),
+
+      transparent 38%
+
+    ),
+
+    radial-gradient(
+
+      circle at 50% 90%,
+
+      rgba(191, 112, 52, 0.2),
+
+      transparent 42%
+
+    ),
+
+    linear-gradient(
+
+      160deg,
+
+      #170d19 0%,
+
+      #0d1320 45%,
+
+      #0b0808 100%
+
+    );
+
+  background-color: #101018;
+
 }
 
 /* ------------------------------------------------------------
-   ヘッダー：戻るボタン＋タイトル＋鑑賞モード／ロックボタン
+
+   背景変更後もカードの視認性を保つ
+
    ------------------------------------------------------------ */
+
+.workspace.workspace-bg--wood {
+
+  --color-text-primary: #2b1a0d;
+
+  --color-text-secondary: #6f4d2d;
+
+  --color-surface: rgba(255, 248, 236, 0.32);
+
+  --color-surface-strong: rgba(255, 248, 236, 0.5);
+
+  --color-border: rgba(70, 40, 20, 0.15);
+
+}
+
+.workspace.workspace-bg--black,
+
+.workspace.workspace-bg--black-glass,
+
+.workspace.workspace-bg--dark-gray,
+
+.workspace.workspace-bg--navy,
+
+.workspace.workspace-bg--gold,
+
+.workspace.workspace-bg--abstract {
+
+  --color-text-primary: #f5f5f7;
+
+  --color-text-secondary: #a0a0a6;
+
+}
+
+/* ------------------------------------------------------------
+
+   ヘッダー
+
+   ------------------------------------------------------------ */
+
 .workspace-header {
+
   display: flex;
+
   align-items: center;
+
   gap: var(--space-sm);
+
   flex-shrink: 0;
+
   padding-bottom: var(--space-md);
+
+  position: relative;
+
+  z-index: 2;
+
 }
 
 .workspace-header .icon-btn {
+
   flex-shrink: 0;
+
 }
 
 .workspace-title {
+
   flex: 1 1 auto;
+
   min-width: 0;
+
   font-size: var(--font-size-lg);
+
   font-weight: 700;
+
   letter-spacing: 0.02em;
+
+  color: var(--color-text-primary);
+
+  overflow: hidden;
+
+  white-space: nowrap;
+
+  text-overflow: ellipsis;
+
 }
 
 .workspace-header-actions {
+
   display: flex;
+
   align-items: center;
+
   gap: var(--space-2xs);
+
   flex-shrink: 0;
+
 }
 
-/* 鑑賞モードON中は👁ボタンをアクセントカラーで強調する */
+/* ------------------------------------------------------------
+
+   鑑賞モード
+
+   ------------------------------------------------------------ */
+
 #viewModeToggleBtn.active {
+
   background-color: var(--color-accent);
+
   color: var(--color-accent-contrast);
+
 }
 
-/* 鑑賞モード中は、画面全体にごくうっすら分かる程度の変化を付ける
-   （誤って通常モードと混同しないための最小限の視覚手がかり）。 */
 .workspace.view-mode {
-  box-shadow: inset 0 0 0 2px var(--color-accent);
+
+  box-shadow:
+
+    inset 0 0 0 2px var(--color-accent);
+
 }
 
 /* ------------------------------------------------------------
-   メイン：カードを縦に並べる領域
+
+   メイン
+
    ------------------------------------------------------------ */
+
 .workspace-main {
+
   display: flex;
+
   flex-direction: column;
+
   gap: var(--space-sm);
+
   flex: 1 1 auto;
+
   min-height: 0;
+
   padding-bottom: var(--space-lg);
+
+  position: relative;
+
+  z-index: 1;
+
 }
 
 /* ------------------------------------------------------------
+
    カード
+
    ------------------------------------------------------------ */
+
 .workspace-card {
+
   display: flex;
+
   align-items: center;
+
   gap: var(--space-sm);
+
   width: 100%;
+
   min-height: 4.5rem;
+
   padding: var(--space-md);
+
   border-radius: var(--radius-lg);
+
   background-color: var(--color-surface);
+
   backdrop-filter: blur(var(--blur-glass));
+
   -webkit-backdrop-filter: blur(var(--blur-glass));
+
+  border: 1px solid var(--color-border);
+
   box-shadow: var(--shadow-elevated);
+
   color: var(--color-text-primary);
+
   font-size: var(--font-size-md);
+
   font-weight: 500;
+
   text-align: left;
+
   user-select: none;
+
   -webkit-user-select: none;
-  transition: transform var(--duration-fast) var(--easing-standard),
+
+  transition:
+
+    transform var(--duration-fast) var(--easing-standard),
+
     background-color var(--duration-base) var(--easing-standard),
+
     box-shadow var(--duration-fast) var(--easing-standard);
+
 }
 
 .workspace-card:active,
+
 .workspace-card.pressed {
+
   transform: scale(0.97);
+
   background-color: var(--color-surface-strong);
+
   box-shadow: none;
+
 }
 
 .workspace-card-icon {
+
   display: inline-flex;
+
   align-items: center;
+
   justify-content: center;
+
   flex-shrink: 0;
+
   width: 2.5rem;
+
   height: 2.5rem;
+
   border-radius: var(--radius-full);
+
   background-color: var(--color-surface-strong);
+
   color: var(--color-accent);
+
+  font-size: 1.25rem;
+
 }
 
 .workspace-card-label {
+
   flex: 1 1 auto;
+
   min-width: 0;
+
   white-space: nowrap;
+
   overflow: hidden;
+
   text-overflow: ellipsis;
+
 }
 
 /* ------------------------------------------------------------
-   鑑賞モード パスコード確認パネル
-   通常は非表示。.is-open が付いたときだけ画面中央に浮かせる。
+
+   木目背景時のカード調整
+
    ------------------------------------------------------------ */
+
+.workspace.workspace-bg--wood .workspace-card {
+
+  background-color: rgba(255, 248, 236, 0.34);
+
+  border-color: rgba(70, 40, 20, 0.14);
+
+  box-shadow:
+
+    0 0.75rem 2rem rgba(74, 43, 20, 0.18);
+
+}
+
+.workspace.workspace-bg--wood .workspace-card-icon {
+
+  background-color: rgba(255, 248, 236, 0.48);
+
+}
+
+/* ------------------------------------------------------------
+
+   ブラック背景時のカード調整
+
+   ------------------------------------------------------------ */
+
+.workspace.workspace-bg--black .workspace-card {
+
+  background-color: rgba(255, 255, 255, 0.055);
+
+  border-color: rgba(255, 255, 255, 0.07);
+
+}
+
+/* ------------------------------------------------------------
+
+   ブラックガラス背景時のカード調整
+
+   ------------------------------------------------------------ */
+
+.workspace.workspace-bg--black-glass .workspace-card {
+
+  background-color: rgba(255, 255, 255, 0.075);
+
+  border-color: rgba(255, 255, 255, 0.1);
+
+  backdrop-filter: blur(1.5rem);
+
+  -webkit-backdrop-filter: blur(1.5rem);
+
+}
+
+/* ------------------------------------------------------------
+
+   ダークグレー背景時のカード調整
+
+   ------------------------------------------------------------ */
+
+.workspace.workspace-bg--dark-gray .workspace-card {
+
+  background-color: rgba(255, 255, 255, 0.065);
+
+  border-color: rgba(255, 255, 255, 0.08);
+
+}
+
+/* ------------------------------------------------------------
+
+   ネイビー背景時のカード調整
+
+   ------------------------------------------------------------ */
+
+.workspace.workspace-bg--navy .workspace-card {
+
+  background-color: rgba(255, 255, 255, 0.06);
+
+  border-color: rgba(120, 160, 220, 0.12);
+
+}
+
+/* ------------------------------------------------------------
+
+   ゴールド背景時のカード調整
+
+   ------------------------------------------------------------ */
+
+.workspace.workspace-bg--gold .workspace-card {
+
+  background-color: rgba(255, 240, 205, 0.075);
+
+  border-color: rgba(227, 176, 75, 0.16);
+
+}
+
+/* ------------------------------------------------------------
+
+   抽象背景時のカード調整
+
+   ------------------------------------------------------------ */
+
+.workspace.workspace-bg--abstract .workspace-card {
+
+  background-color: rgba(255, 255, 255, 0.07);
+
+  border-color: rgba(255, 255, 255, 0.1);
+
+}
+
+/* ------------------------------------------------------------
+
+   ヘッダーアイコン
+
+   ------------------------------------------------------------ */
+
+.workspace-header .icon-btn {
+
+  border: 1px solid var(--color-border);
+
+}
+
+/* 木目背景ではヘッダーボタンを少し明るくする */
+
+.workspace.workspace-bg--wood .workspace-header .icon-btn {
+
+  background-color: rgba(255, 248, 236, 0.4);
+
+  color: #2b1a0d;
+
+  border-color: rgba(70, 40, 20, 0.12);
+
+}
+
+/* ------------------------------------------------------------
+
+   鑑賞モード パスコード確認パネル
+
+   ------------------------------------------------------------ */
+
 .view-mode-auth {
+
   display: none;
+
   position: fixed;
+
   inset: 0;
+
   z-index: calc(var(--z-lock) + 15);
+
   align-items: center;
+
   justify-content: center;
+
   flex-direction: column;
+
   gap: var(--space-sm);
-  padding: var(--space-lg);
-  background-color: var(--color-bg);
-  opacity: 0.98;
+
+  padding:
+
+    max(var(--space-lg), var(--safe-top))
+
+    max(var(--space-lg), var(--safe-right))
+
+    max(var(--space-lg), var(--safe-bottom))
+
+    max(var(--space-lg), var(--safe-left));
+
+  background-color: rgba(11, 11, 15, 0.97);
+
+  color: #f5f5f7;
+
+  backdrop-filter: blur(var(--blur-glass));
+
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+
 }
 
 .view-mode-auth.is-open {
+
   display: flex;
+
 }
 
 .view-mode-auth-message {
+
   font-size: var(--font-size-md);
-  color: var(--color-text-secondary);
+
+  color: #b0b0b5;
+
   text-align: center;
+
 }
 
 .view-mode-auth-input {
+
   width: min(100%, 12rem);
-  padding: var(--space-2xs) var(--space-sm);
-  border: none;
+
+  padding:
+
+    var(--space-2xs)
+
+    var(--space-sm);
+
+  border: 1px solid rgba(255, 255, 255, 0.1);
+
   border-radius: var(--radius-full);
-  background-color: var(--color-surface);
-  color: var(--color-text-primary);
+
+  background-color: rgba(255, 255, 255, 0.08);
+
+  color: #f5f5f7;
+
   font-size: var(--font-size-lg);
+
   text-align: center;
+
   letter-spacing: 0.3em;
+
+  outline: none;
+
+}
+
+.view-mode-auth-input:focus {
+
+  border-color: var(--color-accent);
+
 }
 
 .view-mode-auth-actions {
+
   display: flex;
+
   gap: var(--space-sm);
+
 }
 
 .view-mode-auth-btn {
-  padding: var(--space-2xs) var(--space-lg);
+
+  padding:
+
+    var(--space-2xs)
+
+    var(--space-lg);
+
   border-radius: var(--radius-full);
+
   font-weight: 700;
-  transition: transform var(--duration-fast) var(--easing-standard);
+
+  transition:
+
+    transform var(--duration-fast)
+
+    var(--easing-standard);
+
 }
 
 .view-mode-auth-btn:active {
+
   transform: scale(0.95);
+
 }
 
 .view-mode-auth-btn--cancel {
-  background-color: var(--color-surface-strong);
-  color: var(--color-text-primary);
+
+  background-color: rgba(255, 255, 255, 0.1);
+
+  color: #f5f5f7;
+
 }
 
 .view-mode-auth-btn--confirm {
+
   background-color: var(--color-accent);
+
   color: var(--color-accent-contrast);
+
 }
 
 /* ------------------------------------------------------------
-   狭い画面（iPhone SE等 / 360px以下）向けの微調整
+
+   iPhone SE等
+
    ------------------------------------------------------------ */
+
 @media (max-width: 360px) {
+
+  .workspace {
+
+    padding-left:
+
+      max(
+
+        var(--space-sm),
+
+        var(--safe-left)
+
+      );
+
+    padding-right:
+
+      max(
+
+        var(--space-sm),
+
+        var(--safe-right)
+
+      );
+
+  }
+
   .workspace-title {
+
     font-size: var(--font-size-md);
+
   }
 
   .workspace-card {
+
+    min-height: 4rem;
+
     padding: var(--space-sm);
+
     font-size: var(--font-size-sm);
+
   }
 
   .workspace-card-icon {
+
     width: 2rem;
+
     height: 2rem;
+
+    font-size: 1rem;
+
   }
+
 }
 
 /* ------------------------------------------------------------
-   広い画面（iPhone Pro Max等 / 430px以上）向けの微調整
+
+   iPhone Pro Max等
+
    ------------------------------------------------------------ */
+
 @media (min-width: 430px) {
+
   .workspace-card {
-    padding: calc(var(--space-md) * 1.1);
+
+    padding:
+
+      calc(
+
+        var(--space-md) * 1.1
+
+      );
+
   }
 
   .workspace-card-icon {
+
     width: 2.75rem;
+
     height: 2.75rem;
+
   }
+
+}
+
+/* ------------------------------------------------------------
+
+   横向き
+
+   ------------------------------------------------------------ */
+
+@media (orientation: landscape) and (max-height: 500px) {
+
+  .workspace {
+
+    padding-top:
+
+      max(
+
+        var(--space-sm),
+
+        var(--safe-top)
+
+      );
+
+    padding-bottom:
+
+      max(
+
+        var(--space-sm),
+
+        var(--safe-bottom)
+
+      );
+
+  }
+
+  .workspace-header {
+
+    padding-bottom: var(--space-sm);
+
+  }
+
+  .workspace-main {
+
+    gap: var(--space-2xs);
+
+  }
+
+  .workspace-card {
+
+    min-height: 3.5rem;
+
+    padding:
+
+      var(--space-2xs)
+
+      var(--space-sm);
+
+  }
+
+}
+
+/* ------------------------------------------------------------
+
+   モーション軽減設定
+
+   ------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .workspace,
+
+  .workspace-card,
+
+  .view-mode-auth-btn {
+
+    transition: none;
+
+  }
+
 }
