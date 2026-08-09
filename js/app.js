@@ -798,8 +798,15 @@ function handleWorkspaceScreenClick(target) {
     handleOpenMessagesCard();
     return;
   }
+if (secret === 'settings') {
 
-  // 写真／行きたい場所／設定は現時点では未実装。
+  openSettings();
+
+  return;
+
+}
+
+// 写真／行きたい場所は現時点では未実装。
 }
 
 /**
