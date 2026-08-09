@@ -14,7 +14,9 @@
 
 //   activate              … 古いキャッシュを削除
 
-//   fetch                 … キャッシュ優先 → ネットワーク → オフラインフォールバック
+//   fetch                 … アプリコードはネットワーク優先
+
+//                           静的ファイルはキャッシュ優先
 
 //   push                  … バックグラウンドPush通知を表示
 
@@ -40,7 +42,7 @@
 
 // ------------------------------------------------------------
 
-const CACHE_VERSION = 8;
+const CACHE_VERSION = 9;
 
 const CACHE_NAME = `calculator-0209-cache-v${CACHE_VERSION}`;
 
@@ -164,11 +166,27 @@ async function precacheAppShell() {
 
         try {
 
-          const response = await fetch(url);
+          const response = await fetch(
+
+            url,
+
+            {
+
+              cache: 'no-store',
+
+            },
+
+          );
 
           if (response.ok) {
 
-            await cache.put(url, response);
+            await cache.put(
+
+              url,
+
+              response,
+
+            );
 
           } else {
 
@@ -232,7 +250,9 @@ async function deleteOutdatedCaches() {
 
       cacheNames.filter(
 
-        (name) => name !== CACHE_NAME,
+        (name) =>
+
+          name !== CACHE_NAME,
 
       );
 
@@ -240,7 +260,9 @@ async function deleteOutdatedCaches() {
 
       outdatedCacheNames.map(
 
-        (name) => caches.delete(name),
+        (name) =>
+
+          caches.delete(name),
 
       ),
 
@@ -270,7 +292,11 @@ self.addEventListener('fetch', (event) => {
 
   const { request } = event;
 
-  if (request.method !== 'GET') return;
+  if (request.method !== 'GET') {
+
+    return;
+
+  }
 
   // Firebase / Cloudflare等、外部オリジンはキャッシュしない。
 
@@ -296,11 +322,153 @@ self.addEventListener('fetch', (event) => {
 
 });
 
+/**
+
+ * 同一オリジンのGETリクエストを処理する。
+
+ *
+
+ * HTML / JavaScript / CSS / JSON：
+
+ *   ネットワーク優先
+
+ *   GitHubへ反映した最新版を取得し、
+
+ *   成功した場合はキャッシュも更新する。
+
+ *
+
+ * 画像等の静的ファイル：
+
+ *   キャッシュ優先
+
+ *
+
+ * ネットワークが利用できない場合：
+
+ *   保存済みキャッシュを利用する。
+
+ */
+
 async function handleFetch(request) {
+
+  const requestUrl =
+
+    new URL(request.url);
+
+  const pathname =
+
+    requestUrl.pathname.toLowerCase();
+
+  const isAppCode =
+
+    request.mode === 'navigate' ||
+
+    pathname.endsWith('.html') ||
+
+    pathname.endsWith('.js') ||
+
+    pathname.endsWith('.css') ||
+
+    pathname.endsWith('.json');
+
+  // ----------------------------------------------------------
+
+  // HTML / JS / CSS / JSON
+
+  // ネットワーク優先
+
+  // ----------------------------------------------------------
+
+  if (isAppCode) {
+
+    try {
+
+      const networkResponse =
+
+        await fetch(
+
+          request,
+
+          {
+
+            cache: 'no-store',
+
+          },
+
+        );
+
+      if (
+
+        networkResponse &&
+
+        networkResponse.ok
+
+      ) {
+
+        const cache =
+
+          await caches.open(
+
+            CACHE_NAME,
+
+          );
+
+        await cache.put(
+
+          request,
+
+          networkResponse.clone(),
+
+        );
+
+      }
+
+      return networkResponse;
+
+    } catch (error) {
+
+      const cachedResponse =
+
+        await caches.match(
+
+          request,
+
+        );
+
+      if (cachedResponse) {
+
+        return cachedResponse;
+
+      }
+
+      return respondWithOfflineFallback(
+
+        request,
+
+        error,
+
+      );
+
+    }
+
+  }
+
+  // ----------------------------------------------------------
+
+  // 画像等の静的ファイル
+
+  // キャッシュ優先
+
+  // ----------------------------------------------------------
 
   const cachedResponse =
 
-    await caches.match(request);
+    await caches.match(
+
+      request,
+
+    );
 
   if (cachedResponse) {
 
@@ -386,7 +554,13 @@ async function respondWithOfflineFallback(
 
   );
 
-  if (request.mode === 'navigate') {
+  if (
+
+    request.mode ===
+
+    'navigate'
+
+  ) {
 
     const offlinePage =
 
@@ -510,7 +684,7 @@ async function handlePushEvent(event) {
 
     typeof payload.roomId ===
 
-    'string'
+      'string'
 
       ? payload.roomId
 
@@ -520,7 +694,7 @@ async function handlePushEvent(event) {
 
     typeof payload.messageId ===
 
-    'string'
+      'string'
 
       ? payload.messageId
 
@@ -530,7 +704,7 @@ async function handlePushEvent(event) {
 
     typeof payload.senderId ===
 
-    'string'
+      'string'
 
       ? payload.senderId
 
@@ -670,7 +844,13 @@ async function handleNotificationClick(
 
       });
 
-    for (const client of clientList) {
+    for (
+
+      const client of
+
+      clientList
+
+    ) {
 
       const clientUrl =
 
