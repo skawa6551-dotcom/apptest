@@ -1518,67 +1518,178 @@ function handleCalculatorAction(action) {
  * @param {MouseEvent} event
  */
 function handleDocumentClick(event) {
-  // event.targetはテキストノード等Element以外になり得ないはずだが、
-  // closest()はElementにしか存在しないため、型を確認してから呼ぶ。
+
   if (!(event.target instanceof Element)) return;
 
-  const target = event.target.closest('[data-action], [data-num], [data-secret]');
+  const target = event.target.closest(
+
+    '[data-action], [data-num], [data-secret]'
+
+  );
+
   if (!target) return;
 
-  // 今どの画面にいるかはRouterが一元管理している。
-  // Calculator以外にいる間は、電卓のキーパッド操作を一切受け付けない。
   const currentScreen = Router.getCurrentScreen();
-
-  if (currentScreen === Router.Screen.RECORDS) {
-    handleRecordsScreenClick(target);
-    return;
-  }
-
-  if (currentScreen === Router.Screen.CALENDAR) {
-    handleCalendarScreenClick(target);
-    return;
-  }
-
-  if (currentScreen === Router.Screen.ARCHIVE) {
-    handleArchiveScreenClick(target);
-    return;
-  }
-
-  if (currentScreen === Router.Screen.PAIRING) {
-    handlePairingScreenClick(target);
-    return;
-  }
-
-  if (currentScreen === Router.Screen.MESSAGES) {
-    handleMessagesScreenClick(target);
-    return;
-  }
-
-  if (currentScreen === Router.Screen.WORKSPACE) {
-    handleWorkspaceScreenClick(target);
-    return;
-  }
 
   const { action, num } = target.dataset;
 
-  if (num !== undefined) {
-    handleDigitInput(num);
+  // ==========================================================
+
+  // 設定画面が開いている場合は、最優先で設定画面の操作を処理する
+
+  // ==========================================================
+
+  const settingsOverlay = document.getElementById('settingsOverlay');
+
+  if (
+
+    settingsOverlay &&
+
+    settingsOverlay.classList.contains('is-open')
+
+  ) {
+
+    const settingsHandler = ACTION_HANDLERS[action];
+
+    if (settingsHandler) {
+
+      playFeedbackSound('tap');
+
+      playFeedbackVibration();
+
+      settingsHandler(target, event);
+
+    }
+
     return;
+
+  }
+
+  // ==========================================================
+
+  // Records
+
+  // ==========================================================
+
+  if (currentScreen === Router.Screen.RECORDS) {
+
+    handleRecordsScreenClick(target);
+
+    return;
+
+  }
+
+  // ==========================================================
+
+  // Calendar
+
+  // ==========================================================
+
+  if (currentScreen === Router.Screen.CALENDAR) {
+
+    handleCalendarScreenClick(target);
+
+    return;
+
+  }
+
+  // ==========================================================
+
+  // Archive
+
+  // ==========================================================
+
+  if (currentScreen === Router.Screen.ARCHIVE) {
+
+    handleArchiveScreenClick(target);
+
+    return;
+
+  }
+
+  // ==========================================================
+
+  // Pairing
+
+  // ==========================================================
+
+  if (currentScreen === Router.Screen.PAIRING) {
+
+    handlePairingScreenClick(target);
+
+    return;
+
+  }
+
+  // ==========================================================
+
+  // Messages
+
+  // ==========================================================
+
+  if (currentScreen === Router.Screen.MESSAGES) {
+
+    handleMessagesScreenClick(target);
+
+    return;
+
+  }
+
+  // ==========================================================
+
+  // Workspace
+
+  // ==========================================================
+
+  if (currentScreen === Router.Screen.WORKSPACE) {
+
+    handleWorkspaceScreenClick(target);
+
+    return;
+
+  }
+
+  // ==========================================================
+
+  // Calculator
+
+  // ==========================================================
+
+  if (num !== undefined) {
+
+    handleDigitInput(num);
+
+    return;
+
   }
 
   if (CALCULATOR_ACTIONS.has(action)) {
+
     handleCalculatorAction(action);
+
     return;
+
   }
+
+  // ==========================================================
+
+  // 共通アクション
+
+  // ==========================================================
 
   const handler = ACTION_HANDLERS[action];
-  if (handler) {
-    playFeedbackSound('tap');
-    playFeedbackVibration();
-    handler(target, event);
-  }
-}
 
+  if (handler) {
+
+    playFeedbackSound('tap');
+
+    playFeedbackVibration();
+
+    handler(target, event);
+
+  }
+
+}
 /**
  * document全体のinputイベントを1つのリスナーで受け止める。
  * Archiveの検索欄（#archiveSearchInput、input要素）と、Messagesの
