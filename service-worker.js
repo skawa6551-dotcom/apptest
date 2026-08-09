@@ -34,7 +34,7 @@
 
 // ------------------------------------------------------------
 
-const CACHE_VERSION = 10;
+const CACHE_VERSION = 11;
 
 const CACHE_NAME =
 
@@ -111,6 +111,8 @@ const PRECACHE_URLS =
     './js/pairing.js',
 
     './js/messages.js',
+
+'./js/photo.js',
 
     './js/customization.js',
 
