@@ -1761,6 +1761,232 @@ function createBlobFromRecord(
 
 // ============================================================
 
+// Firebase共有写真カード生成
+
+// ============================================================
+
+function createSharedPhotoCard(
+
+  record,
+
+) {
+
+  if (
+
+    !record ||
+
+    !record.id ||
+
+    !record.downloadUrl
+
+  ) {
+
+    return null;
+
+  }
+
+  const card =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  card.className =
+
+    'photo-card';
+
+  card.dataset.photoId =
+
+    record.id;
+
+  card.dataset.shared =
+
+    'true';
+
+  const openButton =
+
+    document.createElement(
+
+      'button',
+
+    );
+
+  openButton.type =
+
+    'button';
+
+  openButton.className =
+
+    'photo-card-open';
+
+  openButton.dataset.action =
+
+    'open-photo-preview';
+
+  openButton.dataset.photoUrl =
+
+    record.downloadUrl;
+
+  openButton.dataset.photoId =
+
+    record.id;
+
+  openButton.setAttribute(
+
+    'aria-label',
+
+    record.fileName
+
+      ? `${record.fileName}を開く`
+
+      : '共有写真を開く',
+
+  );
+
+  const image =
+
+    document.createElement(
+
+      'img',
+
+    );
+
+  image.className =
+
+    'photo-card-image';
+
+  image.src =
+
+    record.downloadUrl;
+
+  image.alt =
+
+    record.fileName ||
+
+    '共有写真';
+
+  image.loading =
+
+    'lazy';
+
+  openButton.appendChild(
+
+    image,
+
+  );
+
+  const info =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  info.className =
+
+    'photo-card-info';
+
+  const date =
+
+    document.createElement(
+
+      'span',
+
+    );
+
+  date.className =
+
+    'photo-card-date';
+
+  const createdAt =
+
+    record.createdAt &&
+
+    typeof record.createdAt.toMillis ===
+
+      'function'
+
+      ? record.createdAt.toMillis()
+
+      : Date.now();
+
+  date.textContent =
+
+    formatPhotoDate(
+
+      createdAt,
+
+    );
+
+  const deleteButton =
+
+    document.createElement(
+
+      'button',
+
+    );
+
+  deleteButton.type =
+
+    'button';
+
+  deleteButton.className =
+
+    'photo-delete-btn';
+
+  deleteButton.dataset.action =
+
+    'delete-shared-photo';
+
+  deleteButton.dataset.photoId =
+
+    record.id;
+
+  deleteButton.setAttribute(
+
+    'aria-label',
+
+    'この共有写真を削除',
+
+  );
+
+  deleteButton.textContent =
+
+    '×';
+
+  info.appendChild(
+
+    date,
+
+  );
+
+  info.appendChild(
+
+    deleteButton,
+
+  );
+
+  card.appendChild(
+
+    openButton,
+
+  );
+
+  card.appendChild(
+
+    info,
+
+  );
+
+  return card;
+
+}
+
+// ============================================================
+
 // 写真カード生成
 
 // ============================================================
