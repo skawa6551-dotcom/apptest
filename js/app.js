@@ -2502,6 +2502,18 @@ function handleWorkspaceScreenClick(
 
   }
 
+    if (
+
+    secret === 'photo'
+
+  ) {
+
+    Router.openPhoto();
+
+    return;
+  
+  }
+  
   if (
 
     secret === 'settings'
