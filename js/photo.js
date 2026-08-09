@@ -167,6 +167,90 @@ async function initializeSharedPhotoContext() {
 
 // ============================================================
 
+// Firebase共有写真 購読開始
+
+// ============================================================
+
+async function startSharedPhotoSubscription() {
+
+  const ready =
+
+    await initializeSharedPhotoContext();
+
+  if (!ready) {
+
+    sharedPhotos = [];
+
+    return;
+
+  }
+
+  if (
+
+    typeof unsubscribePhotos ===
+
+      'function'
+
+  ) {
+
+    unsubscribePhotos();
+
+    unsubscribePhotos = null;
+
+  }
+
+  unsubscribePhotos =
+
+    Firebase.subscribeToPhotos(
+
+      currentRoomId,
+
+      (photos) => {
+
+        sharedPhotos =
+
+          Array.isArray(photos)
+
+            ? photos
+
+            : [];
+
+        console.info(
+
+          '[photo.js] 共有写真を更新しました',
+
+          sharedPhotos.length,
+
+        );
+
+      },
+
+      (error) => {
+
+        console.error(
+
+          '[photo.js] 共有写真の購読に失敗しました',
+
+          error,
+
+        );
+
+        setStatus(
+
+          '共有写真を読み込めませんでした',
+
+          'error',
+
+        );
+
+      },
+
+    );
+
+}
+
+// ============================================================
+
 // ステータス表示
 
 // ============================================================
