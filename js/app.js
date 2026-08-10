@@ -62,6 +62,8 @@ import Notifications from './notifications.js';
 
 import Photo from './photo.js';
 
+import Supabase from './supabase.js';
+
 // ============================================================
 
 // 定数
@@ -324,27 +326,29 @@ const KEY_ARIA_LABELS = Object.freeze({
 
 });
 
-const CALCULATOR_ACTIONS = new Set([
+const CALCULATOR_ACTIONS =
 
-  CALC_ACTIONS.CLEAR,
+  new Set([
 
-  CALC_ACTIONS.NEGATE,
+    CALC_ACTIONS.CLEAR,
 
-  CALC_ACTIONS.PERCENT,
+    CALC_ACTIONS.NEGATE,
 
-  CALC_ACTIONS.ADD,
+    CALC_ACTIONS.PERCENT,
 
-  CALC_ACTIONS.SUBTRACT,
+    CALC_ACTIONS.ADD,
 
-  CALC_ACTIONS.MULTIPLY,
+    CALC_ACTIONS.SUBTRACT,
 
-  CALC_ACTIONS.DIVIDE,
+    CALC_ACTIONS.MULTIPLY,
 
-  CALC_ACTIONS.DECIMAL,
+    CALC_ACTIONS.DIVIDE,
 
-  CALC_ACTIONS.EQUALS,
+    CALC_ACTIONS.DECIMAL,
 
-]);
+    CALC_ACTIONS.EQUALS,
+
+  ]);
 
 const PASSCODE_RESET_ACTIONS =
 
@@ -372,13 +376,21 @@ const ERROR_DISPLAY_TEXT =
 
   Object.freeze({
 
-    'division-by-zero': 'エラー',
+    'division-by-zero':
 
-    overflow: 'エラー',
+      'エラー',
 
-    'unknown-operator': 'エラー',
+    overflow:
 
-    unknown: 'エラー',
+      'エラー',
+
+    'unknown-operator':
+
+      'エラー',
+
+    unknown:
+
+      'エラー',
 
   });
 
@@ -419,30 +431,160 @@ let passcodeBuffer =
 const pressedTimeouts =
 
   new WeakMap();
-  
-  // ============================================================
+
+// ============================================================
+
+// Supabase初期化
+
+// ============================================================
+
+function startSupabaseInBackground() {
+
+  /*
+
+   * Supabaseの障害や通信遅延で
+
+   * 電卓本体の起動を止めない。
+
+   *
+
+   * まず匿名認証を確立し、
+
+   * その後roomIdが存在すれば
+
+   * photo_room_members登録まで行う。
+
+   */
+
+  Supabase
+
+    .ensureSignedIn()
+
+    .then(
+
+      () =>
+
+        Supabase.init(),
+
+    )
+
+    .catch(
+
+      (
+
+        error,
+
+      ) => {
+
+        console.warn(
+
+          '[app.js] Supabase初期化に失敗しました',
+
+          error,
+
+        );
+
+      },
+
+    );
+
+}
+
+// ============================================================
+
+// ペアリング後のSupabase同期
+
+// ============================================================
+
+function syncSupabaseAfterPairing() {
+
+  /*
+
+   * Firebase側でCURRENT_ROOM_IDが保存された後に
+
+   * Supabase側へ同じroomIdを登録する。
+
+   */
+
+  Supabase
+
+    .ensureSignedIn()
+
+    .then(
+
+      () =>
+
+        Supabase.init(),
+
+    )
+
+    .catch(
+
+      (
+
+        error,
+
+      ) => {
+
+        console.warn(
+
+          '[app.js] ペアリング後のSupabase同期に失敗しました',
+
+          error,
+
+        );
+
+      },
+
+    );
+
+}
+
+// ============================================================
 
 // ユーティリティ
 
 // ============================================================
 
-function formatWithGrouping(rawValue) {
+function formatWithGrouping(
 
-  if (typeof rawValue !== 'string') {
+  rawValue,
 
-    return String(rawValue);
+) {
+
+  if (
+
+    typeof rawValue !==
+
+    'string'
+
+  ) {
+
+    return String(
+
+      rawValue,
+
+    );
 
   }
 
   const isNegative =
 
-    rawValue.startsWith('-');
+    rawValue.startsWith(
+
+      '-',
+
+    );
 
   const unsigned =
 
     isNegative
 
-      ? rawValue.slice(1)
+      ? rawValue.slice(
+
+          1,
+
+        )
 
       : rawValue;
 
@@ -452,7 +594,13 @@ function formatWithGrouping(rawValue) {
 
     decimalPart,
 
-  ] = unsigned.split('.');
+  ] =
+
+    unsigned.split(
+
+      '.',
+
+    );
 
   const groupedInteger =
 
@@ -466,7 +614,9 @@ function formatWithGrouping(rawValue) {
 
   const grouped =
 
-    decimalPart !== undefined
+    decimalPart !==
+
+      undefined
 
       ? `${groupedInteger}.${decimalPart}`
 
@@ -480,29 +630,55 @@ function formatWithGrouping(rawValue) {
 
 }
 
-function groupNumbersInText(text) {
+function groupNumbersInText(
+
+  text,
+
+) {
 
   return text.replace(
 
     /-?\d+(\.\d+)?/g,
 
-    (match) =>
+    (
 
-      formatWithGrouping(match),
+      match,
+
+    ) =>
+
+      formatWithGrouping(
+
+        match,
+
+      ),
 
   );
 
 }
 
-function playFeedbackSound(kind) {
+function playFeedbackSound(
 
-  if (!Settings.isSoundEnabled()) {
+  kind,
+
+) {
+
+  if (
+
+    !Settings.isSoundEnabled()
+
+  ) {
 
     return;
 
   }
 
-  if (kind === 'success') {
+  if (
+
+    kind ===
+
+    'success'
+
+  ) {
 
     Sound.playSuccess();
 
@@ -510,7 +686,13 @@ function playFeedbackSound(kind) {
 
   }
 
-  if (kind === 'error') {
+  if (
+
+    kind ===
+
+    'error'
+
+  ) {
 
     Sound.playError();
 
@@ -570,7 +752,11 @@ function buildKeypad() {
 
     );
 
-  if (!keypadEl) {
+  if (
+
+    !keypadEl
+
+  ) {
 
     return;
 
@@ -582,7 +768,11 @@ function buildKeypad() {
 
   KEYPAD_LAYOUT.forEach(
 
-    (row) => {
+    (
+
+      row,
+
+    ) => {
 
       const rowEl =
 
@@ -598,7 +788,11 @@ function buildKeypad() {
 
       row.forEach(
 
-        (keyDef) => {
+        (
+
+          keyDef,
+
+        ) => {
 
           rowEl.appendChild(
 
@@ -646,7 +840,9 @@ function createKeyButton(
 
     );
 
-  button.type = 'button';
+  button.type =
+
+    'button';
 
   button.className =
 
@@ -666,7 +862,9 @@ function createKeyButton(
 
   if (
 
-    keyDef.num !== undefined
+    keyDef.num !==
+
+    undefined
 
   ) {
 
@@ -696,7 +894,9 @@ function createKeyButton(
 
         keyDef.action
 
-      ] ?? keyDef.label,
+      ] ??
+
+      keyDef.label,
 
     );
 
@@ -722,7 +922,11 @@ function buildThemeOptions() {
 
     );
 
-  if (!themeSwitchEl) {
+  if (
+
+    !themeSwitchEl
+
+  ) {
 
     return;
 
@@ -734,7 +938,11 @@ function buildThemeOptions() {
 
   THEMES.forEach(
 
-    (theme) => {
+    (
+
+      theme,
+
+    ) => {
 
       const button =
 
@@ -812,7 +1020,11 @@ function populateDurationSelect(
 
 ) {
 
-  if (!selectEl) {
+  if (
+
+    !selectEl
+
+  ) {
 
     return;
 
@@ -824,7 +1036,11 @@ function populateDurationSelect(
 
   presets.forEach(
 
-    (preset) => {
+    (
+
+      preset,
+
+    ) => {
 
       const option =
 
@@ -1014,7 +1230,11 @@ function renderHistory() {
 
     );
 
-  if (!historyListEl) {
+  if (
+
+    !historyListEl
+
+  ) {
 
     return;
 
@@ -1030,7 +1250,11 @@ function renderHistory() {
 
   entries.forEach(
 
-    (entry) => {
+    (
+
+      entry,
+
+    ) => {
 
       const li =
 
@@ -1084,9 +1308,17 @@ function updateMetaThemeColor(
 
   const theme =
 
-    getThemeById(themeId);
+    getThemeById(
 
-  if (!theme) {
+      themeId,
+
+    );
+
+  if (
+
+    !theme
+
+  ) {
 
     return;
 
@@ -1100,7 +1332,11 @@ function updateMetaThemeColor(
 
     );
 
-  if (metaEl) {
+  if (
+
+    metaEl
+
+  ) {
 
     metaEl.setAttribute(
 
@@ -1138,7 +1374,11 @@ function renderTheme() {
 
     );
 
-  if (!themeSwitchEl) {
+  if (
+
+    !themeSwitchEl
+
+  ) {
 
     return;
 
@@ -1150,7 +1390,11 @@ function renderTheme() {
 
   ).forEach(
 
-    (button) => {
+    (
+
+      button,
+
+    ) => {
 
       const isActive =
 
@@ -1170,7 +1414,11 @@ function renderTheme() {
 
         'aria-checked',
 
-        String(isActive),
+        String(
+
+          isActive,
+
+        ),
 
       );
 
@@ -1196,7 +1444,11 @@ function renderSettings() {
 
     );
 
-  if (soundToggle) {
+  if (
+
+    soundToggle
+
+  ) {
 
     soundToggle.checked =
 
@@ -1212,7 +1464,11 @@ function renderSettings() {
 
     );
 
-  if (vibrationToggle) {
+  if (
+
+    vibrationToggle
+
+  ) {
 
     vibrationToggle.checked =
 
@@ -1228,7 +1484,11 @@ function renderSettings() {
 
     );
 
-  if (biometricRow) {
+  if (
+
+    biometricRow
+
+  ) {
 
     biometricRow.hidden =
 
@@ -1266,7 +1526,11 @@ function renderSettings() {
 
     );
 
-  if (autoLockSelect) {
+  if (
+
+    autoLockSelect
+
+  ) {
 
     autoLockSelect.value =
 
@@ -1286,7 +1550,11 @@ function renderSettings() {
 
     );
 
-  if (archiveLockToggle) {
+  if (
+
+    archiveLockToggle
+
+  ) {
 
     archiveLockToggle.checked =
 
@@ -1302,7 +1570,11 @@ function renderSettings() {
 
     );
 
-  if (notificationsToggle) {
+  if (
+
+    notificationsToggle
+
+  ) {
 
     notificationsToggle.checked =
 
@@ -1318,7 +1590,11 @@ function renderSettings() {
 
     );
 
-  if (notificationContentToggle) {
+  if (
+
+    notificationContentToggle
+
+  ) {
 
     notificationContentToggle.checked =
 
@@ -1334,7 +1610,11 @@ function renderSettings() {
 
     );
 
-  if (notificationSoundToggle) {
+  if (
+
+    notificationSoundToggle
+
+  ) {
 
     notificationSoundToggle.checked =
 
@@ -1350,7 +1630,11 @@ function renderSettings() {
 
     );
 
-  if (notificationVibrationToggle) {
+  if (
+
+    notificationVibrationToggle
+
+  ) {
 
     notificationVibrationToggle.checked =
 
@@ -1368,7 +1652,11 @@ function renderSettings() {
 
     );
 
-  if (readReceiptsToggle) {
+  if (
+
+    readReceiptsToggle
+
+  ) {
 
     readReceiptsToggle.checked =
 
@@ -1384,7 +1672,11 @@ function renderSettings() {
 
     );
 
-  if (onlineVisibilityToggle) {
+  if (
+
+    onlineVisibilityToggle
+
+  ) {
 
     onlineVisibilityToggle.checked =
 
@@ -1400,7 +1692,11 @@ function renderSettings() {
 
     );
 
-  if (organizeModeSelect) {
+  if (
+
+    organizeModeSelect
+
+  ) {
 
     organizeModeSelect.value =
 
@@ -1416,7 +1712,11 @@ function renderSettings() {
 
     );
 
-  if (organizeDurationSelect) {
+  if (
+
+    organizeDurationSelect
+
+  ) {
 
     organizeDurationSelect.value =
 
@@ -1444,7 +1744,11 @@ function renderSettings() {
 
     );
 
-  if (versionLabel) {
+  if (
+
+    versionLabel
+
+  ) {
 
     versionLabel.textContent =
 
@@ -1470,7 +1774,11 @@ function renderWorkspaceTitleInput() {
 
     );
 
-  if (!input) {
+  if (
+
+    !input
+
+  ) {
 
     return;
 
@@ -1482,7 +1790,9 @@ function renderWorkspaceTitleInput() {
 
       .getCached()
 
-      .workspaceTitle ?? '';
+      .workspaceTitle ??
+
+    '';
 
 }
 
@@ -1502,7 +1812,11 @@ function renderCardCustomizationList() {
 
     );
 
-  if (!list) {
+  if (
+
+    !list
+
+  ) {
 
     return;
 
@@ -1510,7 +1824,9 @@ function renderCardCustomizationList() {
 
   const cards =
 
-    Customization.getEffectiveCards();
+    Customization
+
+      .getEffectiveCards();
 
   const fragment =
 
@@ -1518,7 +1834,13 @@ function renderCardCustomizationList() {
 
   cards.forEach(
 
-    (card, index) => {
+    (
+
+      card,
+
+      index,
+
+    ) => {
 
       const row =
 
@@ -1630,7 +1952,9 @@ function renderCardCustomizationList() {
 
       moveUpButton.disabled =
 
-        index === 0;
+        index ===
+
+        0;
 
       moveUpButton.setAttribute(
 
@@ -1672,7 +1996,9 @@ function renderCardCustomizationList() {
 
         index ===
 
-        cards.length - 1;
+        cards.length -
+
+          1;
 
       moveDownButton.setAttribute(
 
@@ -1744,7 +2070,11 @@ function renderBackgroundCustomizationList() {
 
     );
 
-  if (!list) {
+  if (
+
+    !list
+
+  ) {
 
     return;
 
@@ -1756,7 +2086,9 @@ function renderBackgroundCustomizationList() {
 
       .getCached()
 
-      .backgrounds ?? {};
+      .backgrounds ??
+
+    {};
 
   const fragment =
 
@@ -1768,7 +2100,11 @@ function renderBackgroundCustomizationList() {
 
     .forEach(
 
-      (screen) => {
+      (
+
+        screen,
+
+      ) => {
 
         const row =
 
@@ -1846,7 +2182,11 @@ function renderBackgroundCustomizationList() {
 
           .forEach(
 
-            (preset) => {
+            (
+
+              preset,
+
+            ) => {
 
               const option =
 
@@ -1880,7 +2220,9 @@ function renderBackgroundCustomizationList() {
 
             screen.key
 
-          ] ?? 'default';
+          ] ??
+
+          'default';
 
         row.appendChild(
 
@@ -1928,7 +2270,11 @@ function renderStorageUsage() {
 
     );
 
-  if (!label) {
+  if (
+
+    !label
+
+  ) {
 
     return;
 
@@ -1940,7 +2286,9 @@ function renderStorageUsage() {
 
   const kb =
 
-    bytes / 1024;
+    bytes /
+
+    1024;
 
   label.textContent =
 
@@ -1992,7 +2340,11 @@ function renderNotificationStatus() {
 
     isStandalone;
 
-  if (!isStandalone) {
+  if (
+
+    !isStandalone
+
+  ) {
 
     statusLabel.textContent =
 
@@ -2084,19 +2436,15 @@ function openSettings() {
 
     );
 
-  if (!overlay) {
+  if (
+
+    !overlay
+
+  ) {
 
     return;
 
   }
-
-  /*
-
-   * 設定を開くたびに最新の
-
-   * カスタマイズ状態を描画する。
-
-   */
 
   renderSettings();
 
@@ -2122,7 +2470,11 @@ function openSettings() {
 
     );
 
-  if (closeButton) {
+  if (
+
+    closeButton
+
+  ) {
 
     closeButton.focus();
 
@@ -2140,7 +2492,11 @@ function closeSettings() {
 
     );
 
-  if (!overlay) {
+  if (
+
+    !overlay
+
+  ) {
 
     return;
 
@@ -2190,7 +2546,11 @@ function showLockOverlay() {
 
     );
 
-  if (!lockOverlay) {
+  if (
+
+    !lockOverlay
+
+  ) {
 
     return;
 
@@ -2222,7 +2582,11 @@ function hideLockOverlay() {
 
     );
 
-  if (!lockOverlay) {
+  if (
+
+    !lockOverlay
+
+  ) {
 
     return;
 
@@ -2254,7 +2618,9 @@ function handleCloseWorkspace() {
 
   Router.closeWorkspace();
 
-  passcodeBuffer = '';
+  passcodeBuffer =
+
+    '';
 
   render();
 
@@ -2270,7 +2636,9 @@ function handleLockNow() {
 
   Router.lockNow();
 
-  passcodeBuffer = '';
+  passcodeBuffer =
+
+    '';
 
   render();
 
@@ -2308,7 +2676,11 @@ function handleConfirmViewMode() {
 
   if (
 
-    Passcode.validate(value)
+    Passcode.validate(
+
+      value,
+
+    )
 
   ) {
 
@@ -2366,7 +2738,11 @@ function handleSendRecord() {
 
       .trim();
 
-  if (!text) {
+  if (
+
+    !text
+
+  ) {
 
     return;
 
@@ -2428,7 +2804,9 @@ function handleWorkspaceScreenClick(
 
     secret,
 
-  } = target.dataset;
+  } =
+
+    target.dataset;
 
   playFeedbackSound(
 
@@ -2446,7 +2824,11 @@ function handleWorkspaceScreenClick(
 
     ];
 
-  if (handler) {
+  if (
+
+    handler
+
+  ) {
 
     handler();
 
@@ -2456,7 +2838,9 @@ function handleWorkspaceScreenClick(
 
   if (
 
-    secret === 'records'
+    secret ===
+
+    'records'
 
   ) {
 
@@ -2468,7 +2852,9 @@ function handleWorkspaceScreenClick(
 
   if (
 
-    secret === 'calendar'
+    secret ===
+
+    'calendar'
 
   ) {
 
@@ -2480,7 +2866,9 @@ function handleWorkspaceScreenClick(
 
   if (
 
-    secret === 'archive'
+    secret ===
+
+    'archive'
 
   ) {
 
@@ -2492,7 +2880,9 @@ function handleWorkspaceScreenClick(
 
   if (
 
-    secret === 'messages'
+    secret ===
+
+    'messages'
 
   ) {
 
@@ -2502,21 +2892,41 @@ function handleWorkspaceScreenClick(
 
   }
 
-    if (
+  if (
 
-    secret === 'photo'
+    secret ===
+
+    'photo'
 
   ) {
+
+    /*
+
+     * 写真画面を開く直前にも
+
+     * Supabase認証とroom同期を実行。
+
+     *
+
+     * 待たずにバックグラウンドで処理するため、
+
+     * 写真画面自体はすぐ開く。
+
+     */
+
+    startSupabaseInBackground();
 
     Router.openPhoto();
 
     return;
-  
+
   }
-  
+
   if (
 
-    secret === 'settings'
+    secret ===
+
+    'settings'
 
   ) {
 
@@ -2526,10 +2936,6 @@ function handleWorkspaceScreenClick(
 
   }
 
-  // 行きたい場所は
-
-  // 現時点では未実装。
-
 }
 
 function handleOpenMessagesCard() {
@@ -2538,7 +2944,11 @@ function handleOpenMessagesCard() {
 
     Firebase.getLocalRoomId();
 
-  if (roomId) {
+  if (
+
+    roomId
+
+  ) {
 
     Router.openMessages();
 
@@ -2584,7 +2994,9 @@ function handleRecordsScreenClick(
 
     action,
 
-  } = target.dataset;
+  } =
+
+    target.dataset;
 
   playFeedbackSound(
 
@@ -2602,7 +3014,11 @@ function handleRecordsScreenClick(
 
     ];
 
-  if (handler) {
+  if (
+
+    handler
+
+  ) {
 
     handler();
 
@@ -2644,9 +3060,15 @@ function handleSelectDate(
 
     date,
 
-  } = target.dataset;
+  } =
 
-  if (!date) {
+    target.dataset;
+
+  if (
+
+    !date
+
+  ) {
 
     return;
 
@@ -2728,7 +3150,9 @@ function handleCalendarScreenClick(
 
     action,
 
-  } = target.dataset;
+  } =
+
+    target.dataset;
 
   playFeedbackSound(
 
@@ -2764,7 +3188,11 @@ function handleCalendarScreenClick(
 
     ];
 
-  if (handler) {
+  if (
+
+    handler
+
+  ) {
 
     handler();
 
@@ -2794,9 +3222,15 @@ function handleSelectBackground(
 
     backgroundId,
 
-  } = target.dataset;
+  } =
 
-  if (!backgroundId) {
+    target.dataset;
+
+  if (
+
+    !backgroundId
+
+  ) {
 
     return;
 
@@ -2868,7 +3302,9 @@ function handleArchiveScreenClick(
 
     action,
 
-  } = target.dataset;
+  } =
+
+    target.dataset;
 
   playFeedbackSound(
 
@@ -2904,7 +3340,11 @@ function handleArchiveScreenClick(
 
     ];
 
-  if (handler) {
+  if (
+
+    handler
+
+  ) {
 
     handler();
 
@@ -2930,7 +3370,11 @@ function handleSaveDisplayName() {
 
     Pairing.getDisplayNameInputValue();
 
-  if (!name) {
+  if (
+
+    !name
+
+  ) {
 
     return;
 
@@ -2956,7 +3400,11 @@ function handleChooseGenerate() {
 
     .catch(
 
-      (error) => {
+      (
+
+        error,
+
+      ) => {
 
         console.error(
 
@@ -2998,7 +3446,11 @@ async function handleSubmitJoinCode() {
 
     playFeedbackVibration();
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     playFeedbackSound(
 
@@ -3012,7 +3464,7 @@ async function handleSubmitJoinCode() {
 
       error.message ||
 
-        '参加に失敗しました。',
+      '参加に失敗しました。',
 
     );
 
@@ -3064,7 +3516,9 @@ function handlePairingScreenClick(
 
     action,
 
-  } = target.dataset;
+  } =
+
+    target.dataset;
 
   playFeedbackSound(
 
@@ -3082,7 +3536,11 @@ function handlePairingScreenClick(
 
     ];
 
-  if (handler) {
+  if (
+
+    handler
+
+  ) {
 
     handler();
 
@@ -3110,7 +3568,11 @@ function handleSendMessage() {
 
     .catch(
 
-      (error) => {
+      (
+
+        error,
+
+      ) => {
 
         console.error(
 
@@ -3134,7 +3596,11 @@ function handleCopyMessage() {
 
     .catch(
 
-      (error) => {
+      (
+
+        error,
+
+      ) => {
 
         console.error(
 
@@ -3158,7 +3624,11 @@ function handleDeleteMessage() {
 
     .catch(
 
-      (error) => {
+      (
+
+        error,
+
+      ) => {
 
         console.error(
 
@@ -3190,9 +3660,15 @@ function handleReactToMessage(
 
     emoji,
 
-  } = target.dataset;
+  } =
 
-  if (!emoji) {
+    target.dataset;
+
+  if (
+
+    !emoji
+
+  ) {
 
     return;
 
@@ -3246,7 +3722,9 @@ function handleMessagesScreenClick(
 
     action,
 
-  } = target.dataset;
+  } =
+
+    target.dataset;
 
   playFeedbackSound(
 
@@ -3282,7 +3760,11 @@ function handleMessagesScreenClick(
 
     ];
 
-  if (handler) {
+  if (
+
+    handler
+
+  ) {
 
     handler();
 
@@ -3322,7 +3804,11 @@ function handleOpenPhotoPreview(
 
     );
 
-  if (!photoUrl) {
+  if (
+
+    !photoUrl
+
+  ) {
 
     return;
 
@@ -3364,7 +3850,11 @@ const PHOTO_ACTION_HANDLERS =
 
     'delete-photo':
 
-      async (target) => {
+      async (
+
+        target,
+
+      ) => {
 
         await Photo.deletePhotoFromTarget(
 
@@ -3386,7 +3876,9 @@ function handlePhotoScreenClick(
 
     action,
 
-  } = target.dataset;
+  } =
+
+    target.dataset;
 
   playFeedbackSound(
 
@@ -3422,7 +3914,11 @@ function handlePhotoScreenClick(
 
     ];
 
-  if (handler) {
+  if (
+
+    handler
+
+  ) {
 
     handler(
 
@@ -3460,7 +3956,11 @@ function handleClearHistory() {
 
     Calculator.clearHistory();
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -3502,7 +4002,11 @@ async function handleClearCache() {
 
       cacheNames.map(
 
-        (name) =>
+        (
+
+          name,
+
+        ) =>
 
           caches.delete(
 
@@ -3522,7 +4026,11 @@ async function handleClearCache() {
 
     playFeedbackVibration();
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -3586,7 +4094,11 @@ async function handleDeleteAllMyMessages() {
 
     playFeedbackVibration();
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -3624,7 +4136,11 @@ function handleClearArchiveData() {
 
     playFeedbackVibration();
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -3662,9 +4178,15 @@ async function handleMoveCardUp(
 
     cardKey,
 
-  } = target.dataset;
+  } =
 
-  if (!cardKey) {
+    target.dataset;
+
+  if (
+
+    !cardKey
+
+  ) {
 
     return;
 
@@ -3690,9 +4212,15 @@ async function handleMoveCardDown(
 
     cardKey,
 
-  } = target.dataset;
+  } =
 
-  if (!cardKey) {
+    target.dataset;
+
+  if (
+
+    !cardKey
+
+  ) {
 
     return;
 
@@ -3726,7 +4254,11 @@ async function swapCardOrder(
 
     cards.findIndex(
 
-      (card) =>
+      (
+
+        card,
+
+      ) =>
 
         card.key ===
 
@@ -3742,9 +4274,13 @@ async function swapCardOrder(
 
   if (
 
-    currentIndex === -1 ||
+    currentIndex ===
 
-    targetIndex < 0 ||
+      -1 ||
+
+    targetIndex <
+
+      0 ||
 
     targetIndex >=
 
@@ -3780,7 +4316,11 @@ async function swapCardOrder(
 
     playFeedbackVibration();
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -3812,7 +4352,11 @@ async function handleResetCustomization() {
 
     );
 
-  if (!confirmed) {
+  if (
+
+    !confirmed
+
+  ) {
 
     return;
 
@@ -3832,7 +4376,11 @@ async function handleResetCustomization() {
 
     playFeedbackVibration();
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -3944,9 +4492,15 @@ function handleSelectTheme(
 
     themeId,
 
-  } = target.dataset;
+  } =
 
-  if (!themeId) {
+    target.dataset;
+
+  if (
+
+    !themeId
+
+  ) {
 
     return;
 
@@ -3960,7 +4514,11 @@ function handleSelectTheme(
 
     );
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -3988,13 +4546,21 @@ async function handleRetryAuth() {
 
       await Auth.authenticate();
 
-    if (success) {
+    if (
+
+      success
+
+    ) {
 
       hideLockOverlay();
 
     }
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -4154,7 +4720,11 @@ function handleDigitInput(
 
     }
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -4166,7 +4736,11 @@ function handleDigitInput(
 
   } finally {
 
-    if (shouldRender) {
+    if (
+
+      shouldRender
+
+    ) {
 
       render();
 
@@ -4272,7 +4846,11 @@ function handleCalculatorAction(
 
     }
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -4324,7 +4902,11 @@ function handleDocumentClick(
 
     );
 
-  if (!target) {
+  if (
+
+    !target
+
+  ) {
 
     return;
 
@@ -4337,16 +4919,6 @@ function handleDocumentClick(
       'settingsOverlay',
 
     );
-
-  /*
-
-   * 設定画面が開いている場合は
-
-   * Workspace等の画面処理より先に
-
-   * 設定操作を処理する。
-
-   */
 
   if (
 
@@ -4370,7 +4942,9 @@ function handleDocumentClick(
 
       action,
 
-    } = target.dataset;
+    } =
+
+      target.dataset;
 
     const settingsHandler =
 
@@ -4380,7 +4954,11 @@ function handleDocumentClick(
 
       ];
 
-    if (settingsHandler) {
+    if (
+
+      settingsHandler
+
+    ) {
 
       playFeedbackSound(
 
@@ -4480,7 +5058,7 @@ function handleDocumentClick(
 
   }
 
-    if (
+  if (
 
     currentScreen ===
 
@@ -4540,11 +5118,15 @@ function handleDocumentClick(
 
     num,
 
-  } = target.dataset;
+  } =
+
+    target.dataset;
 
   if (
 
-    num !== undefined
+    num !==
+
+    undefined
 
   ) {
 
@@ -4586,7 +5168,11 @@ function handleDocumentClick(
 
     ];
 
-  if (handler) {
+  if (
+
+    handler
+
+  ) {
 
     playFeedbackSound(
 
@@ -4846,7 +5432,11 @@ function handleSettingsCheckboxChange(
 
         .catch(
 
-          (error) => {
+          (
+
+            error,
+
+          ) => {
 
             console.warn(
 
@@ -4924,14 +5514,6 @@ function handleSettingsSelectChange(
 
 ) {
 
-  /*
-
-   * Workspace等の
-
-   * 背景変更。
-
-   */
-
   if (
 
     target.classList.contains(
@@ -4946,29 +5528,19 @@ function handleSettingsSelectChange(
 
       screen,
 
-    } = target.dataset;
+    } =
 
-    if (!screen) {
+      target.dataset;
+
+    if (
+
+      !screen
+
+    ) {
 
       return;
 
     }
-
-    /*
-
-     * customization.js側で
-
-     * 先にローカルへ即時反映される。
-
-     *
-
-     * Workspace.js等のsubscribeが
-
-     * その変更を受け取って
-
-     * 背景クラスを即時変更する。
-
-     */
 
     Customization
 
@@ -4982,7 +5554,11 @@ function handleSettingsSelectChange(
 
       .catch(
 
-        (error) => {
+        (
+
+          error,
+
+        ) => {
 
           console.error(
 
@@ -5064,12 +5640,6 @@ function handleSettingsTextInputChange(
 
 ) {
 
-  /*
-
-   * Workspaceタイトル
-
-   */
-
   if (
 
     target.id ===
@@ -5088,7 +5658,11 @@ function handleSettingsTextInputChange(
 
       .catch(
 
-        (error) => {
+        (
+
+          error,
+
+        ) => {
 
           console.error(
 
@@ -5105,12 +5679,6 @@ function handleSettingsTextInputChange(
     return;
 
   }
-
-  /*
-
-   * カードアイコン・カード名
-
-   */
 
   if (
 
@@ -5132,9 +5700,15 @@ function handleSettingsTextInputChange(
 
       cardKey,
 
-    } = target.dataset;
+    } =
 
-    if (!cardKey) {
+      target.dataset;
+
+    if (
+
+      !cardKey
+
+    ) {
 
       return;
 
@@ -5176,7 +5750,11 @@ function handleSettingsTextInputChange(
 
       .catch(
 
-        (error) => {
+        (
+
+          error,
+
+        ) => {
 
           console.error(
 
@@ -5206,7 +5784,11 @@ async function handleBiometricToggle(
 
 ) {
 
-  if (!enabled) {
+  if (
+
+    !enabled
+
+  ) {
 
     Settings
 
@@ -5228,7 +5810,11 @@ async function handleBiometricToggle(
 
       await Auth.register();
 
-    if (success) {
+    if (
+
+      success
+
+    ) {
 
       Settings
 
@@ -5242,7 +5828,11 @@ async function handleBiometricToggle(
 
     }
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -5270,7 +5860,11 @@ async function handleNotificationsToggle(
 
 ) {
 
-  if (!enabled) {
+  if (
+
+    !enabled
+
+  ) {
 
     Settings
 
@@ -5286,7 +5880,11 @@ async function handleNotificationsToggle(
 
       .catch(
 
-        (error) => {
+        (
+
+          error,
+
+        ) => {
 
           console.warn(
 
@@ -5324,7 +5922,11 @@ async function handleNotificationsToggle(
 
     return;
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.warn(
 
@@ -5370,7 +5972,11 @@ function handleKeyDown(
 
     );
 
-  if (isLockOpen) {
+  if (
+
+    isLockOpen
+
+  ) {
 
     if (
 
@@ -5490,7 +6096,7 @@ function trapFocus(
 
       focusable.length -
 
-        1
+      1
 
     ];
 
@@ -5600,7 +6206,11 @@ function handleKeypadPointerDown(
 
     );
 
-  if (!target) {
+  if (
+
+    !target
+
+  ) {
 
     return;
 
@@ -5682,7 +6292,11 @@ function handleKeypadPointerUp(
 
     );
 
-  if (!target) {
+  if (
+
+    !target
+
+  ) {
 
     return;
 
@@ -5718,7 +6332,11 @@ function registerSettingsCloseButton() {
 
     );
 
-  if (!settingsCloseBtn) {
+  if (
+
+    !settingsCloseBtn
+
+  ) {
 
     console.warn(
 
@@ -5736,7 +6354,11 @@ function registerSettingsCloseButton() {
 
       'click',
 
-      (event) => {
+      (
+
+        event,
+
+      ) => {
 
         event.preventDefault();
 
@@ -5798,7 +6420,11 @@ function registerEventListeners() {
 
     );
 
-  if (settingsBody) {
+  if (
+
+    settingsBody
+
+  ) {
 
     settingsBody.addEventListener(
 
@@ -5818,7 +6444,11 @@ function registerEventListeners() {
 
     );
 
-  if (keypadEl) {
+  if (
+
+    keypadEl
+
+  ) {
 
     keypadEl.addEventListener(
 
@@ -5952,7 +6582,11 @@ function registerServiceWorker() {
 
         .catch(
 
-          (error) => {
+          (
+
+            error,
+
+          ) => {
 
             console.warn(
 
@@ -6000,7 +6634,7 @@ function handleServiceWorkerMessage(
 
     typeof message.type !==
 
-      'string'
+    'string'
 
   ) {
 
@@ -6046,7 +6680,11 @@ function handleServiceWorkerMessage(
 
       .catch(
 
-        (error) => {
+        (
+
+          error,
+
+        ) => {
 
           console.warn(
 
@@ -6094,7 +6732,11 @@ function handlePageHide() {
 
     .catch(
 
-      (error) => {
+      (
+
+        error,
+
+      ) => {
 
         console.warn(
 
@@ -6172,13 +6814,21 @@ async function runBiometricLockFlow() {
 
       await Auth.authenticate();
 
-    if (success) {
+    if (
+
+      success
+
+    ) {
 
       hideLockOverlay();
 
     }
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -6206,7 +6856,11 @@ function withTimeout(
 
     new Promise(
 
-      (resolve) => {
+      (
+
+        resolve,
+
+      ) => {
 
         window.setTimeout(
 
@@ -6272,14 +6926,6 @@ async function init() {
 
         Router.completePairing();
 
-        /*
-
-         * ペアリング成立後に
-
-         * 共有カスタマイズ購読を開始。
-
-         */
-
         Customization.start();
 
         Notifications
@@ -6288,7 +6934,11 @@ async function init() {
 
           .catch(
 
-            (error) => {
+            (
+
+              error,
+
+            ) => {
 
               console.warn(
 
@@ -6302,6 +6952,16 @@ async function init() {
 
           );
 
+        /*
+
+         * Firebaseでルームが成立した直後、
+
+         * Supabase側にも同じroomIdを登録する。
+
+         */
+
+        syncSupabaseAfterPairing();
+
       },
 
     );
@@ -6312,37 +6972,7 @@ async function init() {
 
     // --------------------------------------------------------
 
-    /*
-
-     * 未ペアリングの場合でも
-
-     * customization.js内部の
-
-     * localStorageキャッシュは使用可能。
-
-     *
-
-     * ペアリング済みなら
-
-     * Firestore購読も開始される。
-
-     */
-
     Customization.start();
-
-    /*
-
-     * カスタマイズ変更時に
-
-     * 設定画面側も更新。
-
-     *
-
-     * Workspace本体は
-
-     * workspace.js自身がsubscribeしている。
-
-     */
 
     Customization.subscribe(
 
@@ -6386,7 +7016,25 @@ async function init() {
 
     // --------------------------------------------------------
 
-    // 8. 生体認証
+    // 8. Supabase
+
+    // --------------------------------------------------------
+
+    //
+
+    // awaitしない。
+
+    // Supabaseの通信状態に関係なく、
+
+    // 電卓は正常に使用できる。
+
+    // --------------------------------------------------------
+
+    startSupabaseInBackground();
+
+    // --------------------------------------------------------
+
+    // 9. 生体認証
 
     // --------------------------------------------------------
 
@@ -6406,7 +7054,7 @@ async function init() {
 
     // --------------------------------------------------------
 
-    // 9. Service Worker
+    // 10. Service Worker
 
     // --------------------------------------------------------
 
@@ -6414,7 +7062,7 @@ async function init() {
 
     // --------------------------------------------------------
 
-    // 10. 通知
+    // 11. 通知
 
     // --------------------------------------------------------
 
@@ -6426,7 +7074,11 @@ async function init() {
 
       .catch(
 
-        (error) => {
+        (
+
+          error,
+
+        ) => {
 
           console.warn(
 
@@ -6446,7 +7098,11 @@ async function init() {
 
       .catch(
 
-        (error) => {
+        (
+
+          error,
+
+        ) => {
 
           console.warn(
 
@@ -6460,7 +7116,11 @@ async function init() {
 
       );
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
