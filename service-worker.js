@@ -16,11 +16,13 @@
 
 // ・古いCalculatorキャッシュのみ削除
 
+// ・Supabase写真共有対応
+
 // ・通知タップでもロック解除しない
 
 //
 
-// CACHE_VERSION 13
+// CACHE_VERSION 14
 
 // ============================================================
 
@@ -34,7 +36,7 @@
 
 const CACHE_VERSION =
 
-  13;
+  14;
 
 const CACHE_PREFIX =
 
@@ -130,6 +132,8 @@ const PRECACHE_URLS =
 
     './js/photo.js',
 
+    './js/supabase.js',
+
     './js/customization.js',
 
     './js/notifications.js',
@@ -180,7 +184,7 @@ self.addEventListener(
 
      * waiting状態に残さず、
 
-     * 更新後すぐ使えるようにする。
+     * 更新後すぐ利用できるようにする。
 
      */
 
@@ -210,9 +214,9 @@ async function precacheAppShell() {
 
    * 1ファイル失敗しただけで
 
-   * Service Worker全体のinstallを
+   * Service Worker全体を
 
-   * 失敗させない。
+   * install失敗にしない。
 
    */
 
@@ -324,15 +328,9 @@ async function activateWorker() {
 
   /*
 
-   * Calculator 0209が作った
+   * Calculator 0209が作成した
 
-   * 古いバージョンのキャッシュだけ削除。
-
-   *
-
-   * 他のアプリや別用途のCache Storageは
-
-   * 削除しない。
+   * 古いキャッシュだけ削除する。
 
    */
 
@@ -342,7 +340,7 @@ async function activateWorker() {
 
    * 開いているページを
 
-   * 新Service Workerの管理下へ移す。
+   * 新しいService Workerの管理下へ移す。
 
    */
 
@@ -458,13 +456,17 @@ self.addEventListener(
 
     /*
 
-     * Firebase Storage、
+     * Firebase / Supabase / CDNなど、
 
-     * Firestore、
-
-     * CDN等の外部オリジンは
+     * 外部オリジンの通信は
 
      * Service Workerではキャッシュしない。
+
+     *
+
+     * Supabase写真本体や
+
+     * Signed URLもここには入らない。
 
      */
 
@@ -552,13 +554,11 @@ async function handleFetch(
 
   /*
 
-   * HTML / JavaScript / CSS / JSON
-
-   *
+   * HTML / JavaScript / CSS / JSONは
 
    * GitHub Pages更新後に
 
-   * 古いファイルを使い続けないよう、
+   * 古いコードを使い続けないよう
 
    * ネットワーク優先。
 
@@ -576,7 +576,7 @@ async function handleFetch(
 
   /*
 
-   * アイコン等の静的画像は
+   * アイコン等の静的ファイルは
 
    * キャッシュ優先。
 
@@ -814,7 +814,7 @@ async function respondWithOfflineFallback(
 
   /*
 
-   * ページ遷移の場合だけ
+   * ページ遷移の場合のみ
 
    * index.htmlへフォールバック。
 
@@ -1005,34 +1005,6 @@ function normalizePushPayload(
       ? rawPayload
 
       : {};
-
-  /*
-
-   * Firebase Messagingでは、
-
-   *
-
-   * {
-
-   *   notification: {...},
-
-   *   data: {...}
-
-   * }
-
-   *
-
-   * のように届く場合がある。
-
-   *
-
-   * 独自Pushでは
-
-   * title/body/roomId等が
-
-   * 直下にある場合も許容。
-
-   */
 
   const notification =
 
@@ -1310,9 +1282,9 @@ async function handlePushEvent(
 
        * 通知タップ後も
 
-       * Workspace / Messagesへ直接入れず、
+       * Workspace / Messagesへ直接移動せず、
 
-       * Calculatorを入口にする。
+       * Calculator画面を入口にする。
 
        */
 
@@ -1436,15 +1408,11 @@ async function handleNotificationClick(
 
      * GitHub Pagesでは
 
-     * github.ioというorigin自体は
+     * github.ioのoriginを
 
-     * 他リポジトリと共通になる。
+     * 複数リポジトリで共有するため、
 
-     *
-
-     * originだけでなく
-
-     * Service Workerのscope内かも確認する。
+     * Service Worker scope内かも確認する。
 
      */
 
@@ -1502,9 +1470,9 @@ async function handleNotificationClick(
 
       /*
 
-       * 通知情報はアプリへ渡すが、
+       * 通知情報だけアプリへ渡す。
 
-       * app.js側では直接アンロックしない。
+       * app.js側では直接ロック解除しない。
 
        */
 
@@ -1568,7 +1536,7 @@ async function handleNotificationClick(
 
      * 開いているアプリがない場合だけ
 
-     * Calculator画面を新規表示。
+     * Calculatorを新しく開く。
 
      */
 
@@ -1662,13 +1630,11 @@ async function handlePushSubscriptionChange(
 
     /*
 
-     * ブラウザ側で新しい購読が
+     * 自動的に新しい購読が
 
-     * 自動生成されなかった場合、
+     * 作られなかった場合は、
 
-     * 旧購読のapplicationServerKeyを
-
-     * 使用して再購読を試す。
+     * 旧applicationServerKeyで再購読を試す。
 
      */
 
@@ -1714,11 +1680,9 @@ async function handlePushSubscriptionChange(
 
     /*
 
-     * Service Workerから直接Firestoreへ
+     * Firestoreへ直接書き込まず、
 
-     * 書き込まず、
-
-     * アプリ側へ同期要求を送る。
+     * アプリ側へ再同期要求を送る。
 
      */
 
@@ -1944,7 +1908,7 @@ async function clearAppCaches() {
 
 // ============================================================
 
-// Service Worker起動確認
+// 起動確認
 
 // ============================================================
 
