@@ -1,414 +1,104 @@
 // ============================================================
 
-// app.js
+// photo.js
 
 // Calculator 0209
 
+//
+
+// 写真画面 完成版
+
+//
+
+// ・iPhoneから写真選択
+
+// ・ペアリング済み：Supabase Storageへ共有保存
+
+// ・未ペアリング：IndexedDBへ端末内保存
+
+// ・共有写真一覧取得
+
+// ・定期更新で相手側の写真も反映
+
+// ・写真プレビュー
+
+// ・ローカル写真削除
+
+// ・共有写真削除
+
+// ・背景カスタマイズ
+
+//
+
+// Supabase接続処理は supabase.js に分離
+
 // ============================================================
-
-import Calculator, {
-
-  ACTIONS as CALC_ACTIONS,
-
-} from './calculator.js';
-
-import Storage, {
-
-  STORAGE_KEYS,
-
-} from './storage.js';
-
-import Settings, {
-
-  AUTO_LOCK_DURATION_PRESETS,
-
-  CONVERSATION_ORGANIZE_DURATION_PRESETS,
-
-} from './settings.js';
-
-import Sound from './sound.js';
-
-import Auth from './auth.js';
-
-import {
-
-  THEMES,
-
-  getThemeById,
-
-} from './themes.js';
-
-import Router from './router.js';
-
-import Passcode from './passcode.js';
-
-import Workspace from './workspace.js';
-
-import Records from './records.js';
-
-import Calendar from './calendar.js';
-
-import Archive from './archive.js';
-
-import Pairing from './pairing.js';
-
-import Messages from './messages.js';
-
-import Firebase from './firebase.js';
 
 import Customization from './customization.js';
 
-import Notifications from './notifications.js';
-
-import Photo from './photo.js';
+import Supabase from './supabase.js';
 
 // ============================================================
 
-// 定数
+// 画面定数
 
 // ============================================================
 
-const KEYPAD_LAYOUT = [
+const CONTAINER_ID =
 
-  [
+  'photo';
 
-    {
+const FILE_INPUT_ID =
 
-      label: 'AC',
+  'photoFileInput';
 
-      action: CALC_ACTIONS.CLEAR,
+const STATUS_ID =
 
-      variant: 'func',
+  'photoStatus';
 
-    },
+const GALLERY_ID =
 
-    {
+  'photoGallery';
 
-      label: '±',
+const VIEWER_ID =
 
-      action: CALC_ACTIONS.NEGATE,
+  'photoViewer';
 
-      variant: 'func',
+const VIEWER_IMAGE_ID =
 
-    },
+  'photoViewerImage';
 
-    {
+const VIEWER_DATE_ID =
 
-      label: '%',
+  'photoViewerDate';
 
-      action: CALC_ACTIONS.PERCENT,
+// ============================================================
 
-      variant: 'func',
+// IndexedDB
 
-    },
+// ============================================================
 
-    {
+const DB_NAME =
 
-      label: '÷',
+  'calculator-0209-photo-db';
 
-      action: CALC_ACTIONS.DIVIDE,
+const DB_VERSION =
 
-      variant: 'operator',
+  3;
 
-    },
+const PHOTO_STORE_NAME =
 
-  ],
+  'photos';
 
-  [
+// ============================================================
 
-    {
+// 共有写真更新
 
-      label: '7',
+// ============================================================
 
-      num: '7',
+const SHARED_REFRESH_INTERVAL_MS =
 
-      variant: 'num',
-
-    },
-
-    {
-
-      label: '8',
-
-      num: '8',
-
-      variant: 'num',
-
-    },
-
-    {
-
-      label: '9',
-
-      num: '9',
-
-      variant: 'num',
-
-    },
-
-    {
-
-      label: '×',
-
-      action: CALC_ACTIONS.MULTIPLY,
-
-      variant: 'operator',
-
-    },
-
-  ],
-
-  [
-
-    {
-
-      label: '4',
-
-      num: '4',
-
-      variant: 'num',
-
-    },
-
-    {
-
-      label: '5',
-
-      num: '5',
-
-      variant: 'num',
-
-    },
-
-    {
-
-      label: '6',
-
-      num: '6',
-
-      variant: 'num',
-
-    },
-
-    {
-
-      label: '−',
-
-      action: CALC_ACTIONS.SUBTRACT,
-
-      variant: 'operator',
-
-    },
-
-  ],
-
-  [
-
-    {
-
-      label: '1',
-
-      num: '1',
-
-      variant: 'num',
-
-    },
-
-    {
-
-      label: '2',
-
-      num: '2',
-
-      variant: 'num',
-
-    },
-
-    {
-
-      label: '3',
-
-      num: '3',
-
-      variant: 'num',
-
-    },
-
-    {
-
-      label: '＋',
-
-      action: CALC_ACTIONS.ADD,
-
-      variant: 'operator',
-
-    },
-
-  ],
-
-  [
-
-    {
-
-      label: '0',
-
-      num: '0',
-
-      variant: 'num',
-
-      wide: true,
-
-    },
-
-    {
-
-      label: '.',
-
-      action: CALC_ACTIONS.DECIMAL,
-
-      variant: 'num',
-
-    },
-
-    {
-
-      label: '=',
-
-      action: CALC_ACTIONS.EQUALS,
-
-      variant: 'equal',
-
-    },
-
-  ],
-
-];
-
-const KEY_ARIA_LABELS =
-
-  Object.freeze({
-
-    [CALC_ACTIONS.CLEAR]:
-
-      'オールクリア',
-
-    [CALC_ACTIONS.NEGATE]:
-
-      'プラスマイナス切り替え',
-
-    [CALC_ACTIONS.PERCENT]:
-
-      'パーセント',
-
-    [CALC_ACTIONS.DIVIDE]:
-
-      '割る',
-
-    [CALC_ACTIONS.MULTIPLY]:
-
-      '掛ける',
-
-    [CALC_ACTIONS.SUBTRACT]:
-
-      '引く',
-
-    [CALC_ACTIONS.ADD]:
-
-      '足す',
-
-    [CALC_ACTIONS.DECIMAL]:
-
-      '小数点',
-
-    [CALC_ACTIONS.EQUALS]:
-
-      '計算実行',
-
-  });
-
-const CALCULATOR_ACTIONS =
-
-  new Set([
-
-    CALC_ACTIONS.CLEAR,
-
-    CALC_ACTIONS.NEGATE,
-
-    CALC_ACTIONS.PERCENT,
-
-    CALC_ACTIONS.ADD,
-
-    CALC_ACTIONS.SUBTRACT,
-
-    CALC_ACTIONS.MULTIPLY,
-
-    CALC_ACTIONS.DIVIDE,
-
-    CALC_ACTIONS.DECIMAL,
-
-    CALC_ACTIONS.EQUALS,
-
-  ]);
-
-const PASSCODE_RESET_ACTIONS =
-
-  new Set([
-
-    CALC_ACTIONS.CLEAR,
-
-    CALC_ACTIONS.EQUALS,
-
-    CALC_ACTIONS.ADD,
-
-    CALC_ACTIONS.SUBTRACT,
-
-    CALC_ACTIONS.MULTIPLY,
-
-    CALC_ACTIONS.DIVIDE,
-
-    CALC_ACTIONS.PERCENT,
-
-    CALC_ACTIONS.DECIMAL,
-
-  ]);
-
-const ERROR_DISPLAY_TEXT =
-
-  Object.freeze({
-
-    'division-by-zero':
-
-      'エラー',
-
-    overflow:
-
-      'エラー',
-
-    'unknown-operator':
-
-      'エラー',
-
-    unknown:
-
-      'エラー',
-
-  });
-
-const DEFAULT_ERROR_TEXT =
-
-  'エラー';
-
-const LONG_NUMBER_THRESHOLD =
-
-  10;
-
-const PRESSED_CLASS_TIMEOUT =
-
-  150;
-
-const FOCUSABLE_SELECTOR =
-
-  'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  10000;
 
 // ============================================================
 
@@ -416,289 +106,423 @@ const FOCUSABLE_SELECTOR =
 
 // ============================================================
 
-let isBiometricSupported =
+let isBuilt =
 
   false;
 
-let lastFocusedElement =
+let databasePromise =
 
   null;
 
-let passcodeBuffer =
+let unsubscribeCustomization =
 
-  '';
+  null;
 
-const pressedTimeouts =
+let sharedRefreshTimer =
 
-  new WeakMap();
+  null;
+
+let sharedPhotos =
+
+  [];
+
+let isSharedMode =
+
+  false;
+
+let isRefreshingShared =
+
+  false;
+
+let galleryRenderToken =
+
+  0;
+
+const activeObjectUrls =
+
+  new Set();
 
 // ============================================================
 
-// ユーティリティ
+// ステータス
 
 // ============================================================
 
-function formatWithGrouping(
+function setStatus(
 
-  rawValue,
+  message,
 
-) {
-
-  if (
-
-    typeof rawValue !==
-
-      'string'
-
-  ) {
-
-    return String(
-
-      rawValue,
-
-    );
-
-  }
-
-  const isNegative =
-
-    rawValue.startsWith(
-
-      '-',
-
-    );
-
-  const unsigned =
-
-    isNegative
-
-      ? rawValue.slice(
-
-          1,
-
-        )
-
-      : rawValue;
-
-  const [
-
-    integerPart,
-
-    decimalPart,
-
-  ] =
-
-    unsigned.split(
-
-      '.',
-
-    );
-
-  const groupedInteger =
-
-    integerPart.replace(
-
-      /\B(?=(\d{3})+(?!\d))/g,
-
-      ',',
-
-    );
-
-  const grouped =
-
-    decimalPart !==
-
-    undefined
-
-      ? `${groupedInteger}.${decimalPart}`
-
-      : groupedInteger;
-
-  return isNegative
-
-    ? `-${grouped}`
-
-    : grouped;
-
-}
-
-function groupNumbersInText(
-
-  text,
+  type = 'normal',
 
 ) {
 
-  return text.replace(
-
-    /-?\d+(\.\d+)?/g,
-
-    (
-
-      match,
-
-    ) =>
-
-      formatWithGrouping(
-
-        match,
-
-      ),
-
-  );
-
-}
-
-function playFeedbackSound(
-
-  kind,
-
-) {
-
-  if (
-
-    !Settings.isSoundEnabled()
-
-  ) {
-
-    return;
-
-  }
-
-  if (
-
-    kind ===
-
-    'success'
-
-  ) {
-
-    Sound.playSuccess();
-
-    return;
-
-  }
-
-  if (
-
-    kind ===
-
-    'error'
-
-  ) {
-
-    Sound.playError();
-
-    return;
-
-  }
-
-  Sound.playTap();
-
-}
-
-function playFeedbackVibration() {
-
-  if (
-
-    Settings.isVibrationEnabled()
-
-  ) {
-
-    Sound.vibrate();
-
-  }
-
-}
-
-function dispatchToCalculator(
-
-  type,
-
-  payload,
-
-) {
-
-  return Calculator.input(
-
-    type,
-
-    payload,
-
-  );
-
-}
-
-// ============================================================
-
-// キーパッド生成
-
-// ============================================================
-
-function buildKeypad() {
-
-  const keypadEl =
+  const status =
 
     document.getElementById(
 
-      'keypad',
+      STATUS_ID,
 
     );
 
-  if (!keypadEl) {
+  if (!status) {
 
     return;
 
   }
 
-  const fragment =
+  status.textContent =
 
-    document.createDocumentFragment();
+    message ?? '';
 
-  KEYPAD_LAYOUT.forEach(
+  status.dataset.status =
 
-    (
+    type;
 
-      row,
+}
 
-    ) => {
+function clearStatus() {
 
-      const rowEl =
+  setStatus(
 
-        document.createElement(
+    '',
 
-          'div',
+    'normal',
 
-        );
+  );
 
-      rowEl.className =
+}
 
-        'keypad-row';
+function clearStatusLater(
 
-      row.forEach(
+  delayMs = 2200,
 
-        (
+) {
 
-          keyDef,
+  window.setTimeout(
 
-        ) => {
+    () => {
 
-          rowEl.appendChild(
+      if (
 
-            createKeyButton(
+        isOpen()
 
-              keyDef,
+      ) {
+
+        clearStatus();
+
+      }
+
+    },
+
+    delayMs,
+
+  );
+
+}
+
+// ============================================================
+
+// IndexedDBを開く
+
+// ============================================================
+
+function openDatabase() {
+
+  if (databasePromise) {
+
+    return databasePromise;
+
+  }
+
+  databasePromise =
+
+    new Promise(
+
+      (
+
+        resolve,
+
+        reject,
+
+      ) => {
+
+        if (
+
+          !(
+
+            'indexedDB' in
+
+            window
+
+          )
+
+        ) {
+
+          reject(
+
+            new Error(
+
+              'IndexedDBが利用できません。',
 
             ),
 
           );
 
-        },
+          return;
 
-      );
+        }
 
-      fragment.appendChild(
+        const request =
 
-        rowEl,
+          indexedDB.open(
+
+            DB_NAME,
+
+            DB_VERSION,
+
+          );
+
+        request.onupgradeneeded =
+
+          () => {
+
+            const db =
+
+              request.result;
+
+            /*
+
+             * 既存写真を消さない。
+
+             *
+
+             * 過去版のように
+
+             * deleteObjectStore() は実行しない。
+
+             */
+
+            if (
+
+              !db.objectStoreNames.contains(
+
+                PHOTO_STORE_NAME,
+
+              )
+
+            ) {
+
+              const store =
+
+                db.createObjectStore(
+
+                  PHOTO_STORE_NAME,
+
+                  {
+
+                    keyPath:
+
+                      'id',
+
+                  },
+
+                );
+
+              store.createIndex(
+
+                'createdAt',
+
+                'createdAt',
+
+                {
+
+                  unique:
+
+                    false,
+
+                },
+
+              );
+
+            }
+
+          };
+
+        request.onsuccess =
+
+          () => {
+
+            const db =
+
+              request.result;
+
+            db.onversionchange =
+
+              () => {
+
+                db.close();
+
+                databasePromise =
+
+                  null;
+
+              };
+
+            resolve(
+
+              db,
+
+            );
+
+          };
+
+        request.onerror =
+
+          () => {
+
+            databasePromise =
+
+              null;
+
+            reject(
+
+              request.error ??
+
+              new Error(
+
+                '写真データベースを開けませんでした。',
+
+              ),
+
+            );
+
+          };
+
+        request.onblocked =
+
+          () => {
+
+            console.warn(
+
+              '[photo.js] IndexedDB更新がブロックされています',
+
+            );
+
+          };
+
+      },
+
+    );
+
+  return databasePromise;
+
+}
+
+// ============================================================
+
+// ID生成
+
+// ============================================================
+
+function createPhotoId() {
+
+  if (
+
+    typeof crypto !==
+
+      'undefined' &&
+
+    typeof crypto.randomUUID ===
+
+      'function'
+
+  ) {
+
+    return crypto.randomUUID();
+
+  }
+
+  return `${Date.now()}-${Math.random()
+
+    .toString(36)
+
+    .slice(2)}`;
+
+}
+
+// ============================================================
+
+// Blob → ArrayBuffer
+
+// ============================================================
+
+function blobToArrayBuffer(
+
+  blob,
+
+) {
+
+  if (
+
+    blob &&
+
+    typeof blob.arrayBuffer ===
+
+      'function'
+
+  ) {
+
+    return blob.arrayBuffer();
+
+  }
+
+  return new Promise(
+
+    (
+
+      resolve,
+
+      reject,
+
+    ) => {
+
+      const reader =
+
+        new FileReader();
+
+      reader.onload =
+
+        () => {
+
+          resolve(
+
+            reader.result,
+
+          );
+
+        };
+
+      reader.onerror =
+
+        () => {
+
+          reject(
+
+            reader.error ??
+
+            new Error(
+
+              '写真データを読み込めませんでした。',
+
+            ),
+
+          );
+
+        };
+
+      reader.readAsArrayBuffer(
+
+        blob,
 
       );
 
@@ -706,21 +530,859 @@ function buildKeypad() {
 
   );
 
-  keypadEl.replaceChildren(
+}
 
-    fragment,
+// ============================================================
+
+// ローカル写真保存
+
+// ============================================================
+
+async function saveLocalPhoto(
+
+  file,
+
+) {
+
+  if (!file) {
+
+    throw new Error(
+
+      '写真データがありません。',
+
+    );
+
+  }
+
+  const buffer =
+
+    await blobToArrayBuffer(
+
+      file,
+
+    );
+
+  if (
+
+    !(buffer instanceof ArrayBuffer)
+
+  ) {
+
+    throw new Error(
+
+      '写真データの変換に失敗しました。',
+
+    );
+
+  }
+
+  const db =
+
+    await openDatabase();
+
+  const record = {
+
+    id:
+
+      createPhotoId(),
+
+    name:
+
+      typeof file.name ===
+
+        'string' &&
+
+      file.name
+
+        ? file.name
+
+        : 'photo',
+
+    type:
+
+      typeof file.type ===
+
+        'string' &&
+
+      file.type
+
+        ? file.type
+
+        : 'image/jpeg',
+
+    size:
+
+      Number(
+
+        file.size,
+
+      ) ||
+
+      buffer.byteLength,
+
+    createdAt:
+
+      Date.now(),
+
+    buffer,
+
+  };
+
+  return new Promise(
+
+    (
+
+      resolve,
+
+      reject,
+
+    ) => {
+
+      const transaction =
+
+        db.transaction(
+
+          PHOTO_STORE_NAME,
+
+          'readwrite',
+
+        );
+
+      const store =
+
+        transaction.objectStore(
+
+          PHOTO_STORE_NAME,
+
+        );
+
+      const request =
+
+        store.put(
+
+          record,
+
+        );
+
+      request.onerror =
+
+        () => {
+
+          reject(
+
+            request.error ??
+
+              new Error(
+
+                '写真保存に失敗しました。',
+
+              ),
+
+          );
+
+        };
+
+      transaction.oncomplete =
+
+        () => {
+
+          resolve(
+
+            record,
+
+          );
+
+        };
+
+      transaction.onerror =
+
+        () => {
+
+          reject(
+
+            transaction.error ??
+
+              new Error(
+
+                '写真保存に失敗しました。',
+
+              ),
+
+          );
+
+        };
+
+      transaction.onabort =
+
+        () => {
+
+          reject(
+
+            transaction.error ??
+
+              new Error(
+
+                '写真保存が中断されました。',
+
+              ),
+
+          );
+
+        };
+
+    },
 
   );
 
 }
 
-function createKeyButton(
+// ============================================================
 
-  keyDef,
+// ローカル写真一覧取得
+
+// ============================================================
+
+async function loadLocalPhotos() {
+
+  const db =
+
+    await openDatabase();
+
+  return new Promise(
+
+    (
+
+      resolve,
+
+      reject,
+
+    ) => {
+
+      const transaction =
+
+        db.transaction(
+
+          PHOTO_STORE_NAME,
+
+          'readonly',
+
+        );
+
+      const store =
+
+        transaction.objectStore(
+
+          PHOTO_STORE_NAME,
+
+        );
+
+      const request =
+
+        store.getAll();
+
+      request.onsuccess =
+
+        () => {
+
+          const records =
+
+            Array.isArray(
+
+              request.result,
+
+            )
+
+              ? request.result
+
+              : [];
+
+          records.sort(
+
+            (
+
+              a,
+
+              b,
+
+            ) =>
+
+              Number(
+
+                b.createdAt,
+
+              ) -
+
+              Number(
+
+                a.createdAt,
+
+              ),
+
+          );
+
+          resolve(
+
+            records,
+
+          );
+
+        };
+
+      request.onerror =
+
+        () => {
+
+          reject(
+
+            request.error ??
+
+              new Error(
+
+                '端末内の写真を読み込めませんでした。',
+
+              ),
+
+          );
+
+        };
+
+    },
+
+  );
+
+}
+
+// ============================================================
+
+// ローカル写真削除
+
+// ============================================================
+
+async function deleteLocalPhotoById(
+
+  photoId,
 
 ) {
 
-  const button =
+  if (!photoId) {
+
+    return;
+
+  }
+
+  const db =
+
+    await openDatabase();
+
+  return new Promise(
+
+    (
+
+      resolve,
+
+      reject,
+
+    ) => {
+
+      const transaction =
+
+        db.transaction(
+
+          PHOTO_STORE_NAME,
+
+          'readwrite',
+
+        );
+
+      const store =
+
+        transaction.objectStore(
+
+          PHOTO_STORE_NAME,
+
+        );
+
+      const request =
+
+        store.delete(
+
+          photoId,
+
+        );
+
+      request.onerror =
+
+        () => {
+
+          reject(
+
+            request.error ??
+
+              new Error(
+
+                '写真削除に失敗しました。',
+
+              ),
+
+          );
+
+        };
+
+      transaction.oncomplete =
+
+        () => {
+
+          resolve();
+
+        };
+
+      transaction.onerror =
+
+        () => {
+
+          reject(
+
+            transaction.error ??
+
+              new Error(
+
+                '写真削除に失敗しました。',
+
+              ),
+
+          );
+
+        };
+
+    },
+
+  );
+
+}
+
+// ============================================================
+
+// 保存データ → Blob
+
+// ============================================================
+
+function createBlobFromRecord(
+
+  record,
+
+) {
+
+  if (!record) {
+
+    return null;
+
+  }
+
+  if (
+
+    record.buffer instanceof
+
+      ArrayBuffer
+
+  ) {
+
+    return new Blob(
+
+      [
+
+        record.buffer,
+
+      ],
+
+      {
+
+        type:
+
+          record.type ||
+
+          'image/jpeg',
+
+      },
+
+    );
+
+  }
+
+  /*
+
+   * 古い保存形式にも対応。
+
+   */
+
+  if (
+
+    record.blob instanceof
+
+      Blob
+
+  ) {
+
+    return record.blob;
+
+  }
+
+  return null;
+
+}
+
+// ============================================================
+
+// Object URL管理
+
+// ============================================================
+
+function revokeAllObjectUrls() {
+
+  activeObjectUrls.forEach(
+
+    (
+
+      url,
+
+    ) => {
+
+      try {
+
+        URL.revokeObjectURL(
+
+          url,
+
+        );
+
+      } catch (error) {
+
+        console.warn(
+
+          '[photo.js] Object URLの解放に失敗しました',
+
+          error,
+
+        );
+
+      }
+
+    },
+
+  );
+
+  activeObjectUrls.clear();
+
+}
+
+// ============================================================
+
+// Supabase共有モード確認
+
+// ============================================================
+
+function updateSharedMode() {
+
+  const roomId =
+
+    Supabase.getRoomId();
+
+  isSharedMode =
+
+    Boolean(
+
+      roomId,
+
+    );
+
+  return isSharedMode;
+
+}
+
+// ============================================================
+
+// 共有写真取得
+
+// ============================================================
+
+async function refreshSharedPhotos(
+
+  {
+
+    rerender = false,
+
+    silent = false,
+
+  } = {},
+
+) {
+
+  if (
+
+    isRefreshingShared
+
+  ) {
+
+    return;
+
+  }
+
+  if (
+
+    !updateSharedMode()
+
+  ) {
+
+    sharedPhotos =
+
+      [];
+
+    return;
+
+  }
+
+  isRefreshingShared =
+
+    true;
+
+  try {
+
+    await Supabase.ensureSignedIn();
+
+    const photos =
+
+      await Supabase.listPhotos();
+
+    sharedPhotos =
+
+      Array.isArray(
+
+        photos,
+
+      )
+
+        ? photos
+
+        : [];
+
+    if (
+
+      rerender &&
+
+      isOpen()
+
+    ) {
+
+      await renderGallery();
+
+    }
+
+  } catch (error) {
+
+    console.error(
+
+      '[photo.js] 共有写真の取得に失敗しました',
+
+      error,
+
+    );
+
+    if (!silent) {
+
+      setStatus(
+
+        '共有写真を読み込めませんでした',
+
+        'error',
+
+      );
+
+    }
+
+  } finally {
+
+    isRefreshingShared =
+
+      false;
+
+  }
+
+}
+
+// ============================================================
+
+// 共有写真定期更新
+
+// ============================================================
+
+function stopSharedRefreshTimer() {
+
+  if (
+
+    sharedRefreshTimer !==
+
+    null
+
+  ) {
+
+    window.clearInterval(
+
+      sharedRefreshTimer,
+
+    );
+
+    sharedRefreshTimer =
+
+      null;
+
+  }
+
+}
+
+function startSharedRefreshTimer() {
+
+  stopSharedRefreshTimer();
+
+  if (
+
+    !isSharedMode
+
+  ) {
+
+    return;
+
+  }
+
+  sharedRefreshTimer =
+
+    window.setInterval(
+
+      () => {
+
+        if (
+
+          !isOpen() ||
+
+          document.visibilityState ===
+
+            'hidden'
+
+        ) {
+
+          return;
+
+        }
+
+        refreshSharedPhotos({
+
+          rerender:
+
+            true,
+
+          silent:
+
+            true,
+
+        }).catch(
+
+          (
+
+            error,
+
+          ) => {
+
+            console.warn(
+
+              '[photo.js] 共有写真の定期更新に失敗しました',
+
+              error,
+
+            );
+
+          },
+
+        );
+
+      },
+
+      SHARED_REFRESH_INTERVAL_MS,
+
+    );
+
+}
+
+// ============================================================
+
+// コンテナ
+
+// ============================================================
+
+function getContainer() {
+
+  return document.getElementById(
+
+    CONTAINER_ID,
+
+  );
+
+}
+
+function createContainer() {
+
+  const container =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  container.id =
+
+    CONTAINER_ID;
+
+  container.className =
+
+    'photo';
+
+  container.setAttribute(
+
+    'aria-hidden',
+
+    'true',
+
+  );
+
+  document.body.appendChild(
+
+    container,
+
+  );
+
+  return container;
+
+}
+
+// ============================================================
+
+// ヘッダー
+
+// ============================================================
+
+function createHeader() {
+
+  const header =
+
+    document.createElement(
+
+      'header',
+
+    );
+
+  header.className =
+
+    'photo-header';
+
+  const backButton =
 
     document.createElement(
 
@@ -728,1559 +1390,431 @@ function createKeyButton(
 
     );
 
-  button.type =
+  backButton.type =
 
     'button';
 
-  button.className =
+  backButton.className =
 
-    `key key-${keyDef.variant}${
+    'icon-btn';
 
-      keyDef.wide
+  backButton.dataset.action =
 
-        ? ' key-zero'
+    'close-photo';
 
-        : ''
+  backButton.setAttribute(
 
-    }`;
+    'aria-label',
 
-  button.textContent =
+    'Workspaceへ戻る',
 
-    keyDef.label;
+  );
 
-  if (
+  backButton.textContent =
 
-    keyDef.num !==
+    '‹';
 
-    undefined
+  const title =
 
-  ) {
+    document.createElement(
 
-    button.dataset.num =
-
-      keyDef.num;
-
-    button.setAttribute(
-
-      'aria-label',
-
-      `数字 ${keyDef.num}`,
+      'h2',
 
     );
 
-  } else {
+  title.className =
 
-    button.dataset.action =
+    'photo-title';
 
-      keyDef.action;
+  title.textContent =
 
-    button.setAttribute(
+    '写真';
 
-      'aria-label',
+  const lockButton =
 
-      KEY_ARIA_LABELS[
+    document.createElement(
 
-        keyDef.action
-
-      ] ??
-
-      keyDef.label,
+      'button',
 
     );
 
-  }
+  lockButton.type =
 
-  return button;
+    'button';
+
+  lockButton.className =
+
+    'icon-btn';
+
+  lockButton.dataset.action =
+
+    'lock-now';
+
+  lockButton.setAttribute(
+
+    'aria-label',
+
+    '今すぐロック',
+
+  );
+
+  lockButton.textContent =
+
+    '🔒';
+
+  header.appendChild(
+
+    backButton,
+
+  );
+
+  header.appendChild(
+
+    title,
+
+  );
+
+  header.appendChild(
+
+    lockButton,
+
+  );
+
+  return header;
 
 }
 
 // ============================================================
 
-// テーマ設定UI生成
+// 写真選択input
 
 // ============================================================
 
-function buildThemeOptions() {
-
-  const themeSwitchEl =
-
-    document.getElementById(
-
-      'themeSwitch',
-
-    );
-
-  if (!themeSwitchEl) {
-
-    return;
-
-  }
-
-  const fragment =
-
-    document.createDocumentFragment();
-
-  THEMES.forEach(
-
-    (
-
-      theme,
-
-    ) => {
-
-      const button =
-
-        document.createElement(
-
-          'button',
-
-        );
-
-      button.type =
-
-        'button';
-
-      button.className =
-
-        'theme-option';
-
-      button.textContent =
-
-        theme.label;
-
-      button.dataset.action =
-
-        'select-theme';
-
-      button.dataset.themeId =
-
-        theme.id;
-
-      button.setAttribute(
-
-        'role',
-
-        'radio',
-
-      );
-
-      button.setAttribute(
-
-        'aria-checked',
-
-        'false',
-
-      );
-
-      fragment.appendChild(
-
-        button,
-
-      );
-
-    },
-
-  );
-
-  themeSwitchEl.replaceChildren(
-
-    fragment,
-
-  );
-
-}
-
-// ============================================================
-
-// 時間設定UI生成
-
-// ============================================================
-
-function populateDurationSelect(
-
-  selectEl,
-
-  presets,
-
-) {
-
-  if (!selectEl) {
-
-    return;
-
-  }
-
-  const fragment =
-
-    document.createDocumentFragment();
-
-  presets.forEach(
-
-    (
-
-      preset,
-
-    ) => {
-
-      const option =
-
-        document.createElement(
-
-          'option',
-
-        );
-
-      option.value =
-
-        String(
-
-          preset.valueMs,
-
-        );
-
-      option.textContent =
-
-        preset.label;
-
-      fragment.appendChild(
-
-        option,
-
-      );
-
-    },
-
-  );
-
-  selectEl.replaceChildren(
-
-    fragment,
-
-  );
-
-}
-
-function buildDurationSelectOptions() {
-
-  populateDurationSelect(
-
-    document.getElementById(
-
-      'autoLockDurationSelect',
-
-    ),
-
-    AUTO_LOCK_DURATION_PRESETS,
-
-  );
-
-  populateDurationSelect(
-
-    document.getElementById(
-
-      'organizeDurationSelect',
-
-    ),
-
-    CONVERSATION_ORGANIZE_DURATION_PRESETS,
-
-  );
-
-}
-
-// ============================================================
-
-// 電卓表示
-
-// ============================================================
-
-function renderDisplay() {
-
-  const displayState =
-
-    Calculator.getDisplayState();
-
-  const expressionEl =
-
-    document.getElementById(
-
-      'expressionDisplay',
-
-    );
-
-  const resultEl =
-
-    document.getElementById(
-
-      'resultDisplay',
-
-    );
-
-  if (
-
-    !expressionEl ||
-
-    !resultEl
-
-  ) {
-
-    return;
-
-  }
-
-  expressionEl.textContent =
-
-    displayState.expression;
-
-  if (
-
-    displayState.isError
-
-  ) {
-
-    resultEl.textContent =
-
-      ERROR_DISPLAY_TEXT[
-
-        displayState.errorCode
-
-      ] ??
-
-      DEFAULT_ERROR_TEXT;
-
-    resultEl.classList.add(
-
-      'is-error',
-
-    );
-
-    resultEl.classList.remove(
-
-      'result-display--long',
-
-    );
-
-    return;
-
-  }
-
-  const formatted =
-
-    formatWithGrouping(
-
-      displayState.result,
-
-    );
-
-  resultEl.textContent =
-
-    formatted;
-
-  resultEl.classList.remove(
-
-    'is-error',
-
-  );
-
-  resultEl.classList.toggle(
-
-    'result-display--long',
-
-    formatted.length >
-
-      LONG_NUMBER_THRESHOLD,
-
-  );
-
-}
-
-// ============================================================
-
-// 履歴表示
-
-// ============================================================
-
-function renderHistory() {
-
-  const historyListEl =
-
-    document.getElementById(
-
-      'historyList',
-
-    );
-
-  if (!historyListEl) {
-
-    return;
-
-  }
-
-  const entries =
-
-    Calculator.getHistory();
-
-  const fragment =
-
-    document.createDocumentFragment();
-
-  entries.forEach(
-
-    (
-
-      entry,
-
-    ) => {
-
-      const li =
-
-        document.createElement(
-
-          'li',
-
-        );
-
-      li.className =
-
-        'history-item';
-
-      li.textContent =
-
-        groupNumbersInText(
-
-          `${entry.expression} = ${entry.result}`,
-
-        );
-
-      fragment.appendChild(
-
-        li,
-
-      );
-
-    },
-
-  );
-
-  historyListEl.replaceChildren(
-
-    fragment,
-
-  );
-
-}
-
-// ============================================================
-
-// テーマ描画
-
-// ============================================================
-
-function updateMetaThemeColor(
-
-  themeId,
-
-) {
-
-  const theme =
-
-    getThemeById(
-
-      themeId,
-
-    );
-
-  if (!theme) {
-
-    return;
-
-  }
-
-  const metaEl =
-
-    document.querySelector(
-
-      'meta[name="theme-color"]',
-
-    );
-
-  if (metaEl) {
-
-    metaEl.setAttribute(
-
-      'content',
-
-      theme.colorTokens.background,
-
-    );
-
-  }
-
-}
-
-function renderTheme() {
-
-  const theme =
-
-    Settings.getTheme();
-
-  document.documentElement.dataset.theme =
-
-    theme;
-
-  updateMetaThemeColor(
-
-    theme,
-
-  );
-
-  const themeSwitchEl =
-
-    document.getElementById(
-
-      'themeSwitch',
-
-    );
-
-  if (!themeSwitchEl) {
-
-    return;
-
-  }
-
-  Array.from(
-
-    themeSwitchEl.children,
-
-  ).forEach(
-
-    (
-
-      button,
-
-    ) => {
-
-      const isActive =
-
-        button.dataset.themeId ===
-
-        theme;
-
-      button.classList.toggle(
-
-        'active',
-
-        isActive,
-
-      );
-
-      button.setAttribute(
-
-        'aria-checked',
-
-        String(
-
-          isActive,
-
-        ),
-
-      );
-
-    },
-
-  );
-
-}
-
-// ============================================================
-
-// 設定画面描画
-
-// ============================================================
-
-function renderSettings() {
-
-  const soundToggle =
-
-    document.getElementById(
-
-      'soundToggle',
-
-    );
-
-  if (soundToggle) {
-
-    soundToggle.checked =
-
-      Settings.isSoundEnabled();
-
-  }
-
-  const vibrationToggle =
-
-    document.getElementById(
-
-      'vibrationToggle',
-
-    );
-
-  if (vibrationToggle) {
-
-    vibrationToggle.checked =
-
-      Settings.isVibrationEnabled();
-
-  }
-
-  const biometricRow =
-
-    document.getElementById(
-
-      'biometricRow',
-
-    );
-
-  if (biometricRow) {
-
-    biometricRow.hidden =
-
-      !isBiometricSupported;
-
-  }
-
-  const biometricToggle =
-
-    document.getElementById(
-
-      'biometricToggle',
-
-    );
-
-  if (
-
-    biometricToggle &&
-
-    isBiometricSupported
-
-  ) {
-
-    biometricToggle.checked =
-
-      Settings.isBiometricEnabled();
-
-  }
-
-  const autoLockSelect =
-
-    document.getElementById(
-
-      'autoLockDurationSelect',
-
-    );
-
-  if (autoLockSelect) {
-
-    autoLockSelect.value =
-
-      String(
-
-        Settings.getAutoLockDurationMs(),
-
-      );
-
-  }
-
-  const archiveLockToggle =
-
-    document.getElementById(
-
-      'archiveLockToggle',
-
-    );
-
-  if (archiveLockToggle) {
-
-    archiveLockToggle.checked =
-
-      Settings.isArchiveLockEnabled();
-
-  }
-
-  const notificationsToggle =
-
-    document.getElementById(
-
-      'notificationsToggle',
-
-    );
-
-  if (notificationsToggle) {
-
-    notificationsToggle.checked =
-
-      Settings.isNotificationsEnabled();
-
-  }
-
-  const notificationContentToggle =
-
-    document.getElementById(
-
-      'notificationContentToggle',
-
-    );
-
-  if (notificationContentToggle) {
-
-    notificationContentToggle.checked =
-
-      Settings.isNotificationContentEnabled();
-
-  }
-
-  const notificationSoundToggle =
-
-    document.getElementById(
-
-      'notificationSoundToggle',
-
-    );
-
-  if (notificationSoundToggle) {
-
-    notificationSoundToggle.checked =
-
-      Settings.isNotificationSoundEnabled();
-
-  }
-
-  const notificationVibrationToggle =
-
-    document.getElementById(
-
-      'notificationVibrationToggle',
-
-    );
-
-  if (notificationVibrationToggle) {
-
-    notificationVibrationToggle.checked =
-
-      Settings.isNotificationVibrationEnabled();
-
-  }
-
-  renderNotificationStatus();
-
-  const readReceiptsToggle =
-
-    document.getElementById(
-
-      'readReceiptsToggle',
-
-    );
-
-  if (readReceiptsToggle) {
-
-    readReceiptsToggle.checked =
-
-      Settings.isReadReceiptsEnabled();
-
-  }
-
-  const onlineVisibilityToggle =
-
-    document.getElementById(
-
-      'onlineVisibilityToggle',
-
-    );
-
-  if (onlineVisibilityToggle) {
-
-    onlineVisibilityToggle.checked =
-
-      Settings.isOnlineVisibilityEnabled();
-
-  }
-
-  const organizeModeSelect =
-
-    document.getElementById(
-
-      'organizeModeSelect',
-
-    );
-
-  if (organizeModeSelect) {
-
-    organizeModeSelect.value =
-
-      Settings.getConversationOrganizeMode();
-
-  }
-
-  const organizeDurationSelect =
-
-    document.getElementById(
-
-      'organizeDurationSelect',
-
-    );
-
-  if (organizeDurationSelect) {
-
-    organizeDurationSelect.value =
-
-      String(
-
-        Settings.getConversationOrganizeDurationMs(),
-
-      );
-
-  }
-
-  renderStorageUsage();
-
-  renderWorkspaceTitleInput();
-
-  renderCardCustomizationList();
-
-  renderBackgroundCustomizationList();
-
-  const versionLabel =
-
-    document.getElementById(
-
-      'versionLabel',
-
-    );
-
-  if (versionLabel) {
-
-    versionLabel.textContent =
-
-      `Version ${Settings.getVersion()}`;
-
-  }
-
-}
-
-// ============================================================
-
-// Workspaceタイトル
-
-// ============================================================
-
-function renderWorkspaceTitleInput() {
+function createFileInput() {
 
   const input =
 
-    document.getElementById(
+    document.createElement(
 
-      'workspaceTitleInput',
+      'input',
 
     );
 
-  if (!input) {
+  input.type =
 
-    return;
+    'file';
 
-  }
+  input.id =
 
-  input.value =
+    FILE_INPUT_ID;
 
-    Customization
+  input.className =
 
-      .getCached()
+    'photo-file-input';
 
-      .workspaceTitle ??
+  input.accept =
+
+    'image/*';
+
+  input.multiple =
+
+    true;
+
+  input.hidden =
+
+    true;
+
+  input.setAttribute(
+
+    'aria-label',
+
+    '写真を選択',
+
+  );
+
+  return input;
+
+}
+
+// ============================================================
+
+// 上部カード
+
+// ============================================================
+
+function createIntro() {
+
+  const intro =
+
+    document.createElement(
+
+      'section',
+
+    );
+
+  intro.className =
+
+    'photo-intro';
+
+  const textWrap =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  textWrap.className =
+
+    'photo-intro-text';
+
+  const title =
+
+    document.createElement(
+
+      'h3',
+
+    );
+
+  title.className =
+
+    'photo-intro-title';
+
+  title.textContent =
+
+    'Photos';
+
+  const description =
+
+    document.createElement(
+
+      'p',
+
+    );
+
+  description.className =
+
+    'photo-intro-description';
+
+  description.textContent =
+
+    'ふたりの写真をまとめて見る';
+
+  textWrap.appendChild(
+
+    title,
+
+  );
+
+  textWrap.appendChild(
+
+    description,
+
+  );
+
+  /*
+
+   * iPhone Safari / PWA対策。
+
+   *
+
+   * JavaScriptのinput.click()だけでなく
+
+   * label → file input の標準動作を使用する。
+
+   */
+
+  const addLabel =
+
+    document.createElement(
+
+      'label',
+
+    );
+
+  addLabel.className =
+
+    'photo-add-btn';
+
+  addLabel.htmlFor =
+
+    FILE_INPUT_ID;
+
+  addLabel.setAttribute(
+
+    'role',
+
+    'button',
+
+  );
+
+  addLabel.setAttribute(
+
+    'aria-label',
+
+    '写真を追加',
+
+  );
+
+  addLabel.setAttribute(
+
+    'tabindex',
+
+    '0',
+
+  );
+
+  addLabel.textContent =
+
+    '＋';
+
+  intro.appendChild(
+
+    textWrap,
+
+  );
+
+  intro.appendChild(
+
+    addLabel,
+
+  );
+
+  return intro;
+
+}
+
+// ============================================================
+
+// ステータス
+
+// ============================================================
+
+function createStatus() {
+
+  const status =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  status.id =
+
+    STATUS_ID;
+
+  status.className =
+
+    'photo-status';
+
+  status.setAttribute(
+
+    'role',
+
+    'status',
+
+  );
+
+  status.setAttribute(
+
+    'aria-live',
+
+    'polite',
+
+  );
+
+  status.dataset.status =
+
+    'normal';
+
+  status.textContent =
 
     '';
 
+  return status;
+
 }
 
 // ============================================================
 
-// Workspaceカード設定
+// メイン領域
 
 // ============================================================
 
-function renderCardCustomizationList() {
+function createMain() {
 
-  const list =
+  const main =
 
-    document.getElementById(
+    document.createElement(
 
-      'cardCustomizationList',
+      'main',
 
     );
 
-  if (!list) {
+  main.className =
 
-    return;
+    'photo-main';
 
-  }
+  const gallery =
 
-  const cards =
+    document.createElement(
 
-    Customization.getEffectiveCards();
+      'div',
 
-  const fragment =
+    );
 
-    document.createDocumentFragment();
+  gallery.id =
 
-  cards.forEach(
+    GALLERY_ID;
 
-    (
+  gallery.className =
 
-      card,
+    'photo-gallery';
 
-      index,
+  main.appendChild(
 
-    ) => {
-
-      const row =
-
-        document.createElement(
-
-          'div',
-
-        );
-
-      row.className =
-
-        'card-edit-row';
-
-      const iconInput =
-
-        document.createElement(
-
-          'input',
-
-        );
-
-      iconInput.type =
-
-        'text';
-
-      iconInput.className =
-
-        'card-icon-input';
-
-      iconInput.dataset.cardKey =
-
-        card.key;
-
-      iconInput.maxLength =
-
-        4;
-
-      iconInput.value =
-
-        card.icon;
-
-      iconInput.setAttribute(
-
-        'aria-label',
-
-        `${card.label}のアイコン`,
-
-      );
-
-      const labelInput =
-
-        document.createElement(
-
-          'input',
-
-        );
-
-      labelInput.type =
-
-        'text';
-
-      labelInput.className =
-
-        'card-label-input';
-
-      labelInput.dataset.cardKey =
-
-        card.key;
-
-      labelInput.maxLength =
-
-        12;
-
-      labelInput.value =
-
-        card.label;
-
-      labelInput.setAttribute(
-
-        'aria-label',
-
-        `${card.label}の表示名`,
-
-      );
-
-      const moveUpButton =
-
-        document.createElement(
-
-          'button',
-
-        );
-
-      moveUpButton.type =
-
-        'button';
-
-      moveUpButton.className =
-
-        'card-move-btn';
-
-      moveUpButton.dataset.action =
-
-        'move-card-up';
-
-      moveUpButton.dataset.cardKey =
-
-        card.key;
-
-      moveUpButton.disabled =
-
-        index ===
-
-        0;
-
-      moveUpButton.setAttribute(
-
-        'aria-label',
-
-        `${card.label}を上へ`,
-
-      );
-
-      moveUpButton.textContent =
-
-        '▲';
-
-      const moveDownButton =
-
-        document.createElement(
-
-          'button',
-
-        );
-
-      moveDownButton.type =
-
-        'button';
-
-      moveDownButton.className =
-
-        'card-move-btn';
-
-      moveDownButton.dataset.action =
-
-        'move-card-down';
-
-      moveDownButton.dataset.cardKey =
-
-        card.key;
-
-      moveDownButton.disabled =
-
-        index ===
-
-        cards.length - 1;
-
-      moveDownButton.setAttribute(
-
-        'aria-label',
-
-        `${card.label}を下へ`,
-
-      );
-
-      moveDownButton.textContent =
-
-        '▼';
-
-      row.appendChild(
-
-        iconInput,
-
-      );
-
-      row.appendChild(
-
-        labelInput,
-
-      );
-
-      row.appendChild(
-
-        moveUpButton,
-
-      );
-
-      row.appendChild(
-
-        moveDownButton,
-
-      );
-
-      fragment.appendChild(
-
-        row,
-
-      );
-
-    },
+    gallery,
 
   );
 
-  list.replaceChildren(
-
-    fragment,
-
-  );
+  return main;
 
 }
 
 // ============================================================
 
-// 背景カスタマイズ設定
+// 空表示
 
 // ============================================================
 
-function renderBackgroundCustomizationList() {
+function createEmptyState() {
 
-  const list =
+  const empty =
 
-    document.getElementById(
+    document.createElement(
 
-      'backgroundCustomizationList',
+      'div',
 
     );
 
-  if (!list) {
+  empty.className =
 
-    return;
+    'photo-empty';
 
-  }
+  const icon =
 
-  const backgrounds =
+    document.createElement(
 
-    Customization
-
-      .getCached()
-
-      .backgrounds ??
-
-    {};
-
-  const fragment =
-
-    document.createDocumentFragment();
-
-  Customization
-
-    .CUSTOMIZABLE_SCREENS
-
-    .forEach(
-
-      (
-
-        screen,
-
-      ) => {
-
-        const row =
-
-          document.createElement(
-
-            'div',
-
-          );
-
-        row.className =
-
-          'settings-row settings-row-select';
-
-        const textWrap =
-
-          document.createElement(
-
-            'div',
-
-          );
-
-        textWrap.className =
-
-          'settings-row-text';
-
-        const title =
-
-          document.createElement(
-
-            'span',
-
-          );
-
-        title.className =
-
-          'settings-row-title';
-
-        title.textContent =
-
-          `${screen.label}の背景`;
-
-        textWrap.appendChild(
-
-          title,
-
-        );
-
-        const select =
-
-          document.createElement(
-
-            'select',
-
-          );
-
-        select.className =
-
-          'settings-select bg-select';
-
-        select.dataset.screen =
-
-          screen.key;
-
-        select.setAttribute(
-
-          'aria-label',
-
-          `${screen.label}の背景`,
-
-        );
-
-        Customization
-
-          .BACKGROUND_PRESETS
-
-          .forEach(
-
-            (
-
-              preset,
-
-            ) => {
-
-              const option =
-
-                document.createElement(
-
-                  'option',
-
-                );
-
-              option.value =
-
-                preset.id;
-
-              option.textContent =
-
-                preset.label;
-
-              select.appendChild(
-
-                option,
-
-              );
-
-            },
-
-          );
-
-        select.value =
-
-          backgrounds[
-
-            screen.key
-
-          ] ??
-
-          'default';
-
-        row.appendChild(
-
-          textWrap,
-
-        );
-
-        row.appendChild(
-
-          select,
-
-        );
-
-        fragment.appendChild(
-
-          row,
-
-        );
-
-      },
+      'div',
 
     );
 
-  list.replaceChildren(
+  icon.className =
 
-    fragment,
+    'photo-empty-icon';
 
-  );
-
-}
-
-// ============================================================
-
-// ストレージ使用量
-
-// ============================================================
-
-function renderStorageUsage() {
-
-  const label =
-
-    document.getElementById(
-
-      'storageUsageLabel',
-
-    );
-
-  if (!label) {
-
-    return;
-
-  }
-
-  const bytes =
-
-    Storage.getUsageBytes();
-
-  const kb =
-
-    bytes /
-
-    1024;
-
-  label.textContent =
-
-    `約${kb.toFixed(1)} KB`;
-
-}
-
-// ============================================================
-
-// 通知状態
-
-// ============================================================
-
-function renderNotificationStatus() {
-
-  const hint =
-
-    document.getElementById(
-
-      'notificationHomeScreenHint',
-
-    );
-
-  const statusLabel =
-
-    document.getElementById(
-
-      'notificationStatusLabel',
-
-    );
-
-  if (
-
-    !hint ||
-
-    !statusLabel
-
-  ) {
-
-    return;
-
-  }
-
-  const isStandalone =
-
-    Notifications.isStandalonePwa();
-
-  hint.hidden =
-
-    isStandalone;
-
-  if (!isStandalone) {
-
-    statusLabel.textContent =
-
-      '新着メッセージの通知（ホーム画面に追加すると使えます）';
-
-    return;
-
-  }
-
-  const permission =
-
-    Notifications.getPermissionState();
-
-  if (
-
-    permission ===
-
-    'denied'
-
-  ) {
-
-    statusLabel.textContent =
-
-      '通知がブロックされています。iPhoneの設定アプリから許可してください。';
-
-    return;
-
-  }
-
-  if (
-
-    permission ===
-
-      'granted' &&
-
-    Settings.isNotificationsEnabled()
-
-  ) {
-
-    statusLabel.textContent =
-
-      '新着メッセージの通知（有効）';
-
-    return;
-
-  }
-
-  statusLabel.textContent =
-
-    '新着メッセージの通知';
-
-}
-
-// ============================================================
-
-// 全体描画
-
-// ============================================================
-
-function render() {
-
-  renderDisplay();
-
-  renderHistory();
-
-  renderTheme();
-
-  renderSettings();
-
-}
-
-// ============================================================
-
-// 設定画面 開閉
-
-// ============================================================
-
-function openSettings() {
-
-  lastFocusedElement =
-
-    document.activeElement;
-
-  const overlay =
-
-    document.getElementById(
-
-      'settingsOverlay',
-
-    );
-
-  if (!overlay) {
-
-    return;
-
-  }
-
-  renderSettings();
-
-  overlay.classList.add(
-
-    'is-open',
-
-  );
-
-  overlay.setAttribute(
-
-    'aria-hidden',
-
-    'false',
-
-  );
-
-  const closeButton =
-
-    document.getElementById(
-
-      'settingsCloseBtn',
-
-    );
-
-  if (closeButton) {
-
-    closeButton.focus();
-
-  }
-
-}
-
-function closeSettings() {
-
-  const overlay =
-
-    document.getElementById(
-
-      'settingsOverlay',
-
-    );
-
-  if (!overlay) {
-
-    return;
-
-  }
-
-  overlay.classList.remove(
-
-    'is-open',
-
-  );
-
-  overlay.setAttribute(
+  icon.setAttribute(
 
     'aria-hidden',
 
@@ -2288,81 +1822,101 @@ function closeSettings() {
 
   );
 
-  if (
+  icon.textContent =
 
-    lastFocusedElement
+    '📷';
 
-      instanceof HTMLElement
+  const title =
 
-  ) {
+    document.createElement(
 
-    lastFocusedElement.focus();
+      'p',
 
-  }
+    );
+
+  title.className =
+
+    'photo-empty-title';
+
+  title.textContent =
+
+    'まだ写真がありません';
+
+  const description =
+
+    document.createElement(
+
+      'p',
+
+    );
+
+  description.className =
+
+    'photo-empty-text';
+
+  description.textContent =
+
+    isSharedMode
+
+      ? '＋をタップして、ふたりの写真を追加'
+
+      : '＋をタップして写真を追加';
+
+  empty.appendChild(
+
+    icon,
+
+  );
+
+  empty.appendChild(
+
+    title,
+
+  );
+
+  empty.appendChild(
+
+    description,
+
+  );
+
+  return empty;
 
 }
 
 // ============================================================
 
-// 生体認証ロック
+// ローディング
 
 // ============================================================
 
-function showLockOverlay() {
+function createLoadingState() {
 
-  const lockOverlay =
+  const loading =
 
-    document.getElementById(
+    document.createElement(
 
-      'lockOverlay',
-
-    );
-
-  if (!lockOverlay) {
-
-    return;
-
-  }
-
-  lockOverlay.classList.add(
-
-    'is-open',
-
-  );
-
-  lockOverlay.setAttribute(
-
-    'aria-hidden',
-
-    'false',
-
-  );
-
-}
-
-function hideLockOverlay() {
-
-  const lockOverlay =
-
-    document.getElementById(
-
-      'lockOverlay',
+      'div',
 
     );
 
-  if (!lockOverlay) {
+  loading.className =
 
-    return;
+    'photo-loading';
 
-  }
+  const spinner =
 
-  lockOverlay.classList.remove(
+    document.createElement(
 
-    'is-open',
+      'span',
 
-  );
+    );
 
-  lockOverlay.setAttribute(
+  spinner.className =
+
+    'photo-loading-spinner';
+
+  spinner.setAttribute(
 
     'aria-hidden',
 
@@ -2370,77 +1924,121 @@ function hideLockOverlay() {
 
   );
 
-}
+  const text =
 
-// ============================================================
+    document.createElement(
 
-// Workspace
-
-// ============================================================
-
-function handleCloseWorkspace() {
-
-  Router.closeWorkspace();
-
-  passcodeBuffer =
-
-    '';
-
-  render();
-
-}
-
-function handleCloseRecords() {
-
-  Router.closeRecords();
-
-}
-
-function handleLockNow() {
-
-  Router.lockNow();
-
-  passcodeBuffer =
-
-    '';
-
-  render();
-
-}
-
-function handleToggleViewMode() {
-
-  if (
-
-    Workspace.isViewModeActive()
-
-  ) {
-
-    Workspace.setViewModeActive(
-
-      false,
+      'span',
 
     );
 
-    Router.disableViewMode();
+  text.textContent =
 
-    return;
+    '写真を読み込み中…';
 
-  }
+  loading.appendChild(
 
-  Workspace.showViewModeAuth();
+    spinner,
+
+  );
+
+  loading.appendChild(
+
+    text,
+
+  );
+
+  return loading;
 
 }
 
-function handleConfirmViewMode() {
+// ============================================================
 
-  const value =
+// エラー表示
 
-    Workspace.getViewModeAuthValue();
+// ============================================================
+
+function createErrorState() {
+
+  const errorState =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  errorState.className =
+
+    'photo-empty';
+
+  const title =
+
+    document.createElement(
+
+      'p',
+
+    );
+
+  title.className =
+
+    'photo-empty-title';
+
+  title.textContent =
+
+    '写真を読み込めませんでした';
+
+  const description =
+
+    document.createElement(
+
+      'p',
+
+    );
+
+  description.className =
+
+    'photo-empty-text';
+
+  description.textContent =
+
+    '通信状態を確認して、もう一度開いてください';
+
+  errorState.appendChild(
+
+    title,
+
+  );
+
+  errorState.appendChild(
+
+    description,
+
+  );
+
+  return errorState;
+
+}
+
+// ============================================================
+
+// 日付
+
+// ============================================================
+
+function normalizeTimestamp(
+
+  value,
+
+) {
 
   if (
 
-    Passcode.validate(
+    typeof value ===
+
+      'number' &&
+
+    Number.isFinite(
 
       value,
 
@@ -2448,1197 +2046,1127 @@ function handleConfirmViewMode() {
 
   ) {
 
-    playFeedbackSound(
+    return value;
 
-      'success',
+  }
+
+  if (
+
+    typeof value ===
+
+    'string'
+
+  ) {
+
+    const parsed =
+
+      Date.parse(
+
+        value,
+
+      );
+
+    if (
+
+      Number.isFinite(
+
+        parsed,
+
+      )
+
+    ) {
+
+      return parsed;
+
+    }
+
+  }
+
+  if (
+
+    value &&
+
+    typeof value.toMillis ===
+
+      'function'
+
+  ) {
+
+    try {
+
+      return value.toMillis();
+
+    } catch {
+
+      return Date.now();
+
+    }
+
+  }
+
+  return Date.now();
+
+}
+
+function formatPhotoDate(
+
+  timestamp,
+
+) {
+
+  const date =
+
+    new Date(
+
+      normalizeTimestamp(
+
+        timestamp,
+
+      ),
 
     );
 
-    playFeedbackVibration();
+  const year =
 
-    Workspace.hideViewModeAuth();
+    date.getFullYear();
 
-    Workspace.clearViewModeAuthInput();
+  const month =
 
-    Workspace.setViewModeActive(
+    String(
 
-      true,
+      date.getMonth() +
+
+        1,
+
+    ).padStart(
+
+      2,
+
+      '0',
 
     );
 
-    Router.enableViewMode();
+  const day =
 
-    return;
+    String(
 
-  }
+      date.getDate(),
 
-  playFeedbackSound(
+    ).padStart(
 
-    'error',
+      2,
 
-  );
+      '0',
 
-  playFeedbackVibration();
+    );
 
-  Workspace.clearViewModeAuthInput();
-
-}
-
-function handleCancelViewMode() {
-
-  Workspace.hideViewModeAuth();
-
-  Workspace.clearViewModeAuthInput();
-
-}
-
-function handleSendRecord() {
-
-  const text =
-
-    Records
-
-      .getInputValue()
-
-      .trim();
-
-  if (!text) {
-
-    return;
-
-  }
-
-  Records.saveToArchive(
-
-    text,
-
-  );
-
-  Records.clearInput();
-
-  playFeedbackSound(
-
-    'success',
-
-  );
-
-  playFeedbackVibration();
-
-}
-
-const WORKSPACE_ACTION_HANDLERS =
-
-  Object.freeze({
-
-    'close-workspace':
-
-      handleCloseWorkspace,
-
-    'lock-now':
-
-      handleLockNow,
-
-    'toggle-view-mode':
-
-      handleToggleViewMode,
-
-    'confirm-view-mode':
-
-      handleConfirmViewMode,
-
-    'cancel-view-mode':
-
-      handleCancelViewMode,
-
-  });
-
-function handleWorkspaceScreenClick(
-
-  target,
-
-) {
-
-  const {
-
-    action,
-
-    secret,
-
-  } =
-
-    target.dataset;
-
-  playFeedbackSound(
-
-    'tap',
-
-  );
-
-  playFeedbackVibration();
-
-  const handler =
-
-    WORKSPACE_ACTION_HANDLERS[
-
-      action
-
-    ];
-
-  if (handler) {
-
-    handler();
-
-    return;
-
-  }
-
-  if (
-
-    secret ===
-
-    'records'
-
-  ) {
-
-    Router.openRecords();
-
-    return;
-
-  }
-
-  if (
-
-    secret ===
-
-    'calendar'
-
-  ) {
-
-    Router.openCalendar();
-
-    return;
-
-  }
-
-  if (
-
-    secret ===
-
-    'archive'
-
-  ) {
-
-    Router.openArchive();
-
-    return;
-
-  }
-
-  if (
-
-    secret ===
-
-    'messages'
-
-  ) {
-
-    handleOpenMessagesCard();
-
-    return;
-
-  }
-
-  if (
-
-    secret ===
-
-    'photo'
-
-  ) {
-
-    Router.openPhoto();
-
-    return;
-
-  }
-
-  if (
-
-    secret ===
-
-    'settings'
-
-  ) {
-
-    openSettings();
-
-    return;
-
-  }
-
-}
-
-function handleOpenMessagesCard() {
-
-  const roomId =
-
-    Firebase.getLocalRoomId();
-
-  if (roomId) {
-
-    Router.openMessages();
-
-  } else {
-
-    Router.openPairing();
-
-  }
+  return `${year}.${month}.${day}`;
 
 }
 
 // ============================================================
 
-// Records
+// 共通カード部品
 
 // ============================================================
 
-const RECORDS_ACTION_HANDLERS =
+function createCardShell({
 
-  Object.freeze({
+  photoId,
 
-    'close-records':
+  photoUrl,
 
-      handleCloseRecords,
+  photoPath = '',
 
-    'lock-now':
+  source,
 
-      handleLockNow,
+  name,
 
-    'send-record':
+  createdAt,
 
-      handleSendRecord,
+}) {
 
-  });
+  if (
 
-function handleRecordsScreenClick(
+    !photoId ||
 
-  target,
+    !photoUrl
 
-) {
+  ) {
 
-  const {
-
-    action,
-
-  } =
-
-    target.dataset;
-
-  playFeedbackSound(
-
-    'tap',
-
-  );
-
-  playFeedbackVibration();
-
-  const handler =
-
-    RECORDS_ACTION_HANDLERS[
-
-      action
-
-    ];
-
-  if (handler) {
-
-    handler();
+    return null;
 
   }
 
-}
+  const card =
 
-// ============================================================
+    document.createElement(
 
-// Calendar
+      'div',
 
-// ============================================================
+    );
 
-function handleCloseCalendar() {
+  card.className =
 
-  Router.closeCalendar();
+    'photo-card';
 
-}
+  card.dataset.photoId =
 
-function handlePrevMonth() {
+    photoId;
 
-  Calendar.goToPreviousMonth();
+  card.dataset.photoSource =
 
-}
+    source;
 
-function handleNextMonth() {
+  if (photoPath) {
 
-  Calendar.goToNextMonth();
+    card.dataset.photoPath =
 
-}
+      photoPath;
 
-function handleSelectDate(
+  }
 
-  target,
+  const openButton =
 
-) {
+    document.createElement(
 
-  const {
+      'button',
+
+    );
+
+  openButton.type =
+
+    'button';
+
+  openButton.className =
+
+    'photo-card-open';
+
+  openButton.dataset.action =
+
+    'open-photo-preview';
+
+  openButton.dataset.photoUrl =
+
+    photoUrl;
+
+  openButton.dataset.photoId =
+
+    photoId;
+
+  openButton.dataset.photoSource =
+
+    source;
+
+  openButton.dataset.photoDate =
+
+    formatPhotoDate(
+
+      createdAt,
+
+    );
+
+  if (photoPath) {
+
+    openButton.dataset.photoPath =
+
+      photoPath;
+
+  }
+
+  openButton.setAttribute(
+
+    'aria-label',
+
+    name
+
+      ? `${name}を開く`
+
+      : '写真を開く',
+
+  );
+
+  const image =
+
+    document.createElement(
+
+      'img',
+
+    );
+
+  image.className =
+
+    'photo-card-image';
+
+  image.src =
+
+    photoUrl;
+
+  image.alt =
+
+    name ||
+
+    '写真';
+
+  image.loading =
+
+    'lazy';
+
+  image.decoding =
+
+    'async';
+
+  openButton.appendChild(
+
+    image,
+
+  );
+
+  const info =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  info.className =
+
+    'photo-card-info';
+
+  const date =
+
+    document.createElement(
+
+      'span',
+
+    );
+
+  date.className =
+
+    'photo-card-date';
+
+  date.textContent =
+
+    formatPhotoDate(
+
+      createdAt,
+
+    );
+
+  const deleteButton =
+
+    document.createElement(
+
+      'button',
+
+    );
+
+  deleteButton.type =
+
+    'button';
+
+  deleteButton.className =
+
+    'photo-delete-btn';
+
+  /*
+
+   * app.jsを再修正しなくてもよいよう、
+
+   * ローカル・共有とも同じactionにする。
+
+   */
+
+  deleteButton.dataset.action =
+
+    'delete-photo';
+
+  deleteButton.dataset.photoId =
+
+    photoId;
+
+  deleteButton.dataset.photoSource =
+
+    source;
+
+  if (photoPath) {
+
+    deleteButton.dataset.photoPath =
+
+      photoPath;
+
+  }
+
+  deleteButton.setAttribute(
+
+    'aria-label',
+
+    'この写真を削除',
+
+  );
+
+  deleteButton.textContent =
+
+    '×';
+
+  info.appendChild(
 
     date,
 
-  } =
+  );
 
-    target.dataset;
+  info.appendChild(
 
-  if (!date) {
-
-    return;
-
-  }
-
-  Calendar.selectDate(
-
-    date,
+    deleteButton,
 
   );
 
-}
+  card.appendChild(
 
-function handleSaveNote() {
-
-  const text =
-
-    Calendar.getNoteInputValue();
-
-  Calendar.saveNote(
-
-    text,
+    openButton,
 
   );
 
-  playFeedbackSound(
+  card.appendChild(
 
-    'success',
+    info,
 
   );
 
-  playFeedbackVibration();
+  return card;
 
 }
 
-function handleCancelNote() {
+// ============================================================
 
-  Calendar.closeNoteEditor();
+// ローカル写真カード
 
-}
+// ============================================================
 
-const CALENDAR_ACTION_HANDLERS =
+function createLocalPhotoCard(
 
-  Object.freeze({
-
-    'close-calendar':
-
-      handleCloseCalendar,
-
-    'lock-now':
-
-      handleLockNow,
-
-    'prev-month':
-
-      handlePrevMonth,
-
-    'next-month':
-
-      handleNextMonth,
-
-    'save-note':
-
-      handleSaveNote,
-
-    'cancel-note':
-
-      handleCancelNote,
-
-  });
-
-function handleCalendarScreenClick(
-
-  target,
+  record,
 
 ) {
-
-  const {
-
-    action,
-
-  } =
-
-    target.dataset;
-
-  playFeedbackSound(
-
-    'tap',
-
-  );
-
-  playFeedbackVibration();
 
   if (
 
-    action ===
+    !record ||
 
-    'select-date'
+    !record.id
 
   ) {
 
-    handleSelectDate(
+    return null;
 
-      target,
+  }
+
+  const blob =
+
+    createBlobFromRecord(
+
+      record,
 
     );
 
-    return;
+  if (!blob) {
+
+    console.warn(
+
+      '[photo.js] ローカル写真Blobを生成できませんでした',
+
+      record.id,
+
+    );
+
+    return null;
 
   }
 
-  const handler =
+  const objectUrl =
 
-    CALENDAR_ACTION_HANDLERS[
+    URL.createObjectURL(
 
-      action
+      blob,
 
-    ];
+    );
 
-  if (handler) {
+  activeObjectUrls.add(
 
-    handler();
-
-  }
-
-}
-
-// ============================================================
-
-// Archive
-
-// ============================================================
-
-function handleCloseArchive() {
-
-  Router.closeArchive();
-
-}
-
-function handleSelectBackground(
-
-  target,
-
-) {
-
-  const {
-
-    backgroundId,
-
-  } =
-
-    target.dataset;
-
-  if (!backgroundId) {
-
-    return;
-
-  }
-
-  Archive.selectBackground(
-
-    backgroundId,
+    objectUrl,
 
   );
 
-}
+  return createCardShell({
 
-function handleConfirmArchiveAuth() {
+    photoId:
 
-  const success =
+      record.id,
 
-    Archive.confirmAuth();
+    photoUrl:
 
-  playFeedbackSound(
+      objectUrl,
 
-    success
+    source:
 
-      ? 'success'
+      'local',
 
-      : 'error',
+    name:
 
-  );
+      record.name ||
 
-  playFeedbackVibration();
+      '写真',
 
-}
+    createdAt:
 
-function handleCancelArchiveAuth() {
-
-  Router.closeArchive();
-
-}
-
-const ARCHIVE_ACTION_HANDLERS =
-
-  Object.freeze({
-
-    'close-archive':
-
-      handleCloseArchive,
-
-    'lock-now':
-
-      handleLockNow,
-
-    'confirm-archive-auth':
-
-      handleConfirmArchiveAuth,
-
-    'cancel-archive-auth':
-
-      handleCancelArchiveAuth,
+      record.createdAt,
 
   });
 
-function handleArchiveScreenClick(
+}
 
-  target,
+// ============================================================
+
+// 共有写真カード
+
+// ============================================================
+
+function createSharedPhotoCard(
+
+  record,
 
 ) {
 
-  const {
-
-    action,
-
-  } =
-
-    target.dataset;
-
-  playFeedbackSound(
-
-    'tap',
-
-  );
-
-  playFeedbackVibration();
-
   if (
 
-    action ===
+    !record ||
 
-    'select-background'
+    !record.path ||
+
+    !record.signedUrl
 
   ) {
 
-    handleSelectBackground(
+    return null;
 
-      target,
+  }
+
+  return createCardShell({
+
+    photoId:
+
+      record.id ||
+
+      record.path,
+
+    photoUrl:
+
+      record.signedUrl,
+
+    photoPath:
+
+      record.path,
+
+    source:
+
+      'shared',
+
+    name:
+
+      record.name ||
+
+      '共有写真',
+
+    createdAt:
+
+      record.createdAt,
+
+  });
+
+}
+
+// ============================================================
+
+// ギャラリー描画
+
+// ============================================================
+
+async function renderGallery() {
+
+  const gallery =
+
+    document.getElementById(
+
+      GALLERY_ID,
 
     );
 
-    return;
-
-  }
-
-  const handler =
-
-    ARCHIVE_ACTION_HANDLERS[
-
-      action
-
-    ];
-
-  if (handler) {
-
-    handler();
-
-  }
-
-}
-
-// ============================================================
-
-// Pairing
-
-// ============================================================
-
-function handleClosePairing() {
-
-  Router.closePairing();
-
-}
-
-function handleSaveDisplayName() {
-
-  const name =
-
-    Pairing.getDisplayNameInputValue();
-
-  if (!name) {
+  if (!gallery) {
 
     return;
 
   }
 
-  Pairing.saveDisplayName(
+  const renderToken =
 
-    name,
+    ++galleryRenderToken;
+
+  gallery.replaceChildren(
+
+    createLoadingState(),
 
   );
 
-  Pairing.showChoicePanel();
+  revokeAllObjectUrls();
 
-}
+  try {
 
-function handleChooseGenerate() {
+    updateSharedMode();
 
-  Pairing.showGeneratePanel();
+    const localPhotos =
 
-  Pairing
+      await loadLocalPhotos();
 
-    .generateInvite()
+    if (
 
-    .catch(
+      renderToken !==
+
+      galleryRenderToken
+
+    ) {
+
+      return;
+
+    }
+
+    /*
+
+     * ペアリング後も過去に端末内へ保存した写真は
+
+     * 消さずに表示する。
+
+     */
+
+    const photoItems = [
+
+      ...sharedPhotos.map(
+
+        (
+
+          photo,
+
+        ) => ({
+
+          source:
+
+            'shared',
+
+          timestamp:
+
+            normalizeTimestamp(
+
+              photo.createdAt,
+
+            ),
+
+          record:
+
+            photo,
+
+        }),
+
+      ),
+
+      ...localPhotos.map(
+
+        (
+
+          photo,
+
+        ) => ({
+
+          source:
+
+            'local',
+
+          timestamp:
+
+            normalizeTimestamp(
+
+              photo.createdAt,
+
+            ),
+
+          record:
+
+            photo,
+
+        }),
+
+      ),
+
+    ];
+
+    photoItems.sort(
 
       (
 
-        error,
+        a,
+
+        b,
+
+      ) =>
+
+        b.timestamp -
+
+        a.timestamp,
+
+    );
+
+    if (
+
+      photoItems.length ===
+
+      0
+
+    ) {
+
+      gallery.replaceChildren(
+
+        createEmptyState(),
+
+      );
+
+      return;
+
+    }
+
+    const fragment =
+
+      document.createDocumentFragment();
+
+    let renderedCount =
+
+      0;
+
+    photoItems.forEach(
+
+      (
+
+        item,
 
       ) => {
 
-        console.error(
+        const card =
 
-          '[app.js] 招待コードの発行に失敗しました',
+          item.source ===
 
-          error,
+          'shared'
+
+            ? createSharedPhotoCard(
+
+                item.record,
+
+              )
+
+            : createLocalPhotoCard(
+
+                item.record,
+
+              );
+
+        if (!card) {
+
+          return;
+
+        }
+
+        fragment.appendChild(
+
+          card,
 
         );
+
+        renderedCount +=
+
+          1;
 
       },
 
     );
 
-}
+    if (
 
-function handleChooseJoin() {
+      renderedCount ===
 
-  Pairing.showJoinPanel();
+      0
 
-}
+    ) {
 
-function handleBackToChoice() {
+      gallery.replaceChildren(
 
-  Pairing.backToChoice();
+        createEmptyState(),
 
-}
+      );
 
-async function handleSubmitJoinCode() {
+      return;
 
-  try {
+    }
 
-    await Pairing.submitJoinCode();
+    gallery.replaceChildren(
 
-    playFeedbackSound(
-
-      'success',
+      fragment,
 
     );
 
-    playFeedbackVibration();
-
   } catch (error) {
 
-    playFeedbackSound(
+    console.error(
+
+      '[photo.js] ギャラリー描画に失敗しました',
+
+      error,
+
+    );
+
+    gallery.replaceChildren(
+
+      createErrorState(),
+
+    );
+
+  }
+
+}
+
+// ============================================================
+
+// 写真保存
+
+// ============================================================
+
+async function handleSelectedFiles(
+
+  files,
+
+) {
+
+  if (
+
+    !files ||
+
+    files.length ===
+
+      0
+
+  ) {
+
+    return;
+
+  }
+
+  const imageFiles =
+
+    Array.from(
+
+      files,
+
+    ).filter(
+
+      (
+
+        file,
+
+      ) =>
+
+        file &&
+
+        typeof file.size ===
+
+          'number',
+
+    );
+
+  if (
+
+    imageFiles.length ===
+
+    0
+
+  ) {
+
+    setStatus(
+
+      '写真データを取得できませんでした',
 
       'error',
 
     );
 
-    playFeedbackVibration();
-
-    Pairing.showJoinError(
-
-      error.message ||
-
-      '参加に失敗しました。',
-
-    );
+    return;
 
   }
 
-}
+  updateSharedMode();
 
-const PAIRING_ACTION_HANDLERS =
+  try {
 
-  Object.freeze({
+    if (
 
-    'close-pairing':
+      isSharedMode
 
-      handleClosePairing,
+    ) {
 
-    'lock-now':
+      /*
 
-      handleLockNow,
+       * 先に認証しておくことで、
 
-    'save-display-name':
+       * 複数写真アップロード時に
 
-      handleSaveDisplayName,
+       * 毎回サインイン処理を走らせない。
 
-    'choose-generate':
+       */
 
-      handleChooseGenerate,
+      await Supabase.ensureSignedIn();
 
-    'choose-join':
+    }
 
-      handleChooseJoin,
+    let savedCount =
 
-    'back-to-choice':
+      0;
 
-      handleBackToChoice,
+    for (
 
-    'submit-join-code':
+      const file of
 
-      handleSubmitJoinCode,
+      imageFiles
 
-  });
+    ) {
 
-function handlePairingScreenClick(
+      setStatus(
 
-  target,
+        `${savedCount + 1}/${imageFiles.length} 保存中…`,
 
-) {
+        'saving',
 
-  const {
+      );
 
-    action,
+      if (
 
-  } =
+        isSharedMode
 
-    target.dataset;
+      ) {
 
-  playFeedbackSound(
+        await Supabase.uploadPhoto(
 
-    'tap',
-
-  );
-
-  playFeedbackVibration();
-
-  const handler =
-
-    PAIRING_ACTION_HANDLERS[
-
-      action
-
-    ];
-
-  if (handler) {
-
-    handler();
-
-  }
-
-}
-
-// ============================================================
-
-// Messages
-
-// ============================================================
-
-function handleCloseMessages() {
-
-  Router.closeMessages();
-
-}
-
-function handleSendMessage() {
-
-  Messages
-
-    .sendMessage()
-
-    .catch(
-
-      (
-
-        error,
-
-      ) => {
-
-        console.error(
-
-          '[app.js] メッセージの送信に失敗しました',
-
-          error,
+          file,
 
         );
 
-      },
+      } else {
 
-    );
+        await saveLocalPhoto(
 
-}
-
-function handleCopyMessage() {
-
-  Messages
-
-    .copySelectedMessage()
-
-    .catch(
-
-      (
-
-        error,
-
-      ) => {
-
-        console.error(
-
-          '[app.js] メッセージのコピーに失敗しました',
-
-          error,
+          file,
 
         );
 
-      },
+      }
+
+      savedCount +=
+
+        1;
+
+    }
+
+    if (
+
+      isSharedMode
+
+    ) {
+
+      await refreshSharedPhotos({
+
+        rerender:
+
+          false,
+
+        silent:
+
+          false,
+
+      });
+
+    }
+
+    await renderGallery();
+
+    setStatus(
+
+      savedCount ===
+
+        1
+
+        ? (
+
+            isSharedMode
+
+              ? '共有写真を保存しました'
+
+              : '写真を保存しました'
+
+          )
+
+        : `${savedCount}枚の写真を保存しました`,
+
+      'success',
 
     );
 
-}
+    clearStatusLater(
 
-function handleDeleteMessage() {
-
-  Messages
-
-    .deleteSelectedMessage()
-
-    .catch(
-
-      (
-
-        error,
-
-      ) => {
-
-        console.error(
-
-          '[app.js] メッセージの削除に失敗しました',
-
-          error,
-
-        );
-
-      },
+      2500,
 
     );
 
-}
+  } catch (error) {
 
-function handleCancelActionSheet() {
+    console.error(
 
-  Messages.closeActionSheet();
-
-}
-
-function handleReactToMessage(
-
-  target,
-
-) {
-
-  const {
-
-    emoji,
-
-  } =
-
-    target.dataset;
-
-  if (!emoji) {
-
-    return;
-
-  }
-
-  Messages.reactToSelectedMessage(
-
-    emoji,
-
-  );
-
-}
-
-const MESSAGES_ACTION_HANDLERS =
-
-  Object.freeze({
-
-    'close-messages':
-
-      handleCloseMessages,
-
-    'lock-now':
-
-      handleLockNow,
-
-    'send-message':
-
-      handleSendMessage,
-
-    'copy-message':
-
-      handleCopyMessage,
-
-    'delete-message':
-
-      handleDeleteMessage,
-
-    'cancel-action-sheet':
-
-      handleCancelActionSheet,
-
-  });
-
-function handleMessagesScreenClick(
-
-  target,
-
-) {
-
-  const {
-
-    action,
-
-  } =
-
-    target.dataset;
-
-  playFeedbackSound(
-
-    'tap',
-
-  );
-
-  playFeedbackVibration();
-
-  if (
-
-    action ===
-
-    'react'
-
-  ) {
-
-    handleReactToMessage(
-
-      target,
-
-    );
-
-    return;
-
-  }
-
-  const handler =
-
-    MESSAGES_ACTION_HANDLERS[
-
-      action
-
-    ];
-
-  if (handler) {
-
-    handler();
-
-  }
-
-}
-
-// ============================================================
-
-// Photo
-
-// ============================================================
-
-function handleClosePhoto() {
-
-  Router.closePhoto();
-
-}
-
-function handleSelectPhoto() {
-
-  Photo.selectPhotos();
-
-}
-
-function handleOpenPhotoPreview(
-
-  target,
-
-) {
-
-  Photo.openPreviewFromTarget(
-
-    target,
-
-  );
-
-}
-
-function handleClosePhotoPreview() {
-
-  Photo.closePreview();
-
-}
-
-async function handleDeleteLocalPhoto(
-
-  target,
-
-) {
-
-  await Photo.deletePhotoFromTarget(
-
-    target,
-
-  );
-
-}
-
-async function handleDeleteSharedPhoto(
-
-  target,
-
-) {
-
-  await Photo.deleteSharedPhotoFromTarget(
-
-    target,
-
-  );
-
-}
-
-const PHOTO_ACTION_HANDLERS =
-
-  Object.freeze({
-
-    'close-photo':
-
-      handleClosePhoto,
-
-    'lock-now':
-
-      handleLockNow,
-
-    'select-photo':
-
-      handleSelectPhoto,
-
-    'close-photo-preview':
-
-      handleClosePhotoPreview,
-
-    'delete-photo':
-
-      handleDeleteLocalPhoto,
-
-    'delete-shared-photo':
-
-      handleDeleteSharedPhoto,
-
-  });
-
-function handlePhotoScreenClick(
-
-  target,
-
-) {
-
-  const {
-
-    action,
-
-  } =
-
-    target.dataset;
-
-  playFeedbackSound(
-
-    'tap',
-
-  );
-
-  playFeedbackVibration();
-
-  if (
-
-    action ===
-
-    'open-photo-preview'
-
-  ) {
-
-    handleOpenPhotoPreview(
-
-      target,
-
-    );
-
-    return;
-
-  }
-
-  const handler =
-
-    PHOTO_ACTION_HANDLERS[
-
-      action
-
-    ];
-
-  if (!handler) {
-
-    return;
-
-  }
-
-  Promise.resolve(
-
-    handler(
-
-      target,
-
-    ),
-
-  ).catch(
-
-    (
+      '[photo.js] 写真保存に失敗しました',
 
       error,
 
+    );
+
+    let message =
+
+      error?.message ||
+
+      '写真の保存に失敗しました';
+
+    if (
+
+      typeof message ===
+
+        'string' &&
+
+      (
+
+        message.includes(
+
+          'row-level security',
+
+        ) ||
+
+        message.includes(
+
+          'Unauthorized',
+
+        ) ||
+
+        message.includes(
+
+          '403',
+
+        )
+
+      )
+
+    ) {
+
+      message =
+
+        '写真の保存権限を確認できませんでした';
+
+    }
+
+    setStatus(
+
+      message,
+
+      'error',
+
+    );
+
+  }
+
+}
+
+// ============================================================
+
+// file inputイベント
+
+// ============================================================
+
+function registerFileInputListener() {
+
+  const input =
+
+    document.getElementById(
+
+      FILE_INPUT_ID,
+
+    );
+
+  if (!input) {
+
+    console.warn(
+
+      '[photo.js] photoFileInputが見つかりません',
+
+    );
+
+    return;
+
+  }
+
+  input.addEventListener(
+
+    'change',
+
+    async (
+
+      event,
+
     ) => {
 
-      console.error(
+      const target =
 
-        '[app.js] Photo操作に失敗しました',
+        event.target;
 
-        error,
+      const files =
+
+        target?.files
+
+          ? Array.from(
+
+              target.files,
+
+            )
+
+          : [];
+
+      /*
+
+       * 同じ写真をもう一度選択できるように
+
+       * filesをコピーしてからinputを空にする。
+
+       */
+
+      if (target) {
+
+        target.value =
+
+          '';
+
+      }
+
+      await handleSelectedFiles(
+
+        files,
 
       );
 
@@ -3650,19 +3178,57 @@ function handlePhotoScreenClick(
 
 // ============================================================
 
-// Archive検索
+// ＋ボタン キーボード操作
 
 // ============================================================
 
-function handleArchiveSearchInput(
+function registerAddLabelKeyboard() {
 
-  query,
+  const addLabel =
 
-) {
+    document.querySelector(
 
-  Archive.search(
+      '.photo-add-btn',
 
-    query,
+    );
+
+  if (!addLabel) {
+
+    return;
+
+  }
+
+  addLabel.addEventListener(
+
+    'keydown',
+
+    (
+
+      event,
+
+    ) => {
+
+      if (
+
+        event.key !==
+
+          'Enter' &&
+
+        event.key !==
+
+          ' '
+
+      ) {
+
+        return;
+
+      }
+
+      event.preventDefault();
+
+      selectPhotos();
+
+    },
 
   );
 
@@ -3670,119 +3236,219 @@ function handleArchiveSearchInput(
 
 // ============================================================
 
-// 履歴・データ管理
+// プレビュー
 
 // ============================================================
 
-function handleClearHistory() {
+function createViewer() {
 
-  try {
+  const viewer =
 
-    Calculator.clearHistory();
+    document.createElement(
 
-  } catch (error) {
-
-    console.error(
-
-      '[app.js] 履歴の削除に失敗しました',
-
-      error,
+      'div',
 
     );
 
-  }
+  viewer.id =
+
+    VIEWER_ID;
+
+  viewer.className =
+
+    'photo-viewer';
+
+  viewer.setAttribute(
+
+    'aria-hidden',
+
+    'true',
+
+  );
+
+  const closeButton =
+
+    document.createElement(
+
+      'button',
+
+    );
+
+  closeButton.type =
+
+    'button';
+
+  closeButton.className =
+
+    'photo-viewer-close';
+
+  closeButton.dataset.action =
+
+    'close-photo-preview';
+
+  closeButton.setAttribute(
+
+    'aria-label',
+
+    '写真を閉じる',
+
+  );
+
+  closeButton.textContent =
+
+    '×';
+
+  const image =
+
+    document.createElement(
+
+      'img',
+
+    );
+
+  image.id =
+
+    VIEWER_IMAGE_ID;
+
+  image.className =
+
+    'photo-viewer-image';
+
+  image.alt =
+
+    '選択した写真';
+
+  const date =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  date.id =
+
+    VIEWER_DATE_ID;
+
+  date.className =
+
+    'photo-viewer-date';
+
+  viewer.appendChild(
+
+    closeButton,
+
+  );
+
+  viewer.appendChild(
+
+    image,
+
+  );
+
+  viewer.appendChild(
+
+    date,
+
+  );
+
+  return viewer;
 
 }
 
-async function handleClearCache() {
+// ============================================================
 
-  try {
+// プレビュー日付
 
-    if (
+// ============================================================
 
-      !(
+function setPreviewDateFromTarget(
 
-        'caches' in
+  target,
 
-        window
+) {
 
-      )
+  const dateLabel =
 
-    ) {
+    document.getElementById(
 
-      return;
-
-    }
-
-    const cacheNames =
-
-      await caches.keys();
-
-    await Promise.all(
-
-      cacheNames.map(
-
-        (
-
-          name,
-
-        ) =>
-
-          caches.delete(
-
-            name,
-
-          ),
-
-      ),
+      VIEWER_DATE_ID,
 
     );
 
-    playFeedbackSound(
+  if (!dateLabel) {
 
-      'success',
-
-    );
-
-    playFeedbackVibration();
-
-  } catch (error) {
-
-    console.error(
-
-      '[app.js] キャッシュの削除に失敗しました',
-
-      error,
-
-    );
-
-    playFeedbackSound(
-
-      'error',
-
-    );
-
-    playFeedbackVibration();
+    return;
 
   }
-
-}
-
-async function handleDeleteAllMyMessages() {
-
-  const roomId =
-
-    Firebase.getLocalRoomId();
-
-  const uid =
-
-    Firebase.getCurrentUid();
 
   if (
 
-    !roomId ||
+    target instanceof
 
-    !uid
+      HTMLElement &&
+
+    target.dataset.photoDate
+
+  ) {
+
+    dateLabel.textContent =
+
+      target.dataset.photoDate;
+
+    return;
+
+  }
+
+  const card =
+
+    target instanceof Element
+
+      ? target.closest(
+
+          '.photo-card',
+
+        )
+
+      : null;
+
+  const cardDate =
+
+    card?.querySelector(
+
+      '.photo-card-date',
+
+    );
+
+  dateLabel.textContent =
+
+    cardDate?.textContent ??
+
+    '';
+
+}
+
+// ============================================================
+
+// プレビューを開く
+
+// ============================================================
+
+export function openPreview(
+
+  photoUrl,
+
+) {
+
+  if (
+
+    typeof photoUrl !==
+
+      'string' ||
+
+    photoUrl ===
+
+      ''
 
   ) {
 
@@ -3790,197 +3456,27 @@ async function handleDeleteAllMyMessages() {
 
   }
 
-  try {
+  const viewer =
 
-    await Firebase.deleteAllOwnMessages(
+    document.getElementById(
 
-      roomId,
-
-      uid,
+      VIEWER_ID,
 
     );
 
-    playFeedbackSound(
+  const image =
 
-      'success',
+    document.getElementById(
 
-    );
-
-    playFeedbackVibration();
-
-  } catch (error) {
-
-    console.error(
-
-      '[app.js] メッセージの一括削除に失敗しました',
-
-      error,
+      VIEWER_IMAGE_ID,
 
     );
-
-    playFeedbackSound(
-
-      'error',
-
-    );
-
-    playFeedbackVibration();
-
-  }
-
-}
-
-function handleClearArchiveData() {
-
-  try {
-
-    Records.clearArchive();
-
-    renderStorageUsage();
-
-    playFeedbackSound(
-
-      'success',
-
-    );
-
-    playFeedbackVibration();
-
-  } catch (error) {
-
-    console.error(
-
-      '[app.js] Archiveデータの削除に失敗しました',
-
-      error,
-
-    );
-
-    playFeedbackSound(
-
-      'error',
-
-    );
-
-    playFeedbackVibration();
-
-  }
-
-}
-
-// ============================================================
-
-// Workspaceカスタマイズ
-
-// ============================================================
-
-async function handleMoveCardUp(
-
-  target,
-
-) {
-
-  const {
-
-    cardKey,
-
-  } =
-
-    target.dataset;
-
-  if (!cardKey) {
-
-    return;
-
-  }
-
-  await swapCardOrder(
-
-    cardKey,
-
-    -1,
-
-  );
-
-}
-
-async function handleMoveCardDown(
-
-  target,
-
-) {
-
-  const {
-
-    cardKey,
-
-  } =
-
-    target.dataset;
-
-  if (!cardKey) {
-
-    return;
-
-  }
-
-  await swapCardOrder(
-
-    cardKey,
-
-    1,
-
-  );
-
-}
-
-async function swapCardOrder(
-
-  cardKey,
-
-  direction,
-
-) {
-
-  const cards =
-
-    Customization.getEffectiveCards();
-
-  const currentIndex =
-
-    cards.findIndex(
-
-      (
-
-        card,
-
-      ) =>
-
-        card.key ===
-
-        cardKey,
-
-    );
-
-  const targetIndex =
-
-    currentIndex +
-
-    direction;
 
   if (
 
-    currentIndex ===
+    !viewer ||
 
-      -1 ||
-
-    targetIndex <
-
-      0 ||
-
-    targetIndex >=
-
-      cards.length
+    !image
 
   ) {
 
@@ -3988,65 +3484,421 @@ async function swapCardOrder(
 
   }
 
-  try {
+  image.src =
 
-    await Customization.updateCardOrder({
+    photoUrl;
 
-      [cards[
+  viewer.classList.add(
 
-        currentIndex
+    'is-open',
 
-      ].key]:
+  );
 
-        targetIndex,
+  viewer.setAttribute(
 
-      [cards[
+    'aria-hidden',
 
-        targetIndex
+    'false',
 
-      ].key]:
+  );
 
-        currentIndex,
+}
 
-    });
+// ============================================================
 
-    playFeedbackSound(
+// ターゲットからプレビュー
 
-      'tap',
+// ============================================================
 
-    );
+export function openPreviewFromTarget(
 
-    playFeedbackVibration();
+  target,
 
-  } catch (error) {
+) {
 
-    console.error(
+  const photoUrl =
 
-      '[app.js] カードの並び替えに失敗しました',
+    getPhotoUrlFromTarget(
 
-      error,
-
-    );
-
-    playFeedbackSound(
-
-      'error',
+      target,
 
     );
 
-    playFeedbackVibration();
+  if (!photoUrl) {
+
+    return;
+
+  }
+
+  setPreviewDateFromTarget(
+
+    target,
+
+  );
+
+  openPreview(
+
+    photoUrl,
+
+  );
+
+}
+
+// ============================================================
+
+// プレビューを閉じる
+
+// ============================================================
+
+export function closePreview() {
+
+  const viewer =
+
+    document.getElementById(
+
+      VIEWER_ID,
+
+    );
+
+  const image =
+
+    document.getElementById(
+
+      VIEWER_IMAGE_ID,
+
+    );
+
+  const dateLabel =
+
+    document.getElementById(
+
+      VIEWER_DATE_ID,
+
+    );
+
+  if (viewer) {
+
+    viewer.classList.remove(
+
+      'is-open',
+
+    );
+
+    viewer.setAttribute(
+
+      'aria-hidden',
+
+      'true',
+
+    );
+
+  }
+
+  if (image) {
+
+    image.removeAttribute(
+
+      'src',
+
+    );
+
+  }
+
+  if (dateLabel) {
+
+    dateLabel.textContent =
+
+      '';
 
   }
 
 }
 
-async function handleResetCustomization() {
+// ============================================================
+
+// 写真URL取得
+
+// ============================================================
+
+export function getPhotoUrlFromTarget(
+
+  target,
+
+) {
+
+  if (
+
+    !(target instanceof Element)
+
+  ) {
+
+    return '';
+
+  }
+
+  const owner =
+
+    target.closest(
+
+      '[data-photo-url]',
+
+    );
+
+  if (!owner) {
+
+    return '';
+
+  }
+
+  /*
+
+   * 古いapp.jsは
+
+   * getPhotoUrlFromTarget → openPreview
+
+   * の順で呼ぶため、
+
+   * ここで日付もセットして互換性を保つ。
+
+   */
+
+  setPreviewDateFromTarget(
+
+    owner,
+
+  );
+
+  return owner.dataset.photoUrl ??
+
+    '';
+
+}
+
+// ============================================================
+
+// 写真ID取得
+
+// ============================================================
+
+export function getPhotoIdFromTarget(
+
+  target,
+
+) {
+
+  if (
+
+    !(target instanceof Element)
+
+  ) {
+
+    return '';
+
+  }
+
+  const owner =
+
+    target.closest(
+
+      '[data-photo-id]',
+
+    );
+
+  return owner?.dataset.photoId ??
+
+    '';
+
+}
+
+// ============================================================
+
+// 写真source取得
+
+// ============================================================
+
+function getPhotoSourceFromTarget(
+
+  target,
+
+) {
+
+  if (
+
+    !(target instanceof Element)
+
+  ) {
+
+    return '';
+
+  }
+
+  const owner =
+
+    target.closest(
+
+      '[data-photo-source]',
+
+    );
+
+  return owner?.dataset.photoSource ??
+
+    '';
+
+}
+
+// ============================================================
+
+// 写真path取得
+
+// ============================================================
+
+function getPhotoPathFromTarget(
+
+  target,
+
+) {
+
+  if (
+
+    !(target instanceof Element)
+
+  ) {
+
+    return '';
+
+  }
+
+  const owner =
+
+    target.closest(
+
+      '[data-photo-path]',
+
+    );
+
+  return owner?.dataset.photoPath ??
+
+    '';
+
+}
+
+// ============================================================
+
+// ローカル写真削除
+
+// ============================================================
+
+export async function deletePhoto(
+
+  photoId,
+
+) {
+
+  if (!photoId) {
+
+    return;
+
+  }
+
+  try {
+
+    await deleteLocalPhotoById(
+
+      photoId,
+
+    );
+
+    await renderGallery();
+
+    setStatus(
+
+      '写真を削除しました',
+
+      'success',
+
+    );
+
+    clearStatusLater(
+
+      1800,
+
+    );
+
+  } catch (error) {
+
+    console.error(
+
+      '[photo.js] ローカル写真削除に失敗しました',
+
+      error,
+
+    );
+
+    setStatus(
+
+      '写真の削除に失敗しました',
+
+      'error',
+
+    );
+
+  }
+
+}
+
+// ============================================================
+
+// ターゲットから写真削除
+
+// ============================================================
+
+export async function deletePhotoFromTarget(
+
+  target,
+
+) {
+
+  const photoId =
+
+    getPhotoIdFromTarget(
+
+      target,
+
+    );
+
+  const source =
+
+    getPhotoSourceFromTarget(
+
+      target,
+
+    );
+
+  const path =
+
+    getPhotoPathFromTarget(
+
+      target,
+
+    );
+
+  if (!photoId) {
+
+    return;
+
+  }
 
   const confirmed =
 
     window.confirm(
 
-      'カード名・アイコン・並び順・Workspaceタイトル・背景を、すべて初期状態に戻します。よろしいですか？',
+      source ===
+
+        'shared'
+
+        ? 'この共有写真を削除しますか？'
+
+        : 'この写真を削除しますか？',
 
     );
 
@@ -4056,2215 +3908,301 @@ async function handleResetCustomization() {
 
   }
 
-  try {
+  if (
 
-    await Customization.resetAll();
+    source ===
 
-    playFeedbackSound(
+    'shared'
 
-      'success',
+  ) {
+
+    if (!path) {
+
+      setStatus(
+
+        '共有写真の情報を取得できませんでした',
+
+        'error',
+
+      );
+
+      return;
+
+    }
+
+    try {
+
+      setStatus(
+
+        '削除中…',
+
+        'saving',
+
+      );
+
+      await Supabase.deletePhoto(
+
+        path,
+
+      );
+
+      await refreshSharedPhotos({
+
+        rerender:
+
+          false,
+
+        silent:
+
+          false,
+
+      });
+
+      await renderGallery();
+
+      setStatus(
+
+        '共有写真を削除しました',
+
+        'success',
+
+      );
+
+      clearStatusLater(
+
+        1800,
+
+      );
+
+    } catch (error) {
+
+      console.error(
+
+        '[photo.js] 共有写真削除に失敗しました',
+
+        error,
+
+      );
+
+      setStatus(
+
+        error?.message ||
+
+          '共有写真の削除に失敗しました',
+
+        'error',
+
+      );
+
+    }
+
+    return;
+
+  }
+
+  await deletePhoto(
+
+    photoId,
+
+  );
+
+}
+
+// ============================================================
+
+// 新app.jsとの互換用
+
+// ============================================================
+
+export async function deleteSharedPhotoFromTarget(
+
+  target,
+
+) {
+
+  /*
+
+   * 新しいapp.jsが
+
+   * deleteSharedPhotoFromTarget()を呼んだ場合も
+
+   * 同じ共通削除処理へ流す。
+
+   */
+
+  await deletePhotoFromTarget(
+
+    target,
+
+  );
+
+}
+
+// ============================================================
+
+// 写真選択
+
+// ============================================================
+
+export function selectPhotos() {
+
+  const input =
+
+    document.getElementById(
+
+      FILE_INPUT_ID,
 
     );
 
-    playFeedbackVibration();
+  if (!input) {
 
-  } catch (error) {
+    console.warn(
 
-    console.error(
-
-      '[app.js] カスタマイズのリセットに失敗しました',
-
-      error,
+      '[photo.js] photoFileInputが見つかりません',
 
     );
 
-    playFeedbackSound(
+    setStatus(
+
+      '写真選択を開始できませんでした',
 
       'error',
 
     );
 
-    playFeedbackVibration();
+    return;
 
   }
+
+  input.click();
 
 }
 
 // ============================================================
 
-// 履歴パネル
+// 背景
 
 // ============================================================
 
-function toggleHistoryPanel() {
+function applyBackground() {
 
-  const panel =
+  const container =
 
-    document.getElementById(
+    getContainer();
 
-      'historyPanel',
-
-    );
-
-  const button =
-
-    document.getElementById(
-
-      'historyToggleBtn',
-
-    );
-
-  if (
-
-    !panel ||
-
-    !button
-
-  ) {
+  if (!container) {
 
     return;
 
   }
 
-  const isExpanded =
+  const cached =
 
-    panel.classList.toggle(
+    Customization.getCached();
 
-      'is-expanded',
+  const backgroundId =
 
-    );
+    cached?.backgrounds?.photo ??
 
-  panel.hidden =
+    'default';
 
-    !isExpanded;
+  /*
 
-  button.setAttribute(
+   * photo.css側の
 
-    'aria-expanded',
+   * .photo-bg--xxx に合わせる。
 
-    String(
+   */
 
-      isExpanded,
+  Array.from(
 
-    ),
+    container.classList,
 
-  );
+  ).forEach(
 
-  button.setAttribute(
+    (
 
-    'aria-label',
+      className,
 
-    isExpanded
-
-      ? '履歴を隠す'
-
-      : '履歴を表示',
-
-  );
-
-}
-
-// ============================================================
-
-// テーマ変更
-
-// ============================================================
-
-function handleSelectTheme(
-
-  target,
-
-) {
-
-  const {
-
-    themeId,
-
-  } =
-
-    target.dataset;
-
-  if (!themeId) {
-
-    return;
-
-  }
-
-  try {
-
-    Settings.setTheme(
-
-      themeId,
-
-    );
-
-  } catch (error) {
-
-    console.error(
-
-      '[app.js] テーマの変更に失敗しました',
-
-      error,
-
-    );
-
-  }
-
-}
-
-// ============================================================
-
-// 生体認証
-
-// ============================================================
-
-async function handleRetryAuth() {
-
-  try {
-
-    const success =
-
-      await Auth.authenticate();
-
-    if (success) {
-
-      hideLockOverlay();
-
-    }
-
-  } catch (error) {
-
-    console.error(
-
-      '[app.js] 再認証中にエラーが発生しました',
-
-      error,
-
-    );
-
-  }
-
-}
-
-// ============================================================
-
-// 共通 data-action
-
-// ============================================================
-
-const ACTION_HANDLERS =
-
-  Object.freeze({
-
-    'open-settings':
-
-      openSettings,
-
-    'close-settings':
-
-      closeSettings,
-
-    'clear-history':
-
-      handleClearHistory,
-
-    'select-theme':
-
-      handleSelectTheme,
-
-    'retry-auth':
-
-      handleRetryAuth,
-
-    'toggle-history':
-
-      toggleHistoryPanel,
-
-    'clear-cache':
-
-      handleClearCache,
-
-    'delete-all-my-messages':
-
-      handleDeleteAllMyMessages,
-
-    'clear-archive-data':
-
-      handleClearArchiveData,
-
-    'move-card-up':
-
-      handleMoveCardUp,
-
-    'move-card-down':
-
-      handleMoveCardDown,
-
-    'reset-customization':
-
-      handleResetCustomization,
-
-  });
-
-// ============================================================
-
-// Calculator 数字入力
-
-// ============================================================
-
-function handleDigitInput(
-
-  digit,
-
-) {
-
-  let shouldRender =
-
-    true;
-
-  try {
-
-    dispatchToCalculator(
-
-      CALC_ACTIONS.DIGIT,
-
-      digit,
-
-    );
-
-    const displayState =
-
-      Calculator.getDisplayState();
-
-    playFeedbackSound(
-
-      displayState.isError
-
-        ? 'error'
-
-        : 'tap',
-
-    );
-
-    playFeedbackVibration();
-
-    passcodeBuffer +=
-
-      digit;
-
-    const passcode =
-
-      Passcode.getPasscode();
-
-    if (
-
-      passcodeBuffer.length ===
-
-      passcode.length
-
-    ) {
+    ) => {
 
       if (
 
-        Passcode.validate(
+        className.startsWith(
 
-          passcodeBuffer,
+          'photo-bg--',
+
+        ) ||
+
+        className.startsWith(
+
+          'custom-bg-',
 
         )
 
       ) {
 
-        Router.openWorkspace();
+        container.classList.remove(
 
-        passcodeBuffer =
+          className,
 
-          '';
-
-        shouldRender =
-
-          false;
-
-        return;
+        );
 
       }
 
-    }
-
-  } catch (error) {
-
-    console.error(
-
-      '[app.js] 数字入力の処理に失敗しました',
-
-      error,
-
-    );
-
-  } finally {
-
-    if (shouldRender) {
-
-      render();
-
-    }
-
-  }
-
-}
-
-// ============================================================
-
-// Calculator 操作入力
-
-// ============================================================
-
-function handleCalculatorAction(
-
-  action,
-
-) {
-
-  if (
-
-    PASSCODE_RESET_ACTIONS.has(
-
-      action,
-
-    )
-
-  ) {
-
-    passcodeBuffer =
-
-      '';
-
-  }
-
-  try {
-
-    dispatchToCalculator(
-
-      action,
-
-    );
-
-    const displayState =
-
-      Calculator.getDisplayState();
-
-    let feedbackKind =
-
-      'tap';
-
-    if (
-
-      displayState.isError
-
-    ) {
-
-      feedbackKind =
-
-        'error';
-
-    } else if (
-
-      action ===
-
-      CALC_ACTIONS.EQUALS
-
-    ) {
-
-      feedbackKind =
-
-        'success';
-
-    }
-
-    playFeedbackSound(
-
-      feedbackKind,
-
-    );
-
-    playFeedbackVibration();
-
-    const willRerenderViaHistorySubscription =
-
-      action ===
-
-        CALC_ACTIONS.EQUALS &&
-
-      !displayState.isError;
-
-    if (
-
-      !willRerenderViaHistorySubscription
-
-    ) {
-
-      render();
-
-    }
-
-  } catch (error) {
-
-    console.error(
-
-      '[app.js] 電卓操作の処理に失敗しました',
-
-      error,
-
-    );
-
-    render();
-
-  }
-
-}
-
-// ============================================================
-
-// documentクリック
-
-// ============================================================
-
-function handleDocumentClick(
-
-  event,
-
-) {
-
-  if (
-
-    !(
-
-      event.target instanceof
-
-      Element
-
-    )
-
-  ) {
-
-    return;
-
-  }
-
-  const target =
-
-    event.target.closest(
-
-      '[data-action], [data-num], [data-secret]',
-
-    );
-
-  if (!target) {
-
-    return;
-
-  }
-
-  const settingsOverlay =
-
-    document.getElementById(
-
-      'settingsOverlay',
-
-    );
-
-  if (
-
-    settingsOverlay &&
-
-    settingsOverlay.classList.contains(
-
-      'is-open',
-
-    ) &&
-
-    target.closest(
-
-      '#settingsOverlay',
-
-    )
-
-  ) {
-
-    const {
-
-      action,
-
-    } =
-
-      target.dataset;
-
-    const settingsHandler =
-
-      ACTION_HANDLERS[
-
-        action
-
-      ];
-
-    if (settingsHandler) {
-
-      playFeedbackSound(
-
-        'tap',
-
-      );
-
-      playFeedbackVibration();
-
-      settingsHandler(
-
-        target,
-
-        event,
-
-      );
-
-    }
-
-    return;
-
-  }
-
-  const currentScreen =
-
-    Router.getCurrentScreen();
-
-  if (
-
-    currentScreen ===
-
-    Router.Screen.RECORDS
-
-  ) {
-
-    handleRecordsScreenClick(
-
-      target,
-
-    );
-
-    return;
-
-  }
-
-  if (
-
-    currentScreen ===
-
-    Router.Screen.CALENDAR
-
-  ) {
-
-    handleCalendarScreenClick(
-
-      target,
-
-    );
-
-    return;
-
-  }
-
-  if (
-
-    currentScreen ===
-
-    Router.Screen.ARCHIVE
-
-  ) {
-
-    handleArchiveScreenClick(
-
-      target,
-
-    );
-
-    return;
-
-  }
-
-  if (
-
-    currentScreen ===
-
-    Router.Screen.PAIRING
-
-  ) {
-
-    handlePairingScreenClick(
-
-      target,
-
-    );
-
-    return;
-
-  }
-
-  if (
-
-    currentScreen ===
-
-    Router.Screen.MESSAGES
-
-  ) {
-
-    handleMessagesScreenClick(
-
-      target,
-
-    );
-
-    return;
-
-  }
-
-  if (
-
-    currentScreen ===
-
-    Router.Screen.PHOTO
-
-  ) {
-
-    handlePhotoScreenClick(
-
-      target,
-
-    );
-
-    return;
-
-  }
-
-  if (
-
-    currentScreen ===
-
-    Router.Screen.WORKSPACE
-
-  ) {
-
-    handleWorkspaceScreenClick(
-
-      target,
-
-    );
-
-    return;
-
-  }
-
-  const {
-
-    action,
-
-    num,
-
-  } =
-
-    target.dataset;
-
-  if (
-
-    num !==
-
-    undefined
-
-  ) {
-
-    handleDigitInput(
-
-      num,
-
-    );
-
-    return;
-
-  }
-
-  if (
-
-    CALCULATOR_ACTIONS.has(
-
-      action,
-
-    )
-
-  ) {
-
-    handleCalculatorAction(
-
-      action,
-
-    );
-
-    return;
-
-  }
-
-  const handler =
-
-    ACTION_HANDLERS[
-
-      action
-
-    ];
-
-  if (handler) {
-
-    playFeedbackSound(
-
-      'tap',
-
-    );
-
-    playFeedbackVibration();
-
-    handler(
-
-      target,
-
-      event,
-
-    );
-
-  }
-
-}
-
-// ============================================================
-
-// inputイベント
-
-// ============================================================
-
-function handleDocumentInput(
-
-  event,
-
-) {
-
-  const target =
-
-    event.target;
-
-  if (
-
-    !(
-
-      target instanceof
-
-      HTMLInputElement
-
-    ) &&
-
-    !(
-
-      target instanceof
-
-      HTMLTextAreaElement
-
-    )
-
-  ) {
-
-    return;
-
-  }
-
-  if (
-
-    target.id ===
-
-    'archiveSearchInput'
-
-  ) {
-
-    handleArchiveSearchInput(
-
-      target.value,
-
-    );
-
-    return;
-
-  }
-
-  if (
-
-    target.id ===
-
-    'messagesInput'
-
-  ) {
-
-    Messages.notifyTyping();
-
-    Messages.autoResizeInput();
-
-  }
-
-}
-
-// ============================================================
-
-// 設定変更
-
-// ============================================================
-
-function handleSettingsChange(
-
-  event,
-
-) {
-
-  const target =
-
-    event.target;
-
-  if (
-
-    target instanceof
-
-      HTMLInputElement &&
-
-    target.type ===
-
-      'checkbox'
-
-  ) {
-
-    handleSettingsCheckboxChange(
-
-      target,
-
-    );
-
-    return;
-
-  }
-
-  if (
-
-    target instanceof
-
-      HTMLInputElement &&
-
-    target.type ===
-
-      'text'
-
-  ) {
-
-    handleSettingsTextInputChange(
-
-      target,
-
-    );
-
-    return;
-
-  }
-
-  if (
-
-    target instanceof
-
-    HTMLSelectElement
-
-  ) {
-
-    handleSettingsSelectChange(
-
-      target,
-
-    );
-
-  }
-
-}
-
-function handleSettingsCheckboxChange(
-
-  target,
-
-) {
-
-  const checked =
-
-    target.checked;
-
-  switch (
-
-    target.id
-
-  ) {
-
-    case 'soundToggle':
-
-      Settings.setSoundEnabled(
-
-        checked,
-
-      );
-
-      break;
-
-    case 'vibrationToggle':
-
-      Settings.setVibrationEnabled(
-
-        checked,
-
-      );
-
-      break;
-
-    case 'biometricToggle':
-
-      handleBiometricToggle(
-
-        checked,
-
-      );
-
-      break;
-
-    case 'archiveLockToggle':
-
-      Settings.setArchiveLockEnabled(
-
-        checked,
-
-      );
-
-      break;
-
-    case 'notificationsToggle':
-
-      handleNotificationsToggle(
-
-        checked,
-
-      );
-
-      break;
-
-    case 'notificationContentToggle':
-
-      Settings.setNotificationContentEnabled(
-
-        checked,
-
-      );
-
-      Notifications
-
-        .syncNotificationContentPreference(
-
-          checked,
-
-        )
-
-        .catch(
-
-          (
-
-            error,
-
-          ) => {
-
-            console.warn(
-
-              '[app.js] 通知内容表示設定の同期に失敗しました',
-
-              error,
-
-            );
-
-          },
-
-        );
-
-      break;
-
-    case 'notificationSoundToggle':
-
-      Settings.setNotificationSoundEnabled(
-
-        checked,
-
-      );
-
-      break;
-
-    case 'notificationVibrationToggle':
-
-      Settings.setNotificationVibrationEnabled(
-
-        checked,
-
-      );
-
-      break;
-
-    case 'readReceiptsToggle':
-
-      Settings.setReadReceiptsEnabled(
-
-        checked,
-
-      );
-
-      break;
-
-    case 'onlineVisibilityToggle':
-
-      Settings.setOnlineVisibilityEnabled(
-
-        checked,
-
-      );
-
-      break;
-
-    default:
-
-      break;
-
-  }
-
-}
-
-function handleSettingsSelectChange(
-
-  target,
-
-) {
-
-  if (
-
-    target.classList.contains(
-
-      'bg-select',
-
-    )
-
-  ) {
-
-    const {
-
-      screen,
-
-    } =
-
-      target.dataset;
-
-    if (!screen) {
-
-      return;
-
-    }
-
-    Customization
-
-      .updateBackground(
-
-        screen,
-
-        target.value,
-
-      )
-
-      .catch(
-
-        (
-
-          error,
-
-        ) => {
-
-          console.error(
-
-            '[app.js] 背景の保存に失敗しました',
-
-            error,
-
-          );
-
-        },
-
-      );
-
-    return;
-
-  }
-
-  switch (
-
-    target.id
-
-  ) {
-
-    case 'autoLockDurationSelect':
-
-      Settings.setAutoLockDurationMs(
-
-        Number(
-
-          target.value,
-
-        ),
-
-      );
-
-      break;
-
-    case 'organizeModeSelect':
-
-      Settings.setConversationOrganizeMode(
-
-        target.value,
-
-      );
-
-      break;
-
-    case 'organizeDurationSelect':
-
-      Settings.setConversationOrganizeDurationMs(
-
-        Number(
-
-          target.value,
-
-        ),
-
-      );
-
-      break;
-
-    default:
-
-      break;
-
-  }
-
-}
-
-function handleSettingsTextInputChange(
-
-  target,
-
-) {
-
-  if (
-
-    target.id ===
-
-    'workspaceTitleInput'
-
-  ) {
-
-    Customization
-
-      .updateWorkspaceTitle(
-
-        target.value,
-
-      )
-
-      .catch(
-
-        (
-
-          error,
-
-        ) => {
-
-          console.error(
-
-            '[app.js] Workspaceタイトルの保存に失敗しました',
-
-            error,
-
-          );
-
-        },
-
-      );
-
-    return;
-
-  }
-
-  if (
-
-    target.classList.contains(
-
-      'card-icon-input',
-
-    ) ||
-
-    target.classList.contains(
-
-      'card-label-input',
-
-    )
-
-  ) {
-
-    const {
-
-      cardKey,
-
-    } =
-
-      target.dataset;
-
-    if (!cardKey) {
-
-      return;
-
-    }
-
-    const changes =
-
-      target.classList.contains(
-
-        'card-icon-input',
-
-      )
-
-        ? {
-
-            icon:
-
-              target.value,
-
-          }
-
-        : {
-
-            label:
-
-              target.value,
-
-          };
-
-    Customization
-
-      .updateCard(
-
-        cardKey,
-
-        changes,
-
-      )
-
-      .catch(
-
-        (
-
-          error,
-
-        ) => {
-
-          console.error(
-
-            '[app.js] カードの保存に失敗しました',
-
-            error,
-
-          );
-
-        },
-
-      );
-
-  }
-
-}
-
-// ============================================================
-
-// 生体認証設定
-
-// ============================================================
-
-async function handleBiometricToggle(
-
-  enabled,
-
-) {
-
-  if (!enabled) {
-
-    Settings.setBiometricEnabled(
-
-      false,
-
-    );
-
-    Auth.lock();
-
-    return;
-
-  }
-
-  try {
-
-    const success =
-
-      await Auth.register();
-
-    if (success) {
-
-      Settings.setBiometricEnabled(
-
-        true,
-
-      );
-
-      return;
-
-    }
-
-  } catch (error) {
-
-    console.error(
-
-      '[app.js] 生体認証の登録に失敗しました',
-
-      error,
-
-    );
-
-  }
-
-  render();
-
-}
-
-// ============================================================
-
-// 通知設定
-
-// ============================================================
-
-async function handleNotificationsToggle(
-
-  enabled,
-
-) {
-
-  if (!enabled) {
-
-    Settings.setNotificationsEnabled(
-
-      false,
-
-    );
-
-    Notifications
-
-      .disableRegistration()
-
-      .catch(
-
-        (
-
-          error,
-
-        ) => {
-
-          console.warn(
-
-            '[app.js] 通知登録の無効化に失敗しました',
-
-            error,
-
-          );
-
-        },
-
-      );
-
-    renderNotificationStatus();
-
-    return;
-
-  }
-
-  try {
-
-    await Notifications.requestPermissionAndRegister();
-
-    Settings.setNotificationsEnabled(
-
-      true,
-
-    );
-
-    renderNotificationStatus();
-
-    return;
-
-  } catch (error) {
-
-    console.warn(
-
-      '[app.js] 通知の許可取得に失敗しました',
-
-      error,
-
-    );
-
-  }
-
-  render();
-
-}
-
-// ============================================================
-
-// キーボード
-
-// ============================================================
-
-function handleKeyDown(
-
-  event,
-
-) {
-
-  const lockOverlay =
-
-    document.getElementById(
-
-      'lockOverlay',
-
-    );
-
-  const isLockOpen =
-
-    lockOverlay &&
-
-    lockOverlay.classList.contains(
-
-      'is-open',
-
-    );
-
-  if (isLockOpen) {
-
-    if (
-
-      event.key ===
-
-      'Tab'
-
-    ) {
-
-      trapFocus(
-
-        event,
-
-        lockOverlay,
-
-      );
-
-    }
-
-    return;
-
-  }
-
-  const overlay =
-
-    document.getElementById(
-
-      'settingsOverlay',
-
-    );
-
-  if (
-
-    !overlay ||
-
-    !overlay.classList.contains(
-
-      'is-open',
-
-    )
-
-  ) {
-
-    return;
-
-  }
-
-  if (
-
-    event.key ===
-
-    'Escape'
-
-  ) {
-
-    closeSettings();
-
-    return;
-
-  }
-
-  if (
-
-    event.key ===
-
-    'Tab'
-
-  ) {
-
-    trapFocus(
-
-      event,
-
-      overlay,
-
-    );
-
-  }
-
-}
-
-function trapFocus(
-
-  event,
-
-  container,
-
-) {
-
-  const focusable =
-
-    container.querySelectorAll(
-
-      FOCUSABLE_SELECTOR,
-
-    );
-
-  if (
-
-    focusable.length ===
-
-    0
-
-  ) {
-
-    return;
-
-  }
-
-  const first =
-
-    focusable[
-
-      0
-
-    ];
-
-  const last =
-
-    focusable[
-
-      focusable.length -
-
-      1
-
-    ];
-
-  if (
-
-    event.shiftKey &&
-
-    document.activeElement ===
-
-      first
-
-  ) {
-
-    event.preventDefault();
-
-    last.focus();
-
-  } else if (
-
-    !event.shiftKey &&
-
-    document.activeElement ===
-
-      last
-
-  ) {
-
-    event.preventDefault();
-
-    first.focus();
-
-  }
-
-}
-
-// ============================================================
-
-// キーパッド押下
-
-// ============================================================
-
-function clearPressedTimeout(
-
-  target,
-
-) {
-
-  const timeoutId =
-
-    pressedTimeouts.get(
-
-      target,
-
-    );
-
-  if (
-
-    timeoutId !==
-
-    undefined
-
-  ) {
-
-    window.clearTimeout(
-
-      timeoutId,
-
-    );
-
-    pressedTimeouts.delete(
-
-      target,
-
-    );
-
-  }
-
-}
-
-function handleKeypadPointerDown(
-
-  event,
-
-) {
-
-  if (
-
-    !(
-
-      event.target instanceof
-
-      Element
-
-    )
-
-  ) {
-
-    return;
-
-  }
-
-  const target =
-
-    event.target.closest(
-
-      '.key',
-
-    );
-
-  if (!target) {
-
-    return;
-
-  }
-
-  clearPressedTimeout(
-
-    target,
+    },
 
   );
 
-  target.classList.add(
+  container.classList.add(
 
-    'pressed',
+    `photo-bg--${backgroundId}`,
 
   );
 
-  const timeoutId =
+}
 
-    window.setTimeout(
+// ============================================================
+
+// カスタマイズ購読
+
+// ============================================================
+
+function subscribeCustomization() {
+
+  if (
+
+    unsubscribeCustomization
+
+  ) {
+
+    return;
+
+  }
+
+  const unsubscribe =
+
+    Customization.subscribe(
 
       () => {
 
-        target.classList.remove(
-
-          'pressed',
-
-        );
-
-        pressedTimeouts.delete(
-
-          target,
-
-        );
+        applyBackground();
 
       },
 
-      PRESSED_CLASS_TIMEOUT,
-
     );
-
-  pressedTimeouts.set(
-
-    target,
-
-    timeoutId,
-
-  );
-
-}
-
-function handleKeypadPointerUp(
-
-  event,
-
-) {
 
   if (
 
-    !(
+    typeof unsubscribe ===
 
-      event.target instanceof
-
-      Element
-
-    )
+      'function'
 
   ) {
 
-    return;
+    unsubscribeCustomization =
 
-  }
-
-  const target =
-
-    event.target.closest(
-
-      '.key',
-
-    );
-
-  if (!target) {
-
-    return;
-
-  }
-
-  clearPressedTimeout(
-
-    target,
-
-  );
-
-  target.classList.remove(
-
-    'pressed',
-
-  );
-
-}
-
-// ============================================================
-
-// 設定 × ボタン
-
-// ============================================================
-
-function registerSettingsCloseButton() {
-
-  const settingsCloseBtn =
-
-    document.getElementById(
-
-      'settingsCloseBtn',
-
-    );
-
-  if (!settingsCloseBtn) {
-
-    console.warn(
-
-      '[app.js] settingsCloseBtnが見つかりませんでした',
-
-    );
-
-    return;
-
-  }
-
-  settingsCloseBtn.addEventListener(
-
-    'click',
-
-    (
-
-      event,
-
-    ) => {
-
-      event.preventDefault();
-
-      event.stopPropagation();
-
-      playFeedbackSound(
-
-        'tap',
-
-      );
-
-      playFeedbackVibration();
-
-      closeSettings();
-
-    },
-
-  );
-
-}
-
-// ============================================================
-
-// イベント登録
-
-// ============================================================
-
-function registerEventListeners() {
-
-  document.addEventListener(
-
-    'click',
-
-    handleDocumentClick,
-
-  );
-
-  document.addEventListener(
-
-    'keydown',
-
-    handleKeyDown,
-
-  );
-
-  document.addEventListener(
-
-    'input',
-
-    handleDocumentInput,
-
-  );
-
-  const settingsBody =
-
-    document.querySelector(
-
-      '.settings-body',
-
-    );
-
-  if (settingsBody) {
-
-    settingsBody.addEventListener(
-
-      'change',
-
-      handleSettingsChange,
-
-    );
-
-  }
-
-  const keypadEl =
-
-    document.getElementById(
-
-      'keypad',
-
-    );
-
-  if (keypadEl) {
-
-    keypadEl.addEventListener(
-
-      'pointerdown',
-
-      handleKeypadPointerDown,
-
-    );
-
-    keypadEl.addEventListener(
-
-      'pointerup',
-
-      handleKeypadPointerUp,
-
-    );
-
-    keypadEl.addEventListener(
-
-      'pointercancel',
-
-      handleKeypadPointerUp,
-
-    );
-
-  }
-
-  registerSettingsCloseButton();
-
-}
-
-// ============================================================
-
-// Storage購読
-
-// ============================================================
-
-function subscribeToStorageChanges() {
-
-  Storage.subscribe(
-
-    STORAGE_KEYS.THEME,
-
-    render,
-
-  );
-
-  Storage.subscribe(
-
-    STORAGE_KEYS.HISTORY,
-
-    render,
-
-  );
-
-  Storage.subscribe(
-
-    STORAGE_KEYS.SOUND_ENABLED,
-
-    render,
-
-  );
-
-  Storage.subscribe(
-
-    STORAGE_KEYS.VIBRATION_ENABLED,
-
-    render,
-
-  );
-
-  Storage.subscribe(
-
-    STORAGE_KEYS.BIOMETRIC_ENABLED,
-
-    render,
-
-  );
-
-}
-
-// ============================================================
-
-// Service Worker
-
-// ============================================================
-
-function registerServiceWorker() {
-
-  if (
-
-    !(
-
-      'serviceWorker' in
-
-      navigator
-
-    )
-
-  ) {
-
-    return;
-
-  }
-
-  const swUrl =
-
-    new URL(
-
-      'service-worker.js',
-
-      document.baseURI,
-
-    );
-
-  window.addEventListener(
-
-    'load',
-
-    () => {
-
-      navigator
-
-        .serviceWorker
-
-        .register(
-
-          swUrl,
-
-        )
-
-        .catch(
-
-          (
-
-            error,
-
-          ) => {
-
-            console.warn(
-
-              '[app.js] Service Workerの登録に失敗しました',
-
-              error,
-
-            );
-
-          },
-
-        );
-
-    },
-
-  );
-
-  navigator
-
-    .serviceWorker
-
-    .addEventListener(
-
-      'message',
-
-      handleServiceWorkerMessage,
-
-    );
-
-}
-
-function handleServiceWorkerMessage(
-
-  event,
-
-) {
-
-  const message =
-
-    event.data;
-
-  if (
-
-    !message ||
-
-    typeof message.type !==
-
-      'string'
-
-  ) {
-
-    return;
-
-  }
-
-  if (
-
-    message.type ===
-
-    'calculator-0209-notification-click'
-
-  ) {
-
-    console.info(
-
-      '[app.js] 通知がタップされました',
-
-      message.roomId,
-
-    );
-
-    return;
-
-  }
-
-  if (
-
-    message.type ===
-
-      'calculator-0209-push-subscription-changed' ||
-
-    message.type ===
-
-      'PUSH_SUBSCRIPTION_CHANGED'
-
-  ) {
-
-    Notifications
-
-      .syncRegistrationOnStartup()
-
-      .catch(
-
-        (
-
-          error,
-
-        ) => {
-
-          console.warn(
-
-            '[app.js] プッシュ購読変更後の再登録に失敗しました',
-
-            error,
-
-          );
-
-        },
-
-      );
+      unsubscribe;
 
   }
 
@@ -6272,7 +4210,7 @@ function handleServiceWorkerMessage(
 
 // ============================================================
 
-// 終了処理
+// visibilitychange
 
 // ============================================================
 
@@ -6280,53 +4218,155 @@ function handleVisibilityChange() {
 
   if (
 
-    document.visibilityState ===
+    document.visibilityState !==
 
-    'hidden'
+      'visible' ||
+
+    !isOpen() ||
+
+    !isSharedMode
 
   ) {
 
-    Sound.stopAll();
+    return;
 
   }
 
-}
+  refreshSharedPhotos({
 
-function handlePageHide() {
+    rerender:
 
-  Sound.stopAll();
+      true,
 
-  Sound.destroy()
+    silent:
 
-    .catch(
+      true,
 
-      (
+  }).catch(
+
+    (
+
+      error,
+
+    ) => {
+
+      console.warn(
+
+        '[photo.js] 復帰時の共有写真更新に失敗しました',
 
         error,
 
-      ) => {
+      );
 
-        console.warn(
+    },
 
-          '[app.js] Sound.destroy()に失敗しました',
-
-          error,
-
-        );
-
-      },
-
-    );
+  );
 
 }
 
-function handleBeforeUnload() {
+// ============================================================
 
-  Sound.stopAll();
+// 画面構築
 
-}
+// ============================================================
 
-function registerTeardownHandlers() {
+export function build() {
+
+  let container =
+
+    getContainer();
+
+  if (
+
+    container &&
+
+    isBuilt
+
+  ) {
+
+    applyBackground();
+
+    return container;
+
+  }
+
+  if (!container) {
+
+    container =
+
+      createContainer();
+
+  }
+
+  container.replaceChildren();
+
+  const fileInput =
+
+    createFileInput();
+
+  const header =
+
+    createHeader();
+
+  const intro =
+
+    createIntro();
+
+  const status =
+
+    createStatus();
+
+  const main =
+
+    createMain();
+
+  const viewer =
+
+    createViewer();
+
+  container.appendChild(
+
+    fileInput,
+
+  );
+
+  container.appendChild(
+
+    header,
+
+  );
+
+  container.appendChild(
+
+    intro,
+
+  );
+
+  container.appendChild(
+
+    status,
+
+  );
+
+  container.appendChild(
+
+    main,
+
+  );
+
+  container.appendChild(
+
+    viewer,
+
+  );
+
+  registerFileInputListener();
+
+  registerAddLabelKeyboard();
+
+  subscribeCustomization();
+
+  applyBackground();
 
   document.addEventListener(
 
@@ -6336,111 +4376,23 @@ function registerTeardownHandlers() {
 
   );
 
-  window.addEventListener(
+  isBuilt =
 
-    'pagehide',
+    true;
 
-    handlePageHide,
-
-  );
-
-  window.addEventListener(
-
-    'beforeunload',
-
-    handleBeforeUnload,
-
-  );
+  return container;
 
 }
 
 // ============================================================
 
-// 生体認証起動フロー
+// Router互換 create
 
 // ============================================================
 
-async function runBiometricLockFlow() {
+export function create() {
 
-  if (
-
-    !isBiometricSupported ||
-
-    !Settings.isBiometricEnabled()
-
-  ) {
-
-    return;
-
-  }
-
-  showLockOverlay();
-
-  try {
-
-    const success =
-
-      await Auth.authenticate();
-
-    if (success) {
-
-      hideLockOverlay();
-
-    }
-
-  } catch (error) {
-
-    console.error(
-
-      '[app.js] 起動時の生体認証に失敗しました',
-
-      error,
-
-    );
-
-  }
-
-}
-
-function withTimeout(
-
-  promise,
-
-  timeoutMs,
-
-) {
-
-  return Promise.race([
-
-    promise,
-
-    new Promise(
-
-      (
-
-        resolve,
-
-      ) => {
-
-        window.setTimeout(
-
-          () =>
-
-            resolve(
-
-              false,
-
-            ),
-
-          timeoutMs,
-
-        );
-
-      },
-
-    ),
-
-  ]);
+  return build();
 
 }
 
@@ -6450,233 +4402,105 @@ function withTimeout(
 
 // ============================================================
 
-async function init() {
+export function init() {
+
+  return build();
+
+}
+
+// ============================================================
+
+// 写真画面を開く
+
+// ============================================================
+
+export async function open() {
+
+  const container =
+
+    build();
+
+  container.classList.add(
+
+    'is-open',
+
+  );
+
+  container.setAttribute(
+
+    'aria-hidden',
+
+    'false',
+
+  );
+
+  applyBackground();
+
+  clearStatus();
+
+  updateSharedMode();
 
   try {
 
-    // --------------------------------------------------------
+    if (
 
-    // 1. UI構築
+      isSharedMode
 
-    // --------------------------------------------------------
+    ) {
 
-    buildKeypad();
+      setStatus(
 
-    buildThemeOptions();
+        '共有写真を読み込み中…',
 
-    buildDurationSelectOptions();
-
-    // --------------------------------------------------------
-
-    // 2. 各画面構築
-
-    // --------------------------------------------------------
-
-    Router.init();
-
-    // --------------------------------------------------------
-
-    // 3. ペアリング完了時
-
-    // --------------------------------------------------------
-
-    Pairing.setOnPaired(
-
-      () => {
-
-        Router.completePairing();
-
-        Customization.start();
-
-        Notifications
-
-          .syncAfterPairing()
-
-          .catch(
-
-            (
-
-              error,
-
-            ) => {
-
-              console.warn(
-
-                '[app.js] ペアリング後の通知同期に失敗しました',
-
-                error,
-
-              );
-
-            },
-
-          );
-
-      },
-
-    );
-
-    // --------------------------------------------------------
-
-    // 4. カスタマイズ初期化
-
-    // --------------------------------------------------------
-
-    Customization.start();
-
-    Customization.subscribe(
-
-      () => {
-
-        renderWorkspaceTitleInput();
-
-        renderCardCustomizationList();
-
-        renderBackgroundCustomizationList();
-
-      },
-
-    );
-
-    // --------------------------------------------------------
-
-    // 5. イベント登録
-
-    // --------------------------------------------------------
-
-    registerEventListeners();
-
-    registerTeardownHandlers();
-
-    // --------------------------------------------------------
-
-    // 6. Storage購読
-
-    // --------------------------------------------------------
-
-    subscribeToStorageChanges();
-
-    // --------------------------------------------------------
-
-    // 7. 初回描画
-
-    // --------------------------------------------------------
-
-    render();
-
-    // --------------------------------------------------------
-
-    // 8. 生体認証
-
-    // --------------------------------------------------------
-
-    isBiometricSupported =
-
-      await withTimeout(
-
-        Auth.isSupported(),
-
-        3000,
+        'saving',
 
       );
 
-    render();
+      await refreshSharedPhotos({
 
-    await runBiometricLockFlow();
+        rerender:
 
-    // --------------------------------------------------------
+          false,
 
-    // 9. Service Worker
+        silent:
 
-    // --------------------------------------------------------
+          false,
 
-    registerServiceWorker();
+      });
 
-    // --------------------------------------------------------
+      clearStatus();
 
-    // 10. 通知
+    } else {
 
-    // --------------------------------------------------------
+      sharedPhotos =
 
-    Notifications.init();
+        [];
 
-    Notifications
+    }
 
-      .syncRegistrationOnStartup()
+    await renderGallery();
 
-      .catch(
-
-        (
-
-          error,
-
-        ) => {
-
-          console.warn(
-
-            '[app.js] 起動時の通知同期に失敗しました',
-
-            error,
-
-          );
-
-        },
-
-      );
-
-    Notifications
-
-      .initForegroundListener()
-
-      .catch(
-
-        (
-
-          error,
-
-        ) => {
-
-          console.warn(
-
-            '[app.js] フォアグラウンド通知初期化に失敗しました',
-
-            error,
-
-          );
-
-        },
-
-      );
+    startSharedRefreshTimer();
 
   } catch (error) {
 
     console.error(
 
-      '[app.js] 初期化中にエラーが発生しました',
+      '[photo.js] 写真画面を開けませんでした',
 
       error,
 
     );
 
-    try {
+    setStatus(
 
-      render();
+      '写真を読み込めませんでした',
 
-    } catch (
+      'error',
 
-      renderError
+    );
 
-    ) {
-
-      console.error(
-
-        '[app.js] エラー後の再描画にも失敗しました',
-
-        renderError,
-
-      );
-
-    }
+    await renderGallery();
 
   }
 
@@ -6684,14 +4508,222 @@ async function init() {
 
 // ============================================================
 
-// 起動
+// 写真画面を閉じる
 
 // ============================================================
 
-document.addEventListener(
+export function close() {
 
-  'DOMContentLoaded',
+  const container =
+
+    getContainer();
+
+  if (!container) {
+
+    return;
+
+  }
+
+  stopSharedRefreshTimer();
+
+  closePreview();
+
+  container.classList.remove(
+
+    'is-open',
+
+  );
+
+  container.setAttribute(
+
+    'aria-hidden',
+
+    'true',
+
+  );
+
+}
+
+// ============================================================
+
+// 表示状態
+
+// ============================================================
+
+export function isOpen() {
+
+  const container =
+
+    getContainer();
+
+  return Boolean(
+
+    container &&
+
+      container.classList.contains(
+
+        'is-open',
+
+      ),
+
+  );
+
+}
+
+// ============================================================
+
+// 再描画
+
+// ============================================================
+
+export async function refresh() {
+
+  if (!isBuilt) {
+
+    return;
+
+  }
+
+  applyBackground();
+
+  updateSharedMode();
+
+  if (
+
+    isSharedMode
+
+  ) {
+
+    await refreshSharedPhotos({
+
+      rerender:
+
+        false,
+
+      silent:
+
+        true,
+
+    });
+
+  }
+
+  await renderGallery();
+
+}
+
+// ============================================================
+
+// 破棄
+
+// ============================================================
+
+export function destroy() {
+
+  stopSharedRefreshTimer();
+
+  closePreview();
+
+  revokeAllObjectUrls();
+
+  document.removeEventListener(
+
+    'visibilitychange',
+
+    handleVisibilityChange,
+
+  );
+
+  if (
+
+    typeof unsubscribeCustomization ===
+
+      'function'
+
+  ) {
+
+    try {
+
+      unsubscribeCustomization();
+
+    } catch (error) {
+
+      console.warn(
+
+        '[photo.js] カスタマイズ購読解除に失敗しました',
+
+        error,
+
+      );
+
+    }
+
+  }
+
+  unsubscribeCustomization =
+
+    null;
+
+  sharedPhotos =
+
+    [];
+
+  isSharedMode =
+
+    false;
+
+  databasePromise =
+
+    null;
+
+  isBuilt =
+
+    false;
+
+}
+
+// ============================================================
+
+// Photo API
+
+// ============================================================
+
+const Photo = {
+
+  create,
 
   init,
 
-);
+  build,
+
+  open,
+
+  close,
+
+  isOpen,
+
+  refresh,
+
+  selectPhotos,
+
+  openPreview,
+
+  openPreviewFromTarget,
+
+  closePreview,
+
+  getPhotoUrlFromTarget,
+
+  getPhotoIdFromTarget,
+
+  deletePhoto,
+
+  deletePhotoFromTarget,
+
+  deleteSharedPhotoFromTarget,
+
+  destroy,
+
+};
+
+export default Photo;
