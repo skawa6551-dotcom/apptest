@@ -6,7 +6,7 @@
 
 //
 
-// Supabase接続専用モジュール
+// Supabase接続 最終版
 
 //
 
@@ -15,6 +15,8 @@
 // ・匿名認証
 
 // ・セッション維持
+
+// ・Firebase側のroomIdをSupabaseへ登録
 
 // ・photosバケットへのアップロード
 
@@ -53,6 +55,10 @@ const SUPABASE_PUBLISHABLE_KEY =
 const SUPABASE_BUCKET =
 
   'photos';
+
+const ROOM_MEMBERS_TABLE =
+
+  'photo_room_members';
 
 // ============================================================
 
@@ -100,6 +106,14 @@ let signInPromise =
 
   null;
 
+let roomRegistrationPromise =
+
+  null;
+
+let registeredRoomId =
+
+  null;
+
 // ============================================================
 
 // SDK読み込み
@@ -118,7 +132,11 @@ async function loadSdk() {
 
       ).catch(
 
-        (error) => {
+        (
+
+          error,
+
+        ) => {
 
           sdkPromise =
 
@@ -200,7 +218,11 @@ async function getClient() {
 
         .catch(
 
-          (error) => {
+          (
+
+            error,
+
+          ) => {
 
             clientPromise =
 
@@ -220,7 +242,7 @@ async function getClient() {
 
 // ============================================================
 
-// 現在のFirebase roomIdを取得
+// 現在のroomId
 
 // ============================================================
 
@@ -258,7 +280,7 @@ export function getRoomId() {
 
 // ============================================================
 
-// Supabase匿名認証
+// 匿名認証
 
 // ============================================================
 
@@ -284,7 +306,11 @@ export async function ensureSignedIn() {
 
       .getSession();
 
-  if (sessionError) {
+  if (
+
+    sessionError
+
+  ) {
 
     console.warn(
 
@@ -310,7 +336,11 @@ export async function ensureSignedIn() {
 
   }
 
-  if (signInPromise) {
+  if (
+
+    signInPromise
+
+  ) {
 
     return signInPromise;
 
@@ -332,7 +362,11 @@ export async function ensureSignedIn() {
 
         }) => {
 
-          if (error) {
+          if (
+
+            error
+
+          ) {
 
             throw error;
 
@@ -376,7 +410,7 @@ export async function ensureSignedIn() {
 
 // ============================================================
 
-// 現在のSupabaseユーザー
+// 現在ユーザー
 
 // ============================================================
 
@@ -398,7 +432,11 @@ export async function getCurrentUser() {
 
       .getUser();
 
-  if (error) {
+  if (
+
+    error
+
+  ) {
 
     return null;
 
@@ -412,7 +450,7 @@ export async function getCurrentUser() {
 
 // ============================================================
 
-// 現在のSupabase uid
+// 現在uid
 
 // ============================================================
 
@@ -430,7 +468,165 @@ export async function getCurrentUid() {
 
 // ============================================================
 
-// ファイル名を安全化
+// roomId登録
+
+// ============================================================
+
+async function registerCurrentRoom() {
+
+  const roomId =
+
+    getRoomId();
+
+  if (
+
+    !roomId
+
+  ) {
+
+    registeredRoomId =
+
+      null;
+
+    return false;
+
+  }
+
+  if (
+
+    registeredRoomId ===
+
+      roomId
+
+  ) {
+
+    return true;
+
+  }
+
+  if (
+
+    roomRegistrationPromise
+
+  ) {
+
+    return roomRegistrationPromise;
+
+  }
+
+  roomRegistrationPromise =
+
+    (async () => {
+
+      const user =
+
+        await ensureSignedIn();
+
+      if (
+
+        !user?.id
+
+      ) {
+
+        throw new Error(
+
+          'Supabaseユーザー情報を取得できませんでした。',
+
+        );
+
+      }
+
+      const client =
+
+        await getClient();
+
+      const {
+
+        error,
+
+      } =
+
+        await client
+
+          .from(
+
+            ROOM_MEMBERS_TABLE,
+
+          )
+
+          .upsert(
+
+            {
+
+              room_id:
+
+                roomId,
+
+              user_id:
+
+                user.id,
+
+            },
+
+            {
+
+              onConflict:
+
+                'room_id,user_id',
+
+              ignoreDuplicates:
+
+                true,
+
+            },
+
+          );
+
+      if (
+
+        error
+
+      ) {
+
+        console.error(
+
+          '[supabase.js] roomId登録に失敗しました',
+
+          error,
+
+        );
+
+        throw error;
+
+      }
+
+      registeredRoomId =
+
+        roomId;
+
+      return true;
+
+    })()
+
+      .finally(
+
+        () => {
+
+          roomRegistrationPromise =
+
+            null;
+
+        },
+
+      );
+
+  return roomRegistrationPromise;
+
+}
+
+// ============================================================
+
+// ファイル名安全化
 
 // ============================================================
 
@@ -474,7 +670,7 @@ function sanitizeFileName(
 
 // ============================================================
 
-// UUID生成
+// ID生成
 
 // ============================================================
 
@@ -506,7 +702,7 @@ function createId() {
 
 // ============================================================
 
-// Storage path生成
+// 写真パス生成
 
 // ============================================================
 
@@ -546,7 +742,11 @@ export async function uploadPhoto(
 
 ) {
 
-  if (!file) {
+  if (
+
+    !file
+
+  ) {
 
     throw new Error(
 
@@ -560,7 +760,11 @@ export async function uploadPhoto(
 
     getRoomId();
 
-  if (!roomId) {
+  if (
+
+    !roomId
+
+  ) {
 
     throw new Error(
 
@@ -594,7 +798,7 @@ export async function uploadPhoto(
 
   }
 
-  await ensureSignedIn();
+  await registerCurrentRoom();
 
   const client =
 
@@ -652,7 +856,11 @@ export async function uploadPhoto(
 
       );
 
-  if (error) {
+  if (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -732,7 +940,11 @@ async function createSignedPhotoUrl(
 
       );
 
-  if (error) {
+  if (
+
+    error
+
+  ) {
 
     console.warn(
 
@@ -756,7 +968,7 @@ async function createSignedPhotoUrl(
 
 // ============================================================
 
-// 写真一覧取得
+// 写真一覧
 
 // ============================================================
 
@@ -766,13 +978,17 @@ export async function listPhotos() {
 
     getRoomId();
 
-  if (!roomId) {
+  if (
+
+    !roomId
+
+  ) {
 
     return [];
 
   }
 
-  await ensureSignedIn();
+  await registerCurrentRoom();
 
   const client =
 
@@ -824,7 +1040,11 @@ export async function listPhotos() {
 
       );
 
-  if (error) {
+  if (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -858,7 +1078,11 @@ export async function listPhotos() {
 
         .filter(
 
-          (item) =>
+          (
+
+            item,
+
+          ) =>
 
             item &&
 
@@ -940,7 +1164,11 @@ export async function listPhotos() {
 
   return photos.filter(
 
-    (photo) =>
+    (
+
+      photo,
+
+    ) =>
 
       Boolean(
 
@@ -984,7 +1212,11 @@ export async function deletePhoto(
 
     getRoomId();
 
-  if (!roomId) {
+  if (
+
+    !roomId
+
+  ) {
 
     throw new Error(
 
@@ -1016,7 +1248,7 @@ export async function deletePhoto(
 
   }
 
-  await ensureSignedIn();
+  await registerCurrentRoom();
 
   const client =
 
@@ -1042,7 +1274,11 @@ export async function deletePhoto(
 
       ]);
 
-  if (error) {
+  if (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -1060,7 +1296,7 @@ export async function deletePhoto(
 
 // ============================================================
 
-// Supabase利用可能確認
+// 利用可能確認
 
 // ============================================================
 
@@ -1072,7 +1308,11 @@ export async function isAvailable() {
 
     return true;
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -1099,6 +1339,38 @@ export async function init() {
   const client =
 
     await getClient();
+
+  const roomId =
+
+    getRoomId();
+
+  if (
+
+    roomId
+
+  ) {
+
+    try {
+
+      await registerCurrentRoom();
+
+    } catch (
+
+      error
+
+    ) {
+
+      console.warn(
+
+        '[supabase.js] 初期room登録に失敗しました',
+
+        error,
+
+      );
+
+    }
+
+  }
 
   return client;
 
