@@ -6,7 +6,7 @@
 
 //
 
-// 写真画面 完成版
+// 写真画面 診断対応完成版
 
 //
 
@@ -27,6 +27,8 @@
 // ・共有写真削除
 
 // ・背景カスタマイズ
+
+// ・Supabase接続診断表示
 
 //
 
@@ -55,6 +57,10 @@ const FILE_INPUT_ID =
 const STATUS_ID =
 
   'photoStatus';
+
+const DIAGNOSTIC_ID =
+
+  'photoDiagnostic';
 
 const GALLERY_ID =
 
@@ -137,6 +143,10 @@ let isRefreshingShared =
 let galleryRenderToken =
 
   0;
+
+let diagnosticListenerRegistered =
+
+  false;
 
 const activeObjectUrls =
 
@@ -222,13 +232,511 @@ function clearStatusLater(
 
 // ============================================================
 
+// 診断表示
+
+// ============================================================
+
+function createDiagnosticPanel() {
+
+  const panel =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  panel.id =
+
+    DIAGNOSTIC_ID;
+
+  panel.className =
+
+    'photo-status';
+
+  panel.dataset.status =
+
+    'normal';
+
+  panel.setAttribute(
+
+    'role',
+
+    'status',
+
+  );
+
+  panel.setAttribute(
+
+    'aria-live',
+
+    'polite',
+
+  );
+
+  panel.hidden =
+
+    true;
+
+  return panel;
+
+}
+
+function getDiagnosticPanel() {
+
+  return document.getElementById(
+
+    DIAGNOSTIC_ID,
+
+  );
+
+}
+
+function formatDiagnosticMessage(
+
+  diagnostic,
+
+) {
+
+  if (
+
+    !diagnostic
+
+  ) {
+
+    return '';
+
+  }
+
+  const parts =
+
+    [];
+
+  if (
+
+    diagnostic.message
+
+  ) {
+
+    parts.push(
+
+      diagnostic.message,
+
+    );
+
+  }
+
+  if (
+
+    diagnostic.error
+
+  ) {
+
+    parts.push(
+
+      `エラー: ${diagnostic.error}`,
+
+    );
+
+  }
+
+  if (
+
+    diagnostic.userId
+
+  ) {
+
+    parts.push(
+
+      `User: ${diagnostic.userId}`,
+
+    );
+
+  }
+
+  if (
+
+    diagnostic.roomId
+
+  ) {
+
+    parts.push(
+
+      `Room: ${diagnostic.roomId}`,
+
+    );
+
+  }
+
+  return parts.join(
+
+    '\n',
+
+  );
+
+}
+
+function isDiagnosticError(
+
+  diagnostic,
+
+) {
+
+  const stage =
+
+    diagnostic?.stage ??
+
+    '';
+
+  return (
+
+    stage.includes(
+
+      'error',
+
+    ) ||
+
+    Boolean(
+
+      diagnostic?.error,
+
+    )
+
+  );
+
+}
+
+function renderDiagnostic(
+
+  diagnostic,
+
+  {
+
+    forceVisible = false,
+
+  } = {},
+
+) {
+
+  const panel =
+
+    getDiagnosticPanel();
+
+  if (
+
+    !panel
+
+  ) {
+
+    return;
+
+  }
+
+  const text =
+
+    formatDiagnosticMessage(
+
+      diagnostic,
+
+    );
+
+  if (
+
+    !text
+
+  ) {
+
+    panel.hidden =
+
+      true;
+
+    panel.textContent =
+
+      '';
+
+    return;
+
+  }
+
+  const hasError =
+
+    isDiagnosticError(
+
+      diagnostic,
+
+    );
+
+  /*
+
+   * 通常はエラー時だけ表示。
+
+   *
+
+   * 接続診断実行時は成功状態も
+
+   * 一時的に表示できる。
+
+   */
+
+  panel.hidden =
+
+    !(
+
+      hasError ||
+
+      forceVisible
+
+    );
+
+  panel.dataset.status =
+
+    hasError
+
+      ? 'error'
+
+      : 'success';
+
+  panel.style.whiteSpace =
+
+    'pre-wrap';
+
+  panel.style.wordBreak =
+
+    'break-word';
+
+  panel.textContent =
+
+    text;
+
+}
+
+function handleSupabaseDiagnosticEvent(
+
+  event,
+
+) {
+
+  const diagnostic =
+
+    event?.detail;
+
+  if (
+
+    !diagnostic
+
+  ) {
+
+    return;
+
+  }
+
+  renderDiagnostic(
+
+    diagnostic,
+
+  );
+
+}
+
+function registerDiagnosticListener() {
+
+  if (
+
+    diagnosticListenerRegistered
+
+  ) {
+
+    return;
+
+  }
+
+  const eventName =
+
+    Supabase.getDiagnosticEventName();
+
+  window.addEventListener(
+
+    eventName,
+
+    handleSupabaseDiagnosticEvent,
+
+  );
+
+  diagnosticListenerRegistered =
+
+    true;
+
+}
+
+function unregisterDiagnosticListener() {
+
+  if (
+
+    !diagnosticListenerRegistered
+
+  ) {
+
+    return;
+
+  }
+
+  const eventName =
+
+    Supabase.getDiagnosticEventName();
+
+  window.removeEventListener(
+
+    eventName,
+
+    handleSupabaseDiagnosticEvent,
+
+  );
+
+  diagnosticListenerRegistered =
+
+    false;
+
+}
+
+// ============================================================
+
+// Supabase診断実行
+
+// ============================================================
+
+async function runSupabaseDiagnostic() {
+
+  const panel =
+
+    getDiagnosticPanel();
+
+  if (
+
+    panel
+
+  ) {
+
+    panel.hidden =
+
+      false;
+
+    panel.dataset.status =
+
+      'saving';
+
+    panel.textContent =
+
+      'Supabase接続を確認しています…';
+
+  }
+
+  try {
+
+    const result =
+
+      await Supabase.runDiagnostic();
+
+    const diagnostic =
+
+      result?.diagnostic ??
+
+      Supabase.getDiagnosticState();
+
+    renderDiagnostic(
+
+      diagnostic,
+
+      {
+
+        forceVisible:
+
+          true,
+
+      },
+
+    );
+
+    return result;
+
+  } catch (
+
+    error
+
+  ) {
+
+    console.error(
+
+      '[photo.js] Supabase診断に失敗しました',
+
+      error,
+
+    );
+
+    if (
+
+      panel
+
+    ) {
+
+      panel.hidden =
+
+        false;
+
+      panel.dataset.status =
+
+        'error';
+
+      panel.textContent =
+
+        `Supabase診断エラー: ${
+
+          error?.message ??
+
+          String(
+
+            error,
+
+          )
+
+        }`;
+
+    }
+
+    return {
+
+      ok:
+
+        false,
+
+      error:
+
+        error?.message ??
+
+        String(
+
+          error,
+
+        ),
+
+    };
+
+  }
+
+}
+
+// ============================================================
+
 // IndexedDBを開く
 
 // ============================================================
 
 function openDatabase() {
 
-  if (databasePromise) {
+  if (
+
+    databasePromise
+
+  ) {
 
     return databasePromise;
 
@@ -289,18 +797,6 @@ function openDatabase() {
             const db =
 
               request.result;
-
-            /*
-
-             * 既存写真を消さない。
-
-             *
-
-             * 過去版のように
-
-             * deleteObjectStore() は実行しない。
-
-             */
 
             if (
 
@@ -544,7 +1040,11 @@ async function saveLocalPhoto(
 
 ) {
 
-  if (!file) {
+  if (
+
+    !file
+
+  ) {
 
     throw new Error(
 
@@ -564,7 +1064,13 @@ async function saveLocalPhoto(
 
   if (
 
-    !(buffer instanceof ArrayBuffer)
+    !(
+
+      buffer instanceof
+
+      ArrayBuffer
+
+    )
 
   ) {
 
@@ -672,11 +1178,11 @@ async function saveLocalPhoto(
 
             request.error ??
 
-              new Error(
+            new Error(
 
-                '写真保存に失敗しました。',
+              '写真保存に失敗しました。',
 
-              ),
+            ),
 
           );
 
@@ -702,11 +1208,11 @@ async function saveLocalPhoto(
 
             transaction.error ??
 
-              new Error(
+            new Error(
 
-                '写真保存に失敗しました。',
+              '写真保存に失敗しました。',
 
-              ),
+            ),
 
           );
 
@@ -720,11 +1226,11 @@ async function saveLocalPhoto(
 
             transaction.error ??
 
-              new Error(
+            new Error(
 
-                '写真保存が中断されました。',
+              '写真保存が中断されました。',
 
-              ),
+            ),
 
           );
 
@@ -836,11 +1342,11 @@ async function loadLocalPhotos() {
 
             request.error ??
 
-              new Error(
+            new Error(
 
-                '端末内の写真を読み込めませんでした。',
+              '端末内の写真を読み込めませんでした。',
 
-              ),
+            ),
 
           );
 
@@ -864,7 +1370,11 @@ async function deleteLocalPhotoById(
 
 ) {
 
-  if (!photoId) {
+  if (
+
+    !photoId
+
+  ) {
 
     return;
 
@@ -918,11 +1428,11 @@ async function deleteLocalPhotoById(
 
             request.error ??
 
-              new Error(
+            new Error(
 
-                '写真削除に失敗しました。',
+              '写真削除に失敗しました。',
 
-              ),
+            ),
 
           );
 
@@ -944,11 +1454,11 @@ async function deleteLocalPhotoById(
 
             transaction.error ??
 
-              new Error(
+            new Error(
 
-                '写真削除に失敗しました。',
+              '写真削除に失敗しました。',
 
-              ),
+            ),
 
           );
 
@@ -972,7 +1482,11 @@ function createBlobFromRecord(
 
 ) {
 
-  if (!record) {
+  if (
+
+    !record
+
+  ) {
 
     return null;
 
@@ -1007,12 +1521,6 @@ function createBlobFromRecord(
     );
 
   }
-
-  /*
-
-   * 古い保存形式にも対応。
-
-   */
 
   if (
 
@@ -1054,7 +1562,11 @@ function revokeAllObjectUrls() {
 
         );
 
-      } catch (error) {
+      } catch (
+
+        error
+
+      ) {
 
         console.warn(
 
@@ -1148,6 +1660,8 @@ async function refreshSharedPhotos(
 
     await Supabase.ensureSignedIn();
 
+    await Supabase.syncCurrentRoom();
+
     const photos =
 
       await Supabase.listPhotos();
@@ -1176,7 +1690,11 @@ async function refreshSharedPhotos(
 
     }
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -1186,11 +1704,37 @@ async function refreshSharedPhotos(
 
     );
 
-    if (!silent) {
+    const diagnostic =
+
+      Supabase.getDiagnosticState();
+
+    renderDiagnostic(
+
+      diagnostic,
+
+      {
+
+        forceVisible:
+
+          true,
+
+      },
+
+    );
+
+    if (
+
+      !silent
+
+    ) {
 
       setStatus(
 
-        '共有写真を読み込めませんでした',
+        error?.message
+
+          ? `共有写真エラー: ${error.message}`
+
+          : '共有写真を読み込めませんでした',
 
         'error',
 
@@ -1611,18 +2155,6 @@ function createIntro() {
     description,
 
   );
-
-  /*
-
-   * iPhone Safari / PWA対策。
-
-   *
-
-   * JavaScriptのinput.click()だけでなく
-
-   * label → file input の標準動作を使用する。
-
-   */
 
   const addLabel =
 
@@ -2218,7 +2750,11 @@ function createCardShell({
 
     source;
 
-  if (photoPath) {
+  if (
+
+    photoPath
+
+  ) {
 
     card.dataset.photoPath =
 
@@ -2266,7 +2802,11 @@ function createCardShell({
 
     );
 
-  if (photoPath) {
+  if (
+
+    photoPath
+
+  ) {
 
     openButton.dataset.photoPath =
 
@@ -2370,14 +2910,6 @@ function createCardShell({
 
     'photo-delete-btn';
 
-  /*
-
-   * app.jsを再修正しなくてもよいよう、
-
-   * ローカル・共有とも同じactionにする。
-
-   */
-
   deleteButton.dataset.action =
 
     'delete-photo';
@@ -2390,7 +2922,11 @@ function createCardShell({
 
     source;
 
-  if (photoPath) {
+  if (
+
+    photoPath
+
+  ) {
 
     deleteButton.dataset.photoPath =
 
@@ -2470,7 +3006,11 @@ function createLocalPhotoCard(
 
     );
 
-  if (!blob) {
+  if (
+
+    !blob
+
+  ) {
 
     console.warn(
 
@@ -2602,7 +3142,11 @@ async function renderGallery() {
 
     );
 
-  if (!gallery) {
+  if (
+
+    !gallery
+
+  ) {
 
     return;
 
@@ -2639,14 +3183,6 @@ async function renderGallery() {
       return;
 
     }
-
-    /*
-
-     * ペアリング後も過去に端末内へ保存した写真は
-
-     * 消さずに表示する。
-
-     */
 
     const photoItems = [
 
@@ -2776,7 +3312,11 @@ async function renderGallery() {
 
               );
 
-        if (!card) {
+        if (
+
+          !card
+
+        ) {
 
           return;
 
@@ -2820,7 +3360,11 @@ async function renderGallery() {
 
     );
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -2918,17 +3462,9 @@ async function handleSelectedFiles(
 
     ) {
 
-      /*
-
-       * 先に認証しておくことで、
-
-       * 複数写真アップロード時に
-
-       * 毎回サインイン処理を走らせない。
-
-       */
-
       await Supabase.ensureSignedIn();
+
+      await Supabase.syncCurrentRoom();
 
     }
 
@@ -3030,13 +3566,35 @@ async function handleSelectedFiles(
 
     );
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
       '[photo.js] 写真保存に失敗しました',
 
       error,
+
+    );
+
+    const diagnostic =
+
+      Supabase.getDiagnosticState();
+
+    renderDiagnostic(
+
+      diagnostic,
+
+      {
+
+        forceVisible:
+
+          true,
+
+      },
 
     );
 
@@ -3110,7 +3668,11 @@ function registerFileInputListener() {
 
     );
 
-  if (!input) {
+  if (
+
+    !input
+
+  ) {
 
     console.warn(
 
@@ -3148,15 +3710,11 @@ function registerFileInputListener() {
 
           : [];
 
-      /*
+      if (
 
-       * 同じ写真をもう一度選択できるように
+        target
 
-       * filesをコピーしてからinputを空にする。
-
-       */
-
-      if (target) {
+      ) {
 
         target.value =
 
@@ -3192,7 +3750,11 @@ function registerAddLabelKeyboard() {
 
     );
 
-  if (!addLabel) {
+  if (
+
+    !addLabel
+
+  ) {
 
     return;
 
@@ -3376,7 +3938,11 @@ function setPreviewDateFromTarget(
 
     );
 
-  if (!dateLabel) {
+  if (
+
+    !dateLabel
+
+  ) {
 
     return;
 
@@ -3402,7 +3968,9 @@ function setPreviewDateFromTarget(
 
   const card =
 
-    target instanceof Element
+    target instanceof
+
+      Element
 
       ? target.closest(
 
@@ -3524,7 +4092,11 @@ export function openPreviewFromTarget(
 
     );
 
-  if (!photoUrl) {
+  if (
+
+    !photoUrl
+
+  ) {
 
     return;
 
@@ -3576,7 +4148,11 @@ export function closePreview() {
 
     );
 
-  if (viewer) {
+  if (
+
+    viewer
+
+  ) {
 
     viewer.classList.remove(
 
@@ -3594,7 +4170,11 @@ export function closePreview() {
 
   }
 
-  if (image) {
+  if (
+
+    image
+
+  ) {
 
     image.removeAttribute(
 
@@ -3604,7 +4184,11 @@ export function closePreview() {
 
   }
 
-  if (dateLabel) {
+  if (
+
+    dateLabel
+
+  ) {
 
     dateLabel.textContent =
 
@@ -3628,7 +4212,13 @@ export function getPhotoUrlFromTarget(
 
   if (
 
-    !(target instanceof Element)
+    !(
+
+      target instanceof
+
+      Element
+
+    )
 
   ) {
 
@@ -3644,23 +4234,15 @@ export function getPhotoUrlFromTarget(
 
     );
 
-  if (!owner) {
+  if (
+
+    !owner
+
+  ) {
 
     return '';
 
   }
-
-  /*
-
-   * 古いapp.jsは
-
-   * getPhotoUrlFromTarget → openPreview
-
-   * の順で呼ぶため、
-
-   * ここで日付もセットして互換性を保つ。
-
-   */
 
   setPreviewDateFromTarget(
 
@@ -3688,7 +4270,13 @@ export function getPhotoIdFromTarget(
 
   if (
 
-    !(target instanceof Element)
+    !(
+
+      target instanceof
+
+      Element
+
+    )
 
   ) {
 
@@ -3724,7 +4312,13 @@ function getPhotoSourceFromTarget(
 
   if (
 
-    !(target instanceof Element)
+    !(
+
+      target instanceof
+
+      Element
+
+    )
 
   ) {
 
@@ -3760,7 +4354,13 @@ function getPhotoPathFromTarget(
 
   if (
 
-    !(target instanceof Element)
+    !(
+
+      target instanceof
+
+      Element
+
+    )
 
   ) {
 
@@ -3794,7 +4394,11 @@ export async function deletePhoto(
 
 ) {
 
-  if (!photoId) {
+  if (
+
+    !photoId
+
+  ) {
 
     return;
 
@@ -3824,7 +4428,11 @@ export async function deletePhoto(
 
     );
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -3882,7 +4490,11 @@ export async function deletePhotoFromTarget(
 
     );
 
-  if (!photoId) {
+  if (
+
+    !photoId
+
+  ) {
 
     return;
 
@@ -3902,7 +4514,11 @@ export async function deletePhotoFromTarget(
 
     );
 
-  if (!confirmed) {
+  if (
+
+    !confirmed
+
+  ) {
 
     return;
 
@@ -3916,7 +4532,11 @@ export async function deletePhotoFromTarget(
 
   ) {
 
-    if (!path) {
+    if (
+
+      !path
+
+    ) {
 
       setStatus(
 
@@ -3974,7 +4594,11 @@ export async function deletePhotoFromTarget(
 
       );
 
-    } catch (error) {
+    } catch (
+
+      error
+
+    ) {
 
       console.error(
 
@@ -3984,11 +4608,25 @@ export async function deletePhotoFromTarget(
 
       );
 
+      renderDiagnostic(
+
+        Supabase.getDiagnosticState(),
+
+        {
+
+          forceVisible:
+
+            true,
+
+        },
+
+      );
+
       setStatus(
 
         error?.message ||
 
-          '共有写真の削除に失敗しました',
+        '共有写真の削除に失敗しました',
 
         'error',
 
@@ -4020,16 +4658,6 @@ export async function deleteSharedPhotoFromTarget(
 
 ) {
 
-  /*
-
-   * 新しいapp.jsが
-
-   * deleteSharedPhotoFromTarget()を呼んだ場合も
-
-   * 同じ共通削除処理へ流す。
-
-   */
-
   await deletePhotoFromTarget(
 
     target,
@@ -4054,7 +4682,11 @@ export function selectPhotos() {
 
     );
 
-  if (!input) {
+  if (
+
+    !input
+
+  ) {
 
     console.warn(
 
@@ -4090,7 +4722,11 @@ function applyBackground() {
 
     getContainer();
 
-  if (!container) {
+  if (
+
+    !container
+
+  ) {
 
     return;
 
@@ -4105,14 +4741,6 @@ function applyBackground() {
     cached?.backgrounds?.photo ??
 
     'default';
-
-  /*
-
-   * photo.css側の
-
-   * .photo-bg--xxx に合わせる。
-
-   */
 
   Array.from(
 
@@ -4196,7 +4824,7 @@ function subscribeCustomization() {
 
     typeof unsubscribe ===
 
-      'function'
+    'function'
 
   ) {
 
@@ -4290,7 +4918,11 @@ export function build() {
 
   }
 
-  if (!container) {
+  if (
+
+    !container
+
+  ) {
 
     container =
 
@@ -4315,6 +4947,10 @@ export function build() {
   const status =
 
     createStatus();
+
+  const diagnostic =
+
+    createDiagnosticPanel();
 
   const main =
 
@@ -4350,6 +4986,12 @@ export function build() {
 
   container.appendChild(
 
+    diagnostic,
+
+  );
+
+  container.appendChild(
+
     main,
 
   );
@@ -4363,6 +5005,8 @@ export function build() {
   registerFileInputListener();
 
   registerAddLabelKeyboard();
+
+  registerDiagnosticListener();
 
   subscribeCustomization();
 
@@ -4442,6 +5086,48 @@ export async function open() {
 
   try {
 
+    /*
+
+     * まず診断を実行。
+
+     *
+
+     * ここで匿名認証が成功したか、
+
+     * roomIdが存在するか、
+
+     * photo_room_membersへ登録できたかを
+
+     * 画面に表示できる。
+
+     */
+
+    const diagnosticResult =
+
+      await runSupabaseDiagnostic();
+
+    if (
+
+      !diagnosticResult?.ok
+
+    ) {
+
+      sharedPhotos =
+
+        [];
+
+      await renderGallery();
+
+      return;
+
+    }
+
+    /*
+
+     * ペアリング済み
+
+     */
+
     if (
 
       isSharedMode
@@ -4482,7 +5168,11 @@ export async function open() {
 
     startSharedRefreshTimer();
 
-  } catch (error) {
+  } catch (
+
+    error
+
+  ) {
 
     console.error(
 
@@ -4492,9 +5182,27 @@ export async function open() {
 
     );
 
+    renderDiagnostic(
+
+      Supabase.getDiagnosticState(),
+
+      {
+
+        forceVisible:
+
+          true,
+
+      },
+
+    );
+
     setStatus(
 
-      '写真を読み込めませんでした',
+      error?.message
+
+        ? `写真エラー: ${error.message}`
+
+        : '写真を読み込めませんでした',
 
       'error',
 
@@ -4518,7 +5226,11 @@ export function close() {
 
     getContainer();
 
-  if (!container) {
+  if (
+
+    !container
+
+  ) {
 
     return;
 
@@ -4560,11 +5272,11 @@ export function isOpen() {
 
     container &&
 
-      container.classList.contains(
+    container.classList.contains(
 
-        'is-open',
+      'is-open',
 
-      ),
+    ),
 
   );
 
@@ -4578,7 +5290,11 @@ export function isOpen() {
 
 export async function refresh() {
 
-  if (!isBuilt) {
+  if (
+
+    !isBuilt
+
+  ) {
 
     return;
 
@@ -4626,6 +5342,8 @@ export function destroy() {
 
   revokeAllObjectUrls();
 
+  unregisterDiagnosticListener();
+
   document.removeEventListener(
 
     'visibilitychange',
@@ -4646,7 +5364,11 @@ export function destroy() {
 
       unsubscribeCustomization();
 
-    } catch (error) {
+    } catch (
+
+      error
+
+    ) {
 
       console.warn(
 
