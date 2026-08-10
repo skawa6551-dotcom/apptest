@@ -6,7 +6,7 @@
 
 //
 
-// Supabase接続 最終版
+// Supabase接続 完成版
 
 //
 
@@ -17,6 +17,8 @@
 // ・セッション維持
 
 // ・Firebase側のroomIdをSupabaseへ登録
+
+// ・photo_room_membersへ自動登録
 
 // ・photosバケットへのアップロード
 
@@ -554,37 +556,37 @@ async function registerCurrentRoom() {
 
           )
 
-          .upsert(
+          .insert({
 
-            {
+            room_id:
 
-              room_id:
+              roomId,
 
-                roomId,
+            user_id:
 
-              user_id:
+              user.id,
 
-                user.id,
+          });
 
-            },
+      /*
 
-            {
+       * 23505 =
 
-              onConflict:
+       * room_id + user_id が既に登録済み。
 
-                'room_id,user_id',
+       *
 
-              ignoreDuplicates:
+       * 既存登録なら正常扱いにする。
 
-                true,
-
-            },
-
-          );
+       */
 
       if (
 
-        error
+        error &&
+
+        error.code !==
+
+          '23505'
 
       ) {
 
