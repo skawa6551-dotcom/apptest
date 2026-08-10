@@ -6,7 +6,7 @@
 
 //
 
-// Supabase接続 完成版
+// Supabase接続・診断対応版
 
 //
 
@@ -27,6 +27,8 @@
 // ・Signed URL生成
 
 // ・写真削除
+
+// ・Supabase接続状態の診断
 
 //
 
@@ -92,6 +94,16 @@ const MAX_PHOTO_SIZE_BYTES =
 
 // ============================================================
 
+// 診断イベント
+
+// ============================================================
+
+const DIAGNOSTIC_EVENT_NAME =
+
+  'calculator-supabase-diagnostic';
+
+// ============================================================
+
 // 状態
 
 // ============================================================
@@ -118,21 +130,313 @@ let registeredRoomId =
 
 // ============================================================
 
+// 診断状態
+
+// ============================================================
+
+let diagnosticState = {
+
+  stage:
+
+    'idle',
+
+  message:
+
+    'Supabaseはまだ初期化されていません',
+
+  error:
+
+    null,
+
+  userId:
+
+    null,
+
+  roomId:
+
+    null,
+
+  updatedAt:
+
+    Date.now(),
+
+};
+
+// ============================================================
+
+// エラー文字列化
+
+// ============================================================
+
+function getErrorMessage(
+
+  error,
+
+) {
+
+  if (
+
+    !error
+
+  ) {
+
+    return '';
+
+  }
+
+  if (
+
+    typeof error ===
+
+    'string'
+
+  ) {
+
+    return error;
+
+  }
+
+  if (
+
+    typeof error.message ===
+
+      'string' &&
+
+    error.message.trim() !==
+
+      ''
+
+  ) {
+
+    return error.message.trim();
+
+  }
+
+  try {
+
+    return JSON.stringify(
+
+      error,
+
+    );
+
+  } catch {
+
+    return String(
+
+      error,
+
+    );
+
+  }
+
+}
+
+// ============================================================
+
+// 診断状態更新
+
+// ============================================================
+
+function updateDiagnostic(
+
+  stage,
+
+  message,
+
+  error = null,
+
+  extra = {},
+
+) {
+
+  diagnosticState = {
+
+    ...diagnosticState,
+
+    ...extra,
+
+    stage,
+
+    message,
+
+    error:
+
+      error
+
+        ? getErrorMessage(
+
+            error,
+
+          )
+
+        : null,
+
+    updatedAt:
+
+      Date.now(),
+
+  };
+
+  console.info(
+
+    '[supabase.js]',
+
+    stage,
+
+    message,
+
+    error ?? '',
+
+  );
+
+  /*
+
+   * photo.jsなどがリアルタイムで
+
+   * 状態を受け取れるように通知する。
+
+   */
+
+  try {
+
+    window.dispatchEvent(
+
+      new CustomEvent(
+
+        DIAGNOSTIC_EVENT_NAME,
+
+        {
+
+          detail:
+
+            getDiagnosticState(),
+
+        },
+
+      ),
+
+    );
+
+  } catch (
+
+    eventError
+
+  ) {
+
+    console.warn(
+
+      '[supabase.js] 診断イベント送信に失敗しました',
+
+      eventError,
+
+    );
+
+  }
+
+}
+
+// ============================================================
+
+// 診断状態取得
+
+// ============================================================
+
+export function getDiagnosticState() {
+
+  return {
+
+    ...diagnosticState,
+
+  };
+
+}
+
+// ============================================================
+
+// 診断イベント名取得
+
+// ============================================================
+
+export function getDiagnosticEventName() {
+
+  return DIAGNOSTIC_EVENT_NAME;
+
+}
+
+// ============================================================
+
 // SDK読み込み
 
 // ============================================================
 
 async function loadSdk() {
 
-  if (!sdkPromise) {
+  if (
 
-    sdkPromise =
+    sdkPromise
 
-      import(
+  ) {
 
-        SUPABASE_SDK_URL
+    return sdkPromise;
 
-      ).catch(
+  }
+
+  updateDiagnostic(
+
+    'sdk-loading',
+
+    'Supabase SDKを読み込んでいます',
+
+  );
+
+  sdkPromise =
+
+    import(
+
+      SUPABASE_SDK_URL
+
+    )
+
+      .then(
+
+        (
+
+          sdk,
+
+        ) => {
+
+          if (
+
+            typeof sdk?.createClient !==
+
+            'function'
+
+          ) {
+
+            throw new Error(
+
+              'Supabase SDKにcreateClientがありません。',
+
+            );
+
+          }
+
+          updateDiagnostic(
+
+            'sdk-ready',
+
+            'Supabase SDKの読み込みに成功しました',
+
+          );
+
+          return sdk;
+
+        },
+
+      )
+
+      .catch(
 
         (
 
@@ -143,6 +447,16 @@ async function loadSdk() {
           sdkPromise =
 
             null;
+
+          updateDiagnostic(
+
+            'sdk-error',
+
+            'Supabase SDKを読み込めませんでした',
+
+            error,
+
+          );
 
           console.error(
 
@@ -158,8 +472,6 @@ async function loadSdk() {
 
       );
 
-  }
-
   return sdkPromise;
 
 }
@@ -172,21 +484,39 @@ async function loadSdk() {
 
 async function getClient() {
 
-  if (!clientPromise) {
+  if (
 
-    clientPromise =
+    clientPromise
 
-      loadSdk()
+  ) {
 
-        .then(
+    return clientPromise;
 
-          ({
+  }
 
-            createClient,
+  updateDiagnostic(
 
-          }) => {
+    'client-loading',
 
-            return createClient(
+    'Supabase Clientを準備しています',
+
+  );
+
+  clientPromise =
+
+    loadSdk()
+
+      .then(
+
+        ({
+
+          createClient,
+
+        }) => {
+
+          const client =
+
+            createClient(
 
               SUPABASE_URL,
 
@@ -214,29 +544,61 @@ async function getClient() {
 
             );
 
-          },
+          if (
 
-        )
+            !client
 
-        .catch(
+          ) {
 
-          (
+            throw new Error(
+
+              'Supabase Clientの生成に失敗しました。',
+
+            );
+
+          }
+
+          updateDiagnostic(
+
+            'client-ready',
+
+            'Supabase Clientを準備しました',
+
+          );
+
+          return client;
+
+        },
+
+      )
+
+      .catch(
+
+        (
+
+          error,
+
+        ) => {
+
+          clientPromise =
+
+            null;
+
+          updateDiagnostic(
+
+            'client-error',
+
+            'Supabase Clientを準備できませんでした',
 
             error,
 
-          ) => {
+          );
 
-            clientPromise =
+          throw error;
 
-              null;
+        },
 
-            throw error;
-
-          },
-
-        );
-
-  }
+      );
 
   return clientPromise;
 
@@ -288,25 +650,87 @@ export function getRoomId() {
 
 export async function ensureSignedIn() {
 
-  const client =
+  updateDiagnostic(
 
-    await getClient();
+    'auth-start',
 
-  const {
+    'Supabase認証を確認しています',
 
-    data:
+  );
 
-      sessionData,
+  let client;
 
-    error:
+  try {
 
-      sessionError,
+    client =
 
-  } =
+      await getClient();
 
-    await client.auth
+  } catch (
 
-      .getSession();
+    error
+
+  ) {
+
+    updateDiagnostic(
+
+      'auth-client-error',
+
+      'Supabase認証用Clientを取得できませんでした',
+
+      error,
+
+    );
+
+    throw error;
+
+  }
+
+  // ----------------------------------------------------------
+
+  // 既存セッション確認
+
+  // ----------------------------------------------------------
+
+  let sessionData =
+
+    null;
+
+  let sessionError =
+
+    null;
+
+  try {
+
+    const response =
+
+      await client.auth
+
+        .getSession();
+
+    sessionData =
+
+      response?.data ??
+
+      null;
+
+    sessionError =
+
+      response?.error ??
+
+      null;
+
+  } catch (
+
+    error
+
+  ) {
+
+    sessionError =
+
+      error;
+
+  }
 
   if (
 
@@ -322,6 +746,16 @@ export async function ensureSignedIn() {
 
     );
 
+    updateDiagnostic(
+
+      'session-warning',
+
+      '既存のSupabaseセッションを確認できませんでした',
+
+      sessionError,
+
+    );
+
   }
 
   if (
@@ -330,13 +764,43 @@ export async function ensureSignedIn() {
 
   ) {
 
-    return sessionData
+    const user =
 
-      .session
+      sessionData.session.user;
 
-      .user;
+    updateDiagnostic(
+
+      'authenticated',
+
+      'Supabase認証済みです',
+
+      null,
+
+      {
+
+        userId:
+
+          user.id ??
+
+          null,
+
+        roomId:
+
+          getRoomId(),
+
+      },
+
+    );
+
+    return user;
 
   }
+
+  // ----------------------------------------------------------
+
+  // 同時サインイン防止
+
+  // ----------------------------------------------------------
 
   if (
 
@@ -348,51 +812,147 @@ export async function ensureSignedIn() {
 
   }
 
+  // ----------------------------------------------------------
+
+  // 匿名ログイン
+
+  // ----------------------------------------------------------
+
+  updateDiagnostic(
+
+    'anonymous-sign-in',
+
+    'Supabase匿名ログインを開始しています',
+
+  );
+
   signInPromise =
 
-    client.auth
+    (async () => {
 
-      .signInAnonymously()
+      let result;
 
-      .then(
+      try {
 
-        ({
+        result =
 
-          data,
+          await client.auth
+
+            .signInAnonymously();
+
+      } catch (
+
+        error
+
+      ) {
+
+        updateDiagnostic(
+
+          'anonymous-sign-in-error',
+
+          'Supabase匿名ログイン通信に失敗しました',
 
           error,
 
-        }) => {
+        );
 
-          if (
+        throw error;
 
-            error
+      }
 
-          ) {
+      const data =
 
-            throw error;
+        result?.data ??
 
-          }
+        null;
 
-          if (
+      const error =
 
-            !data?.user
+        result?.error ??
 
-          ) {
+        null;
 
-            throw new Error(
+      if (
 
-              'Supabase匿名認証に失敗しました。',
+        error
 
-            );
+      ) {
 
-          }
+        updateDiagnostic(
 
-          return data.user;
+          'anonymous-sign-in-error',
+
+          'Supabase匿名ログインに失敗しました',
+
+          error,
+
+        );
+
+        console.error(
+
+          '[supabase.js] 匿名ログインに失敗しました',
+
+          error,
+
+        );
+
+        throw error;
+
+      }
+
+      if (
+
+        !data?.user
+
+      ) {
+
+        const missingUserError =
+
+          new Error(
+
+            'Supabaseから匿名ユーザー情報が返されませんでした。',
+
+          );
+
+        updateDiagnostic(
+
+          'anonymous-user-missing',
+
+          '匿名ユーザー情報を取得できませんでした',
+
+          missingUserError,
+
+        );
+
+        throw missingUserError;
+
+      }
+
+      updateDiagnostic(
+
+        'authenticated',
+
+        'Supabase匿名ログインに成功しました',
+
+        null,
+
+        {
+
+          userId:
+
+            data.user.id,
+
+          roomId:
+
+            getRoomId(),
 
         },
 
-      )
+      );
+
+      return data.user;
+
+    })()
 
       .finally(
 
@@ -418,35 +978,67 @@ export async function ensureSignedIn() {
 
 export async function getCurrentUser() {
 
-  const client =
+  try {
 
-    await getClient();
+    const client =
 
-  const {
+      await getClient();
 
-    data,
+    const {
 
-    error,
+      data,
 
-  } =
+      error,
 
-    await client.auth
+    } =
 
-      .getUser();
+      await client.auth
 
-  if (
+        .getUser();
+
+    if (
+
+      error
+
+    ) {
+
+      updateDiagnostic(
+
+        'get-user-error',
+
+        'Supabaseユーザー情報を取得できませんでした',
+
+        error,
+
+      );
+
+      return null;
+
+    }
+
+    return data?.user ??
+
+      null;
+
+  } catch (
 
     error
 
   ) {
 
+    updateDiagnostic(
+
+      'get-user-error',
+
+      'Supabaseユーザー確認中にエラーが発生しました',
+
+      error,
+
+    );
+
     return null;
 
   }
-
-  return data?.user ??
-
-    null;
 
 }
 
@@ -490,6 +1082,24 @@ async function registerCurrentRoom() {
 
       null;
 
+    updateDiagnostic(
+
+      'room-missing',
+
+      'Firebase側のroomIdがまだありません',
+
+      null,
+
+      {
+
+        roomId:
+
+          null,
+
+      },
+
+    );
+
     return false;
 
   }
@@ -501,6 +1111,22 @@ async function registerCurrentRoom() {
       roomId
 
   ) {
+
+    updateDiagnostic(
+
+      'room-registered',
+
+      'Supabaseルーム登録済みです',
+
+      null,
+
+      {
+
+        roomId,
+
+      },
+
+    );
 
     return true;
 
@@ -520,6 +1146,22 @@ async function registerCurrentRoom() {
 
     (async () => {
 
+      updateDiagnostic(
+
+        'room-register-start',
+
+        'Supabaseへルームを登録しています',
+
+        null,
+
+        {
+
+          roomId,
+
+        },
+
+      );
+
       const user =
 
         await ensureSignedIn();
@@ -530,11 +1172,31 @@ async function registerCurrentRoom() {
 
       ) {
 
-        throw new Error(
+        const error =
 
-          'Supabaseユーザー情報を取得できませんでした。',
+          new Error(
+
+            'Supabaseユーザー情報を取得できませんでした。',
+
+          );
+
+        updateDiagnostic(
+
+          'room-user-error',
+
+          'ルーム登録用ユーザーを取得できませんでした',
+
+          error,
+
+          {
+
+            roomId,
+
+          },
 
         );
+
+        throw error;
 
       }
 
@@ -542,31 +1204,67 @@ async function registerCurrentRoom() {
 
         await getClient();
 
-      const {
+      let response;
 
-        error,
+      try {
 
-      } =
+        response =
 
-        await client
+          await client
 
-          .from(
+            .from(
 
-            ROOM_MEMBERS_TABLE,
+              ROOM_MEMBERS_TABLE,
 
-          )
+            )
 
-          .insert({
+            .insert({
 
-            room_id:
+              room_id:
 
-              roomId,
+                roomId,
 
-            user_id:
+              user_id:
+
+                user.id,
+
+            });
+
+      } catch (
+
+        error
+
+      ) {
+
+        updateDiagnostic(
+
+          'room-insert-error',
+
+          'photo_room_membersへの通信に失敗しました',
+
+          error,
+
+          {
+
+            userId:
 
               user.id,
 
-          });
+            roomId,
+
+          },
+
+        );
+
+        throw error;
+
+      }
+
+      const error =
+
+        response?.error ??
+
+        null;
 
       /*
 
@@ -574,9 +1272,7 @@ async function registerCurrentRoom() {
 
        * room_id + user_id が既に登録済み。
 
-       *
-
-       * 既存登録なら正常扱いにする。
+       * その場合は正常扱い。
 
        */
 
@@ -589,6 +1285,26 @@ async function registerCurrentRoom() {
           '23505'
 
       ) {
+
+        updateDiagnostic(
+
+          'room-insert-error',
+
+          'photo_room_membersへの登録に失敗しました',
+
+          error,
+
+          {
+
+            userId:
+
+              user.id,
+
+            roomId,
+
+          },
+
+        );
 
         console.error(
 
@@ -605,6 +1321,32 @@ async function registerCurrentRoom() {
       registeredRoomId =
 
         roomId;
+
+      updateDiagnostic(
+
+        'room-registered',
+
+        error?.code ===
+
+          '23505'
+
+          ? 'Supabaseルームは既に登録済みです'
+
+          : 'Supabaseルーム登録に成功しました',
+
+        null,
+
+        {
+
+          userId:
+
+            user.id,
+
+          roomId,
+
+        },
+
+      );
 
       return true;
 
@@ -623,6 +1365,18 @@ async function registerCurrentRoom() {
       );
 
   return roomRegistrationPromise;
+
+}
+
+// ============================================================
+
+// 公開用 room同期
+
+// ============================================================
+
+export async function syncCurrentRoom() {
+
+  return registerCurrentRoom();
 
 }
 
@@ -800,6 +1554,22 @@ export async function uploadPhoto(
 
   }
 
+  updateDiagnostic(
+
+    'upload-start',
+
+    '共有写真をアップロードしています',
+
+    null,
+
+    {
+
+      roomId,
+
+    },
+
+  );
+
   await registerCurrentRoom();
 
   const client =
@@ -864,6 +1634,22 @@ export async function uploadPhoto(
 
   ) {
 
+    updateDiagnostic(
+
+      'upload-error',
+
+      '共有写真のアップロードに失敗しました',
+
+      error,
+
+      {
+
+        roomId,
+
+      },
+
+    );
+
     console.error(
 
       '[supabase.js] 写真アップロードに失敗しました',
@@ -875,6 +1661,22 @@ export async function uploadPhoto(
     throw error;
 
   }
+
+  updateDiagnostic(
+
+    'upload-success',
+
+    '共有写真のアップロードに成功しました',
+
+    null,
+
+    {
+
+      roomId,
+
+    },
+
+  );
 
   return {
 
@@ -986,9 +1788,33 @@ export async function listPhotos() {
 
   ) {
 
+    updateDiagnostic(
+
+      'photo-room-missing',
+
+      '写真共有用roomIdがありません',
+
+    );
+
     return [];
 
   }
+
+  updateDiagnostic(
+
+    'photo-list-start',
+
+    '共有写真一覧を取得しています',
+
+    null,
+
+    {
+
+      roomId,
+
+    },
+
+  );
 
   await registerCurrentRoom();
 
@@ -1047,6 +1873,22 @@ export async function listPhotos() {
     error
 
   ) {
+
+    updateDiagnostic(
+
+      'photo-list-error',
+
+      '共有写真一覧の取得に失敗しました',
+
+      error,
+
+      {
+
+        roomId,
+
+      },
+
+    );
 
     console.error(
 
@@ -1164,21 +2006,41 @@ export async function listPhotos() {
 
     );
 
-  return photos.filter(
+  const result =
 
-    (
+    photos.filter(
 
-      photo,
+      (
 
-    ) =>
+        photo,
 
-      Boolean(
+      ) =>
 
-        photo.signedUrl,
+        Boolean(
 
-      ),
+          photo.signedUrl,
+
+        ),
+
+    );
+
+  updateDiagnostic(
+
+    'photo-list-success',
+
+    `共有写真を${result.length}件取得しました`,
+
+    null,
+
+    {
+
+      roomId,
+
+    },
 
   );
+
+  return result;
 
 }
 
@@ -1250,6 +2112,22 @@ export async function deletePhoto(
 
   }
 
+  updateDiagnostic(
+
+    'delete-start',
+
+    '共有写真を削除しています',
+
+    null,
+
+    {
+
+      roomId,
+
+    },
+
+  );
+
   await registerCurrentRoom();
 
   const client =
@@ -1282,6 +2160,22 @@ export async function deletePhoto(
 
   ) {
 
+    updateDiagnostic(
+
+      'delete-error',
+
+      '共有写真の削除に失敗しました',
+
+      error,
+
+      {
+
+        roomId,
+
+      },
+
+    );
+
     console.error(
 
       '[supabase.js] 写真削除に失敗しました',
@@ -1293,6 +2187,22 @@ export async function deletePhoto(
     throw error;
 
   }
+
+  updateDiagnostic(
+
+    'delete-success',
+
+    '共有写真を削除しました',
+
+    null,
+
+    {
+
+      roomId,
+
+    },
+
+  );
 
 }
 
@@ -1316,6 +2226,16 @@ export async function isAvailable() {
 
   ) {
 
+    updateDiagnostic(
+
+      'availability-error',
+
+      'Supabaseを利用できません',
+
+      error,
+
+    );
+
     console.error(
 
       '[supabase.js] Supabaseを利用できません',
@@ -1332,15 +2252,165 @@ export async function isAvailable() {
 
 // ============================================================
 
+// 接続診断
+
+// ============================================================
+
+export async function runDiagnostic() {
+
+  updateDiagnostic(
+
+    'diagnostic-start',
+
+    'Supabase接続診断を開始しました',
+
+  );
+
+  try {
+
+    const user =
+
+      await ensureSignedIn();
+
+    const roomId =
+
+      getRoomId();
+
+    let roomRegistered =
+
+      false;
+
+    if (
+
+      roomId
+
+    ) {
+
+      roomRegistered =
+
+        await registerCurrentRoom();
+
+    }
+
+    const result = {
+
+      ok:
+
+        true,
+
+      userId:
+
+        user?.id ??
+
+        null,
+
+      roomId,
+
+      roomRegistered,
+
+      diagnostic:
+
+        getDiagnosticState(),
+
+    };
+
+    updateDiagnostic(
+
+      'diagnostic-success',
+
+      roomId
+
+        ? 'Supabase認証・ルーム登録の確認に成功しました'
+
+        : 'Supabase認証に成功しました。roomIdはまだありません',
+
+      null,
+
+      {
+
+        userId:
+
+          user?.id ??
+
+          null,
+
+        roomId,
+
+      },
+
+    );
+
+    return result;
+
+  } catch (
+
+    error
+
+  ) {
+
+    updateDiagnostic(
+
+      'diagnostic-error',
+
+      'Supabase接続診断に失敗しました',
+
+      error,
+
+    );
+
+    return {
+
+      ok:
+
+        false,
+
+      error:
+
+        getErrorMessage(
+
+          error,
+
+        ),
+
+      diagnostic:
+
+        getDiagnosticState(),
+
+    };
+
+  }
+
+}
+
+// ============================================================
+
 // 初期化
 
 // ============================================================
 
 export async function init() {
 
+  updateDiagnostic(
+
+    'init-start',
+
+    'Supabase初期化を開始しました',
+
+  );
+
   const client =
 
     await getClient();
+
+  /*
+
+   * roomIdの有無に関係なく
+
+   * 匿名認証を必ず実行する。
+
+   */
+
+  await ensureSignedIn();
 
   const roomId =
 
@@ -1362,6 +2432,22 @@ export async function init() {
 
     ) {
 
+      updateDiagnostic(
+
+        'init-room-error',
+
+        'Supabase初期化中のroom登録に失敗しました',
+
+        error,
+
+        {
+
+          roomId,
+
+        },
+
+      );
+
       console.warn(
 
         '[supabase.js] 初期room登録に失敗しました',
@@ -1370,9 +2456,37 @@ export async function init() {
 
       );
 
+      /*
+
+       * Clientと認証自体は使用可能なので
+
+       * init全体を失敗扱いにはしない。
+
+       */
+
     }
 
   }
+
+  updateDiagnostic(
+
+    'init-success',
+
+    roomId
+
+      ? 'Supabase初期化が完了しました'
+
+      : 'Supabase認証が完了しました',
+
+    null,
+
+    {
+
+      roomId,
+
+    },
+
+  );
 
   return client;
 
@@ -1390,6 +2504,12 @@ const Supabase = {
 
   isAvailable,
 
+  runDiagnostic,
+
+  getDiagnosticState,
+
+  getDiagnosticEventName,
+
   getRoomId,
 
   ensureSignedIn,
@@ -1397,6 +2517,8 @@ const Supabase = {
   getCurrentUser,
 
   getCurrentUid,
+
+  syncCurrentRoom,
 
   uploadPhoto,
 
