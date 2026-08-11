@@ -428,6 +428,10 @@ let passcodeBuffer =
 
   '';
 
+// Workspace各機能・メッセージ履歴の再認証対象。
+// ES Modulesはstrict modeで動くため、必ず明示的に宣言する。
+let pendingProtectedWorkspaceSecret = null;
+
 const pressedTimeouts =
 
   new WeakMap();
@@ -1561,6 +1565,16 @@ function renderSettings() {
       Settings.isArchiveLockEnabled();
 
   }
+
+  [
+    ['messagesLockToggle', Settings.isMessagesLockEnabled()],
+    ['calendarLockToggle', Settings.isCalendarLockEnabled()],
+    ['photoLockToggle', Settings.isPhotoLockEnabled()],
+    ['recordsLockToggle', Settings.isRecordsLockEnabled()],
+  ].forEach(([id, checked]) => {
+    const toggle = document.getElementById(id);
+    if (toggle) toggle.checked = checked;
+  });
 
   const notificationsToggle =
 
@@ -2787,10 +2801,93 @@ const WORKSPACE_ACTION_HANDLERS =
       handleConfirmViewMode,
 
     'cancel-view-mode':
-
       handleCancelViewMode,
-
+    'confirm-feature-auth':
+      handleConfirmFeatureAuth,
+    'cancel-feature-auth':
+      handleCancelFeatureAuth,
   });
+
+function isWorkspaceFeatureLocked(secret) {
+  const map = {
+    messages: Settings.isMessagesLockEnabled,
+    calendar: Settings.isCalendarLockEnabled,
+    photo: Settings.isPhotoLockEnabled,
+    records: Settings.isRecordsLockEnabled,
+  };
+  return typeof map[secret] === 'function' ? map[secret]() : false;
+}
+
+function showFeatureAuth(secret) {
+  pendingProtectedWorkspaceSecret = secret;
+  const overlay = document.getElementById('featureAuthOverlay');
+  const input = document.getElementById('featureAuthInput');
+  const error = document.getElementById('featureAuthError');
+  const message = document.getElementById('featureAuthMessage');
+  const labels = {
+    messages: 'メッセージ',
+    calendar: 'カレンダー',
+    photo: '写真',
+    records: '記録',
+    messageHistory: 'メッセージ履歴',
+  };
+  if (message) {
+    message.textContent = secret === 'messageHistory'
+      ? 'メッセージ履歴を見るには、もう一度パスコードを入力してください'
+      : `${labels[secret] || 'この機能'}を開くにはパスコードを入力してください`;
+  }
+  if (error) error.hidden = true;
+  if (input) input.value = '';
+  if (overlay) { overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden', 'false'); }
+  window.requestAnimationFrame(() => input?.focus());
+}
+
+function hideFeatureAuth() {
+  const overlay = document.getElementById('featureAuthOverlay');
+  if (overlay) { overlay.classList.remove('is-open'); overlay.setAttribute('aria-hidden', 'true'); }
+  const input = document.getElementById('featureAuthInput');
+  if (input) input.value = '';
+}
+
+function openWorkspaceSecret(secret) {
+  if (secret === 'records') return Router.openRecords();
+  if (secret === 'calendar') return Router.openCalendar();
+  if (secret === 'archive') return Router.openArchive();
+  if (secret === 'messages') return handleOpenMessagesCard();
+  if (secret === 'photo') { startSupabaseInBackground(); return Router.openPhoto(); }
+  if (secret === 'settings') return openSettings();
+}
+
+function requestOpenWorkspaceSecret(secret) {
+  if (isWorkspaceFeatureLocked(secret)) { showFeatureAuth(secret); return; }
+  openWorkspaceSecret(secret);
+}
+
+function handleConfirmFeatureAuth() {
+  const input = document.getElementById('featureAuthInput');
+  const error = document.getElementById('featureAuthError');
+  if (!input || !Passcode.validate(input.value)) {
+    if (error) error.hidden = false;
+    playFeedbackSound('error'); playFeedbackVibration();
+    input?.select();
+    return;
+  }
+  const secret = pendingProtectedWorkspaceSecret;
+  pendingProtectedWorkspaceSecret = null;
+  hideFeatureAuth();
+
+  if (secret === 'messageHistory') {
+    Messages.toggleHistoryMode();
+    return;
+  }
+
+  if (secret) openWorkspaceSecret(secret);
+}
+
+function handleCancelFeatureAuth() {
+  pendingProtectedWorkspaceSecret = null;
+  hideFeatureAuth();
+}
 
 function handleWorkspaceScreenClick(
 
@@ -2836,104 +2933,9 @@ function handleWorkspaceScreenClick(
 
   }
 
-  if (
-
-    secret ===
-
-    'records'
-
-  ) {
-
-    Router.openRecords();
-
+  if (secret) {
+    requestOpenWorkspaceSecret(secret);
     return;
-
-  }
-
-  if (
-
-    secret ===
-
-    'calendar'
-
-  ) {
-
-    Router.openCalendar();
-
-    return;
-
-  }
-
-  if (
-
-    secret ===
-
-    'archive'
-
-  ) {
-
-    Router.openArchive();
-
-    return;
-
-  }
-
-  if (
-
-    secret ===
-
-    'messages'
-
-  ) {
-
-    handleOpenMessagesCard();
-
-    return;
-
-  }
-
-  if (
-
-    secret ===
-
-    'photo'
-
-  ) {
-
-    /*
-
-     * 写真画面を開く直前にも
-
-     * Supabase認証とroom同期を実行。
-
-     *
-
-     * 待たずにバックグラウンドで処理するため、
-
-     * 写真画面自体はすぐ開く。
-
-     */
-
-    startSupabaseInBackground();
-
-    Router.openPhoto();
-
-    return;
-
-  }
-
-  if (
-
-    secret ===
-
-    'settings'
-
-  ) {
-
-    openSettings();
-
-    return;
-
   }
 
 }
@@ -3560,6 +3562,17 @@ function handleCloseMessages() {
 
 }
 
+function handleToggleMessageHistory() {
+  // 履歴を閉じる操作には再認証を要求しない。
+  if (Messages.isHistoryOpen()) {
+    Messages.toggleHistoryMode();
+    return;
+  }
+
+  // 履歴を開くたびに必ず再認証する。
+  showFeatureAuth('messageHistory');
+}
+
 function handleSendMessage() {
 
   Messages
@@ -3695,8 +3708,9 @@ const MESSAGES_ACTION_HANDLERS =
       handleLockNow,
 
     'send-message':
-
       handleSendMessage,
+    'toggle-message-history':
+      handleToggleMessageHistory,
 
     'copy-message':
 
@@ -5393,14 +5407,12 @@ function handleSettingsCheckboxChange(
       break;
 
     case 'archiveLockToggle':
-
-      Settings.setArchiveLockEnabled(
-
-        checked,
-
-      );
-
+      Settings.setArchiveLockEnabled(checked);
       break;
+    case 'messagesLockToggle': Settings.setMessagesLockEnabled(checked); break;
+    case 'calendarLockToggle': Settings.setCalendarLockEnabled(checked); break;
+    case 'photoLockToggle': Settings.setPhotoLockEnabled(checked); break;
+    case 'recordsLockToggle': Settings.setRecordsLockEnabled(checked); break;
 
     case 'notificationsToggle':
 

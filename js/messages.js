@@ -13,6 +13,7 @@ import Firebase from './firebase.js';
 import Settings from './settings.js';
 
 import Customization from './customization.js';
+import Storage, { STORAGE_KEYS } from './storage.js';
 
 // ------------------------------------------------------------
 
@@ -43,6 +44,12 @@ let selectedMessageData = null;
 let longPressTimer = null;
 
 let typingTimer = null;
+let isHistoryMode = false;
+let latestMessages = [];
+let transientHideTimer = null;
+let openedAtMs = 0;
+
+const TRANSIENT_VISIBLE_MS = 1400;
 
 // ------------------------------------------------------------
 
@@ -230,6 +237,14 @@ function createHeader() {
 
     '🔒';
 
+  const historyButton = document.createElement('button');
+  historyButton.type = 'button';
+  historyButton.className = 'icon-btn messages-history-btn';
+  historyButton.dataset.action = 'toggle-message-history';
+  historyButton.setAttribute('aria-label', 'メッセージ履歴');
+  historyButton.setAttribute('aria-pressed', 'false');
+  historyButton.textContent = '◷';
+
   header.appendChild(
 
     backButton,
@@ -241,6 +256,8 @@ function createHeader() {
     title,
 
   );
+
+  header.appendChild(historyButton);
 
   header.appendChild(
 
@@ -690,6 +707,9 @@ export function create() {
 
 export function open() {
 
+  openedAtMs = Date.now();
+  isHistoryMode = false;
+
   const container =
 
     getContainer();
@@ -741,6 +761,10 @@ export function open() {
 // ------------------------------------------------------------
 
 export function close() {
+
+  if (transientHideTimer) { clearTimeout(transientHideTimer); transientHideTimer = null; }
+  isHistoryMode = false;
+  latestMessages = [];
 
   const container =
 
@@ -801,13 +825,8 @@ function startMessageSubscription() {
       roomId,
 
       (messages) => {
-
-        renderMessages(
-
-          messages,
-
-        );
-
+        latestMessages = Array.isArray(messages) ? messages : [];
+        renderMessages(latestMessages);
       },
 
       (error) => {
@@ -857,69 +876,110 @@ function stopMessageSubscription() {
 // ------------------------------------------------------------
 
 function renderMessages(
-
   messages,
-
 ) {
+  const list = document.getElementById('messagesList');
+  if (!list) return;
 
-  const list =
+  const currentUid = Firebase.getCurrentUid();
+  const visibleMessages = isHistoryMode
+    ? messages
+    : getTransientMessages(messages, currentUid);
 
-    document.getElementById(
+  const fragment = document.createDocumentFragment();
+  visibleMessages.forEach((message) => {
+    fragment.appendChild(createMessageElement(message, currentUid));
+  });
 
-      'messagesList',
+  list.replaceChildren(fragment);
+  list.scrollTop = list.scrollHeight;
+  markVisibleMessagesAsRead(visibleMessages);
 
-    );
+  if (!isHistoryMode) scheduleTransientHide(visibleMessages);
 
-  if (!list) {
+  const title = document.querySelector('.messages-title');
+  if (title) title.textContent = isHistoryMode ? 'メッセージ履歴' : 'メッセージ';
 
-    return;
-
+  const historyButton = document.querySelector('.messages-history-btn');
+  if (historyButton) {
+    historyButton.setAttribute('aria-pressed', String(isHistoryMode));
+    historyButton.classList.toggle('is-active', isHistoryMode);
   }
+}
 
-  const currentUid =
+function getHiddenStoreKey() {
+  const roomId = Firebase.getLocalRoomId() || 'no-room';
+  const uid = Firebase.getCurrentUid() || 'no-user';
+  return `${roomId}:${uid}`;
+}
 
-    Firebase.getCurrentUid();
+function getHiddenIds() {
+  const all = Storage.get(STORAGE_KEYS.MESSAGE_HIDDEN_IDS, {});
+  const list = all && typeof all === 'object' ? all[getHiddenStoreKey()] : null;
+  return new Set(Array.isArray(list) ? list : []);
+}
 
-  const fragment =
+function saveHiddenIds(ids) {
+  const all = Storage.get(STORAGE_KEYS.MESSAGE_HIDDEN_IDS, {});
+  const next = all && typeof all === 'object' ? { ...all } : {};
+  next[getHiddenStoreKey()] = Array.from(ids).slice(-1000);
+  Storage.set(STORAGE_KEYS.MESSAGE_HIDDEN_IDS, next);
+}
 
-    document.createDocumentFragment();
+function messageTimeMs(message) {
+  const ts = message?.timestamp;
+  if (typeof ts?.toMillis === 'function') return ts.toMillis();
+  if (typeof ts?.seconds === 'number') return ts.seconds * 1000;
+  if (typeof ts === 'number') return ts;
+  return 0;
+}
 
-  messages.forEach(
+function getTransientMessages(messages, currentUid) {
+  const hidden = getHiddenIds();
+  return messages.filter((message) => {
+    if (!message?.id || hidden.has(message.id)) return false;
+    const timeMs = messageTimeMs(message);
 
-    (message) => {
+    if (message.senderId === currentUid && timeMs && timeMs < openedAtMs - 5000) {
+      return false;
+    }
 
-      fragment.appendChild(
+    if (message.senderId !== currentUid) {
+      const readBy = Array.isArray(message.readBy) ? message.readBy : [];
+      if (readBy.includes(currentUid) && timeMs && timeMs < openedAtMs - 5000) {
+        return false;
+      }
+    }
 
-        createMessageElement(
+    return true;
+  });
+}
 
-          message,
+function scheduleTransientHide(messages) {
+  if (transientHideTimer) clearTimeout(transientHideTimer);
+  const ids = messages.map((message) => message?.id).filter(Boolean);
+  if (ids.length === 0) return;
 
-          currentUid,
+  transientHideTimer = setTimeout(() => {
+    const hidden = getHiddenIds();
+    ids.forEach((id) => hidden.add(id));
+    saveHiddenIds(hidden);
+    transientHideTimer = null;
+    renderMessages(latestMessages);
+  }, TRANSIENT_VISIBLE_MS);
+}
 
-        ),
+export function toggleHistoryMode() {
+  isHistoryMode = !isHistoryMode;
+  if (transientHideTimer) {
+    clearTimeout(transientHideTimer);
+    transientHideTimer = null;
+  }
+  renderMessages(latestMessages);
+}
 
-      );
-
-    },
-
-  );
-
-  list.replaceChildren(
-
-    fragment,
-
-  );
-
-  list.scrollTop =
-
-    list.scrollHeight;
-
-  markVisibleMessagesAsRead(
-
-    messages,
-
-  );
-
+export function isHistoryOpen() {
+  return isHistoryMode;
 }
 
 // ------------------------------------------------------------
@@ -2125,6 +2185,8 @@ const Messages = {
   isOpen,
 
   sendMessage,
+  toggleHistoryMode,
+  isHistoryOpen,
 
   autoResizeInput,
 

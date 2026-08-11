@@ -100,6 +100,10 @@ const SETTING_SCHEMA = Object.freeze({
     default: false,
     validate: isBoolean,
   },
+  messagesLockEnabled: { key: STORAGE_KEYS.MESSAGES_LOCK_ENABLED, default: false, validate: isBoolean },
+  calendarLockEnabled: { key: STORAGE_KEYS.CALENDAR_LOCK_ENABLED, default: false, validate: isBoolean },
+  photoLockEnabled: { key: STORAGE_KEYS.PHOTO_LOCK_ENABLED, default: false, validate: isBoolean },
+  recordsLockEnabled: { key: STORAGE_KEYS.RECORDS_LOCK_ENABLED, default: false, validate: isBoolean },
   // ---- 通知（設定値の保存のみ。実際に通知を送る仕組みは未実装） ----
   notificationsEnabled: {
     key: STORAGE_KEYS.NOTIFICATIONS_ENABLED,
@@ -218,6 +222,15 @@ export function setArchiveLockEnabled(value) {
   return setSchemaValue('archiveLockEnabled', value);
 }
 
+export function isMessagesLockEnabled() { return getSchemaValue('messagesLockEnabled'); }
+export function setMessagesLockEnabled(value) { return setSchemaValue('messagesLockEnabled', value); }
+export function isCalendarLockEnabled() { return getSchemaValue('calendarLockEnabled'); }
+export function setCalendarLockEnabled(value) { return setSchemaValue('calendarLockEnabled', value); }
+export function isPhotoLockEnabled() { return getSchemaValue('photoLockEnabled'); }
+export function setPhotoLockEnabled(value) { return setSchemaValue('photoLockEnabled', value); }
+export function isRecordsLockEnabled() { return getSchemaValue('recordsLockEnabled'); }
+export function setRecordsLockEnabled(value) { return setSchemaValue('recordsLockEnabled', value); }
+
 // ------------------------------------------------------------
 // 通知（保存のみ。実際の配信は未実装）
 // ------------------------------------------------------------
@@ -331,6 +344,14 @@ const Settings = Object.freeze({
   setAutoLockDurationMs,
   isArchiveLockEnabled,
   setArchiveLockEnabled,
+  isMessagesLockEnabled,
+  setMessagesLockEnabled,
+  isCalendarLockEnabled,
+  setCalendarLockEnabled,
+  isPhotoLockEnabled,
+  setPhotoLockEnabled,
+  isRecordsLockEnabled,
+  setRecordsLockEnabled,
   isNotificationsEnabled,
   setNotificationsEnabled,
   isNotificationContentEnabled,
