@@ -12,6 +12,8 @@ const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_uAfVZH35jFQNK2emEpR8ag_jb0kaQvJ
 const PHOTO_BUCKET = 'photos';
 const ROOM_MEMBERS_TABLE = 'photo_room_members';
 const DIAGNOSTIC_EVENT_NAME = 'calculator-supabase-diagnostic';
+const SESSION_BACKUP_KEY = 'calculator-0209-supabase-session-backup-v1';
+let authListenerRegistered = false;
 
 let client = null;
 let signInPromise = null;
@@ -45,6 +47,57 @@ function updateDiagnostic(stage, message, error = null, extra = {}) {
   return getDiagnosticState();
 }
 
+function saveSessionBackup(session) {
+  try {
+    if (!session?.access_token || !session?.refresh_token) return;
+    window.localStorage.setItem(SESSION_BACKUP_KEY, JSON.stringify({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+      user_id: session.user?.id || null,
+      saved_at: Date.now(),
+    }));
+  } catch (error) {
+    console.warn('[supabase.js] セッション予備保存に失敗しました', error);
+  }
+}
+
+function readSessionBackup() {
+  try {
+    const raw = window.localStorage.getItem(SESSION_BACKUP_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.access_token || !parsed?.refresh_token) return null;
+    return parsed;
+  } catch (_) {
+    return null;
+  }
+}
+
+function registerAuthListener(supabase) {
+  if (authListenerRegistered) return;
+  authListenerRegistered = true;
+  supabase.auth.onAuthStateChange((_event, session) => {
+    if (session) saveSessionBackup(session);
+  });
+}
+
+async function restoreBackedUpSession(supabase) {
+  const backup = readSessionBackup();
+  if (!backup) return null;
+  try {
+    const { data, error } = await supabase.auth.setSession({
+      access_token: backup.access_token,
+      refresh_token: backup.refresh_token,
+    });
+    if (error) throw error;
+    if (data?.session) saveSessionBackup(data.session);
+    return data?.session?.user || null;
+  } catch (error) {
+    console.warn('[supabase.js] 保存済みセッションの復元に失敗しました', error);
+    return null;
+  }
+}
+
 function requireClient() {
   if (!client) {
     client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
@@ -55,6 +108,7 @@ function requireClient() {
         storageKey: 'calculator-0209-supabase-auth',
       },
     });
+    registerAuthListener(client);
   }
   return client;
 }
@@ -114,9 +168,13 @@ export async function getCurrentUid() {
 export async function ensureSignedIn() {
   const supabase = requireClient();
 
-  const { data: sessionData } = await supabase.auth.getSession();
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) {
+    console.warn('[supabase.js] 現在セッションの取得に失敗しました', sessionError);
+  }
   if (sessionData?.session?.user) {
     const user = sessionData.session.user;
+    saveSessionBackup(sessionData.session);
     updateDiagnostic('authenticated', 'Supabase認証済みです', null, {
       userId: user.id,
       roomId: getRoomId(),
@@ -126,8 +184,19 @@ export async function ensureSignedIn() {
 
   if (signInPromise) return signInPromise;
 
-  updateDiagnostic('anonymous-sign-in', 'Supabase匿名ログインを開始しています');
   signInPromise = (async () => {
+    // iOS/Safariが写真ピッカー復帰時などにSDKの通常セッションを一時的に
+    // 見失っても、直前のrefresh tokenから同一匿名ユーザーを復元する。
+    const restoredUser = await restoreBackedUpSession(supabase);
+    if (restoredUser) {
+      updateDiagnostic('authenticated-restored', '保存済みSupabase認証を復元しました', null, {
+        userId: restoredUser.id,
+        roomId: getRoomId(),
+      });
+      return restoredUser;
+    }
+
+    updateDiagnostic('anonymous-sign-in', 'Supabase匿名ログインを開始しています');
     const { data, error } = await supabase.auth.signInAnonymously();
     if (error) {
       const message = /anonymous/i.test(String(error.message || ''))
@@ -141,6 +210,7 @@ export async function ensureSignedIn() {
       updateDiagnostic('anonymous-user-missing', missing.message, missing);
       throw missing;
     }
+    if (data.session) saveSessionBackup(data.session);
     updateDiagnostic('authenticated', 'Supabase匿名ログインに成功しました', null, {
       userId: data.user.id,
       roomId: getRoomId(),
