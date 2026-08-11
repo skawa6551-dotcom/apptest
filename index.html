@@ -117,7 +117,38 @@
   <!-- ---------------- キーパッド ----------------
        ボタンは1つもここに書かない。calculator.jsが公開するアクション定義をもとに
        app.jsが実行時に生成し、この空のsection内へ挿入する。 -->
-  <section class="keypad" id="keypad" role="group" aria-label="電卓ボタン"></section>
+  <section class="keypad" id="keypad" role="group" aria-label="電卓ボタン">
+    <!-- 初期表示用フォールバック。app.js起動後は同じ構造で再生成される。 -->
+    <div class="keypad-row">
+      <button type="button" class="key key-func" data-action="clear" aria-label="オールクリア">AC</button>
+      <button type="button" class="key key-func" data-action="negate" aria-label="プラスマイナス切り替え">±</button>
+      <button type="button" class="key key-func" data-action="percent" aria-label="パーセント">%</button>
+      <button type="button" class="key key-operator" data-action="divide" aria-label="割る">÷</button>
+    </div>
+    <div class="keypad-row">
+      <button type="button" class="key key-num" data-num="7" aria-label="数字 7">7</button>
+      <button type="button" class="key key-num" data-num="8" aria-label="数字 8">8</button>
+      <button type="button" class="key key-num" data-num="9" aria-label="数字 9">9</button>
+      <button type="button" class="key key-operator" data-action="multiply" aria-label="掛ける">×</button>
+    </div>
+    <div class="keypad-row">
+      <button type="button" class="key key-num" data-num="4" aria-label="数字 4">4</button>
+      <button type="button" class="key key-num" data-num="5" aria-label="数字 5">5</button>
+      <button type="button" class="key key-num" data-num="6" aria-label="数字 6">6</button>
+      <button type="button" class="key key-operator" data-action="subtract" aria-label="引く">−</button>
+    </div>
+    <div class="keypad-row">
+      <button type="button" class="key key-num" data-num="1" aria-label="数字 1">1</button>
+      <button type="button" class="key key-num" data-num="2" aria-label="数字 2">2</button>
+      <button type="button" class="key key-num" data-num="3" aria-label="数字 3">3</button>
+      <button type="button" class="key key-operator" data-action="add" aria-label="足す">＋</button>
+    </div>
+    <div class="keypad-row">
+      <button type="button" class="key key-num key-zero" data-num="0" aria-label="数字 0">0</button>
+      <button type="button" class="key key-num" data-action="decimal" aria-label="小数点">.</button>
+      <button type="button" class="key key-equal" data-action="equals" aria-label="計算実行">=</button>
+    </div>
+  </section>
 
 </main>
 
@@ -460,7 +491,7 @@
      calculator.js / settings.js / storage.js / auth.js / sound.js /
      themes.js はすべてapp.jsからimportされるため、ここには書かない。
      ========================================================== -->
-<script type="module" src="js/app.js"></script>
+<script type="module" src="js/app.js?v=26"></script>
 
 <div id="featureAuthOverlay" class="feature-auth-overlay" aria-hidden="true">
   <div class="feature-auth-panel" role="dialog" aria-modal="true" aria-labelledby="featureAuthTitle">
