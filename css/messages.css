@@ -3123,3 +3123,5 @@ and (
   display: none !important;
 
 }
+
+.messages-history-btn.is-active{background:rgba(255,255,255,.16);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}

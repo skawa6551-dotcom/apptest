@@ -641,3 +641,12 @@ input {
   transform: scale(0.95);
 
 }
+
+/* Workspace各機能の個別ロック */
+.feature-auth-overlay{position:fixed;inset:0;z-index:10050;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.72);backdrop-filter:blur(12px)}
+.feature-auth-overlay.is-open{display:flex}
+.feature-auth-panel{width:min(100%,360px);padding:24px;border:1px solid rgba(255,255,255,.14);border-radius:22px;background:rgba(18,18,20,.96);box-shadow:0 24px 70px rgba(0,0,0,.45);text-align:center;color:#fff}
+.feature-auth-icon{font-size:34px;margin-bottom:8px}.feature-auth-title{margin:0 0 8px;font-size:21px}.feature-auth-message{margin:0 0 16px;color:rgba(255,255,255,.7);font-size:14px}
+.feature-auth-input{width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid rgba(255,255,255,.18);border-radius:13px;background:rgba(255,255,255,.08);color:#fff;text-align:center;font-size:22px;letter-spacing:.3em;outline:none}
+.feature-auth-input:focus{border-color:rgba(255,255,255,.45)}.feature-auth-error{margin:10px 0 0;color:#ff7676;font-size:13px}.feature-auth-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+.feature-auth-btn{padding:12px;border:0;border-radius:12px;background:rgba(255,255,255,.1);color:#fff;font-size:15px}.feature-auth-btn--primary{background:#fff;color:#111;font-weight:700}
