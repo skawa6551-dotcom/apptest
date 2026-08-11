@@ -22,7 +22,7 @@
 
 //
 
-// CACHE_VERSION 14
+// CACHE_VERSION 15
 
 // ============================================================
 
@@ -36,7 +36,7 @@
 
 const CACHE_VERSION =
 
-  14;
+  15;
 
 const CACHE_PREFIX =
 

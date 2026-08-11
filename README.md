@@ -24,3 +24,10 @@ iPhone専用のPWA電卓アプリです。HTML / CSS / JavaScript（フレーム
 - PWA対応：`manifest.json` + `service-worker.js`（キャッシュ優先のオフライン戦略）
 
 ## フォルダ構成
+
+## Update 24
+- メッセージ通常画面は送受信内容を短時間表示した後に自動で非表示。
+- メッセージ画面の履歴アイコンからメッセージ履歴のみを表示。
+- Archiveは従来どおり保存した記録専用で、メッセージ履歴とは分離。
+- Workspaceからメッセージ／カレンダー／写真／記録を開く際の個別パスコードロック設定を追加。
+- Service Worker cache version: 15.

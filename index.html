@@ -256,6 +256,11 @@
             <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
           </label>
         </div>
+
+        <div class="settings-row"><div class="settings-row-text"><span class="settings-row-title">メッセージロック</span><span class="settings-row-desc">Workspaceから開くたびにパスコードを要求する</span></div><label class="toggle"><input type="checkbox" id="messagesLockToggle"><span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span></label></div>
+        <div class="settings-row"><div class="settings-row-text"><span class="settings-row-title">カレンダーロック</span><span class="settings-row-desc">Workspaceから開くたびにパスコードを要求する</span></div><label class="toggle"><input type="checkbox" id="calendarLockToggle"><span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span></label></div>
+        <div class="settings-row"><div class="settings-row-text"><span class="settings-row-title">写真ロック</span><span class="settings-row-desc">Workspaceから開くたびにパスコードを要求する</span></div><label class="toggle"><input type="checkbox" id="photoLockToggle"><span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span></label></div>
+        <div class="settings-row"><div class="settings-row-text"><span class="settings-row-title">記録ロック</span><span class="settings-row-desc">Workspaceから開くたびにパスコードを要求する</span></div><label class="toggle"><input type="checkbox" id="recordsLockToggle"><span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span></label></div>
       </div>
 
       <!-- ---------------- 通知 ----------------
@@ -456,6 +461,20 @@
      themes.js はすべてapp.jsからimportされるため、ここには書かない。
      ========================================================== -->
 <script type="module" src="js/app.js"></script>
+
+<div id="featureAuthOverlay" class="feature-auth-overlay" aria-hidden="true">
+  <div class="feature-auth-panel" role="dialog" aria-modal="true" aria-labelledby="featureAuthTitle">
+    <div class="feature-auth-icon" aria-hidden="true">🔒</div>
+    <h3 id="featureAuthTitle" class="feature-auth-title">ロック解除</h3>
+    <p id="featureAuthMessage" class="feature-auth-message">パスコードを入力してください</p>
+    <input id="featureAuthInput" class="feature-auth-input" type="tel" inputmode="numeric" autocomplete="off" maxlength="8" aria-label="パスコード">
+    <p id="featureAuthError" class="feature-auth-error" hidden>パスコードが違います</p>
+    <div class="feature-auth-actions">
+      <button type="button" class="feature-auth-btn" data-action="cancel-feature-auth">キャンセル</button>
+      <button type="button" class="feature-auth-btn feature-auth-btn--primary" data-action="confirm-feature-auth">開く</button>
+    </div>
+  </div>
+</div>
 
 <!-- ==========================================================
      Workspace（旧Secret Home）コンテナ
