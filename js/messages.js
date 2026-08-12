@@ -32,7 +32,147 @@ let openedAtMs = 0;
 let archiveAfterSendAt = 0;
 
 function getContainer() {
-  return document.getElementById(CONTAINER_ID);
+  let container = document.getElementById(CONTAINER_ID);
+
+  // index.html側にコンテナが無い／読み込み順でまだ無い場合でも
+  // Messages自身で復旧できるようにする。
+  if (!container && document.body) {
+    container = document.createElement('div');
+    container.id = CONTAINER_ID;
+    container.className = 'messages messages-ai-space';
+    container.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(container);
+  }
+
+  return container;
+}
+
+function ensureFallbackStyles() {
+  if (document.getElementById('aiSpaceFallbackStyles')) return;
+
+  const style = document.createElement('style');
+  style.id = 'aiSpaceFallbackStyles';
+  style.textContent = `
+    #messages.messages {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 10050 !important;
+      display: none;
+      visibility: hidden;
+      flex-direction: column;
+      box-sizing: border-box;
+      width: 100% !important;
+      height: 100dvh !important;
+      padding: max(22px, env(safe-area-inset-top)) 18px
+               max(16px, env(safe-area-inset-bottom)) 18px;
+      overflow: hidden;
+      color: #f7f8fb;
+      background:
+        radial-gradient(circle at 82% 8%, rgba(85,93,220,.16), transparent 27%),
+        radial-gradient(circle at 12% 46%, rgba(32,204,190,.07), transparent 30%),
+        linear-gradient(160deg,#08111c 0%,#050b13 48%,#02060b 100%) !important;
+      opacity: 0;
+      pointer-events: none;
+    }
+    #messages.messages.is-open {
+      display: flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    #messages .ai-space-header {
+      display:flex; align-items:flex-start; justify-content:space-between;
+      gap:12px; width:100%; min-height:105px; flex:0 0 auto;
+    }
+    #messages .ai-space-title {
+      margin:8px 0 0; font-size:34px; line-height:1; font-weight:650;
+      color:#8fe6e0;
+    }
+    #messages .ai-space-online {
+      display:flex; align-items:center; gap:7px; margin-top:13px;
+      color:rgba(255,255,255,.72); font-size:13px;
+    }
+    #messages .ai-space-online-dot {
+      width:9px;height:9px;border-radius:50%;background:#36d98a;
+    }
+    #messages .ai-space-actions { display:flex; gap:5px; }
+    #messages .ai-space-action {
+      display:flex; flex-direction:column; align-items:center; gap:6px; min-width:56px;
+    }
+    #messages .ai-space-action-btn {
+      width:48px;height:48px;border-radius:50%;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.055); color:#eef3ff; font-size:21px;
+    }
+    #messages .ai-space-action-label {
+      color:rgba(255,255,255,.72); font-size:10px; white-space:nowrap;
+    }
+    #messages .ai-space-hero {
+      position:relative; display:flex; align-items:center; min-height:110px;
+      margin:0 0 15px; padding:17px; border-radius:24px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.045); overflow:hidden;
+    }
+    #messages .ai-space-hero-copy {
+      display:flex; flex-direction:column; gap:8px; padding-left:15px; z-index:2;
+    }
+    #messages .ai-space-hero-copy strong { font-size:22px; }
+    #messages .ai-space-hero-copy span { color:rgba(255,255,255,.72); font-size:14px; }
+    #messages .ai-space-orb {
+      display:grid; place-items:center; flex:0 0 auto; width:43px; height:43px;
+      border-radius:50%;
+      background:conic-gradient(#6de7df,#6f83ff,#b574ff,#68e6dd);
+      box-shadow:inset 0 0 0 6px #0a101a;
+    }
+    #messages .ai-space-orb--hero { width:52px;height:52px; }
+    #messages .messages-scroll {
+      display:flex; flex:1 1 auto; min-height:0; overflow-y:auto;
+    }
+    #messages .messages-list {
+      display:flex; flex-direction:column; justify-content:flex-end;
+      gap:15px; width:100%; min-height:100%; padding:5px 2px 18px;
+      box-sizing:border-box;
+    }
+    #messages .message-row { display:flex; width:100%; align-items:flex-end; gap:9px; }
+    #messages .message-row.is-own { justify-content:flex-end; }
+    #messages .message-content { display:flex; flex-direction:column; max-width:78%; }
+    #messages .message-bubble {
+      padding:13px 16px; border-radius:20px; line-height:1.55;
+      color:#f6f8fc; background:rgba(255,255,255,.075);
+    }
+    #messages .message-row.is-own .message-bubble {
+      background:linear-gradient(135deg,rgba(22,73,81,.78),rgba(16,44,55,.9));
+    }
+    #messages .message-meta {
+      margin-top:4px; padding:0 5px; color:rgba(255,255,255,.45); font-size:11px;
+    }
+    #messages .messages-composer {
+      display:flex; align-items:flex-end; gap:10px; width:100%; flex:0 0 auto;
+      padding-top:10px;
+    }
+    #messages .messages-input-wrap {
+      display:flex; flex:1; min-height:54px; align-items:center; padding:5px 16px;
+      border:1px solid rgba(255,255,255,.13); border-radius:29px;
+      background:rgba(255,255,255,.025);
+    }
+    #messages .messages-input {
+      width:100%; min-height:34px; max-height:120px; border:0; outline:0;
+      resize:none; background:transparent; color:#f7f9fc; font-size:16px;
+    }
+    #messages .messages-send-btn {
+      width:50px;height:50px;border:0;border-radius:50%;
+      background:rgba(48,143,148,.55);color:#e1ffff;font-size:20px;
+    }
+    #messages .ai-space-empty {
+      display:flex; min-height:150px; flex-direction:column;
+      align-items:center; justify-content:center; gap:12px;
+      color:rgba(255,255,255,.45); font-size:13px;
+    }
+    #messages.is-view-mode .messages-composer { display:none !important; }
+    #messages.is-history-mode .ai-space-hero { display:none !important; }
+  `;
+
+  (document.head || document.documentElement).appendChild(style);
 }
 
 function renderBackground() {
@@ -223,6 +363,8 @@ function createActionSheet() {
 export function create() {
   if (isBuilt) return;
 
+  ensureFallbackStyles();
+
   const container = getContainer();
   if (!container) {
     console.warn(`[messages.js] #${CONTAINER_ID} が見つかりません`);
@@ -269,19 +411,39 @@ function registerLocalUiEvents() {
 }
 
 export function open() {
+  // Router初期化時にDOM構築できなかった場合でも、
+  // 実際に開く瞬間に必ず再構築する。
+  if (!isBuilt) {
+    create();
+  }
+
+  ensureFallbackStyles();
+
   openedAtMs = Date.now();
   isHistoryMode = false;
   isViewMode = false;
   archiveAfterSendAt = 0;
 
-  const container = getContainer();
+  let container = getContainer();
   if (!container) return;
+
+  if (!container.querySelector('.ai-space-header')) {
+    isBuilt = false;
+    create();
+    container = getContainer();
+    if (!container) return;
+  }
 
   renderBackground();
   container.classList.add('is-open');
   container.classList.remove('is-history-mode', 'is-view-mode');
   container.setAttribute('aria-hidden', 'false');
   updateModeButtons();
+
+  // 匿名認証の復元を先行開始する。失敗しても画面表示は止めない。
+  Firebase.ensureSignedIn().catch((error) => {
+    console.warn('[messages.js] Firebase認証の復元に失敗しました', error);
+  });
 
   startMessageSubscription();
 
@@ -541,10 +703,19 @@ export async function sendMessage() {
   if (!text) return;
 
   const roomId = Firebase.getLocalRoomId();
-  const currentUid = Firebase.getCurrentUid();
 
-  if (!roomId || !currentUid) {
+  if (!roomId) {
     throw new Error('ルームに接続されていません。');
+  }
+
+  // iPhone/Safariでは画面表示時点で匿名認証の復元が
+  // まだ終わっていないことがあるため、送信直前に必ず認証を確定する。
+  const currentUid =
+    Firebase.getCurrentUid() ||
+    await Firebase.ensureSignedIn();
+
+  if (!currentUid) {
+    throw new Error('送信者情報を取得できませんでした。');
   }
 
   const sendButton = getContainer()?.querySelector('[data-action="send-message"]');
