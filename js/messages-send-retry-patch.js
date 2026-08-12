@@ -90,13 +90,21 @@ document.addEventListener('click', async (event) => {
   const button = event.target.closest('[data-action="send-message"]');
   if (!button) return;
 
-  // 通常messages.jsの送信を先に動かし、入力が残っていれば失敗とみなして再試行。
+  // 通常messages.jsの送信を優先する。
+  // 送信ボタンがdisabled中なら、まだ通常送信が進行中なので再送しない。
+  // これにより通信が遅い時の二重送信を防ぐ。
   window.setTimeout(async () => {
     const input = document.getElementById('messagesInput');
+    const sendButton = document.querySelector('[data-action="send-message"]');
+
+    if (sendButton instanceof HTMLButtonElement && sendButton.disabled) {
+      return;
+    }
+
     if (input && input.value.trim()) {
       await retrySendFromCurrentInput();
     }
-  }, 700);
+  }, 1500);
 }, true);
 
 export { retrySendFromCurrentInput };
