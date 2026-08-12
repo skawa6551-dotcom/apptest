@@ -92,7 +92,7 @@ const SETTING_SCHEMA = Object.freeze({
   // ---- セキュリティ ----
   autoLockDurationMs: {
     key: STORAGE_KEYS.AUTO_LOCK_DURATION_MS,
-    default: 5 * 60 * 1000,
+    default: 3 * 60 * 1000,
     validate: isNonNegativeNumber,
   },
   archiveLockEnabled: {
