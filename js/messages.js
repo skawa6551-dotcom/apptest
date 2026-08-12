@@ -173,6 +173,17 @@ function ensureFallbackStyles() {
     }
     #messages.is-view-mode .messages-composer { display:none !important; }
     #messages.is-history-mode .ai-space-hero { display:none !important; }
+
+    /* AI Spaceは通常画面より高いz-indexなので、
+       共通の再認証オーバーレイをさらに手前へ出す。 */
+    #featureAuthOverlay.is-open {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 13000 !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
   `;
 
   (document.head || document.documentElement).appendChild(style);
@@ -420,6 +431,9 @@ function showHistoryAuth() {
   if (input) input.value = '';
 
   if (overlay) {
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.zIndex = '13000';
     overlay.classList.add('is-open');
     overlay.setAttribute('aria-hidden', 'false');
   }
@@ -461,6 +475,9 @@ function showViewModeAuth() {
   if (input) input.value = '';
 
   if (overlay) {
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.zIndex = '13000';
     overlay.classList.add('is-open');
     overlay.setAttribute('aria-hidden', 'false');
   }
