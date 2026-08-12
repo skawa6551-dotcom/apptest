@@ -193,6 +193,11 @@ function createCircleAction({ action, label, icon, className = '' }) {
   const wrap = document.createElement('div');
   wrap.className = `ai-space-action ${className}`.trim();
 
+  // アイコンだけでなく「履歴」「閲覧モード」などの文字部分を
+  // タップしても反応するよう、アクションをラッパー全体にも持たせる。
+  wrap.dataset.action = action;
+  wrap.setAttribute('role', 'group');
+
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'ai-space-action-btn';
@@ -203,6 +208,7 @@ function createCircleAction({ action, label, icon, className = '' }) {
   const caption = document.createElement('span');
   caption.className = 'ai-space-action-label';
   caption.textContent = label;
+  caption.style.pointerEvents = 'none';
 
   wrap.append(button, caption);
   return wrap;
