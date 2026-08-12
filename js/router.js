@@ -32,6 +32,8 @@ import Photo from './photo.js';
 
 import AutoLock from './autolock.js';
 
+import Calculator from './calculator.js';
+
 // ------------------------------------------------------------
 
 // 画面一覧
@@ -531,6 +533,24 @@ export function closePhoto() {
 // ------------------------------------------------------------
 
 export function lockNow() {
+
+  // ロック解除に使った数字や計算途中の値を残さない。
+  Calculator.reset();
+
+  const expressionDisplay =
+    document.getElementById('expressionDisplay');
+
+  const resultDisplay =
+    document.getElementById('resultDisplay');
+
+  if (expressionDisplay) {
+    expressionDisplay.textContent = '';
+  }
+
+  if (resultDisplay) {
+    resultDisplay.textContent = '0';
+    resultDisplay.classList.remove('is-error', 'result-display--long');
+  }
 
   Records.close();
 

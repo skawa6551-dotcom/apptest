@@ -341,6 +341,11 @@ export function input(type, payload) {
   return getDisplayState();
 }
 
+export function reset() {
+  state = createInitialState();
+  return getDisplayState();
+}
+
 export function getDisplayState() {
   const expression =
     state.operator !== null
@@ -366,6 +371,7 @@ export function clearHistory() {
 
 const Calculator = {
   input,
+  reset,
   getDisplayState,
   getHistory,
   clearHistory,
