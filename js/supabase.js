@@ -137,10 +137,19 @@ export function getDiagnosticEventName() {
 
 export function getRoomId() {
   try {
-    const roomId = Storage.get(STORAGE_KEYS.CURRENT_ROOM_ID, null);
-    return typeof roomId === 'string' && roomId.trim() ? roomId.trim() : null;
+    const savedRoomId = Storage.get(STORAGE_KEYS.CURRENT_ROOM_ID, null);
+    if (typeof savedRoomId === 'string' && savedRoomId.trim()) {
+      return savedRoomId.trim();
+    }
+
+    // Calculator 0209 の共有写真ルーム。
+    // 端末側に room_id がまだ保存されていない場合でも、
+    // 写真をローカル保存へ逃がさず同じSupabaseルームへ保存する。
+    const defaultRoomId = '0209';
+    Storage.set(STORAGE_KEYS.CURRENT_ROOM_ID, defaultRoomId);
+    return defaultRoomId;
   } catch (_) {
-    return null;
+    return '0209';
   }
 }
 
