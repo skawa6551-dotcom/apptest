@@ -1,31 +1,32 @@
 // ============================================================
 // feature-lock-patch.js
-// Calculator 0209 - feature entry lock
+// Calculator 0209 - fix43
 //
 // Workspaceから以下へ入るたびに必ずパスコード認証:
 // ・メッセージ
 // ・カレンダー
 // ・写真
 // ・記録
+// ・Archive
+// ・設定
 //
-// app.jsの設定トグル状態に関係なく、入口で毎回ロックする。
+// メッセージ履歴 / 閲覧モードの再認証は messages.js 側で処理。
 // ============================================================
 
 import Passcode from './passcode.js';
 import Router from './router.js';
 import Firebase from './firebase.js';
-import Messages from './messages.js';
 
 const PROTECTED = new Set([
   'messages',
   'calendar',
   'photo',
   'records',
+  'archive',
+  'settings',
 ]);
 
 let pendingSecret = null;
-
-const MESSAGE_HISTORY_SECRET = 'messageHistory';
 
 function getOverlay() {
   return document.getElementById('featureAuthOverlay');
@@ -56,7 +57,8 @@ function showLock(secret) {
     calendar: 'カレンダー',
     photo: '写真',
     records: '記録',
-    messageHistory: 'メッセージ履歴',
+    archive: 'Archive',
+    settings: '設定',
   };
 
   if (message) {
@@ -78,6 +80,7 @@ function showLock(secret) {
 function hideLock() {
   const overlay = getOverlay();
   const input = getInput();
+  const error = getError();
 
   if (overlay) {
     overlay.classList.remove('is-open');
@@ -85,6 +88,7 @@ function hideLock() {
   }
 
   if (input) input.value = '';
+  if (error) error.hidden = true;
 }
 
 function openFeature(secret) {
@@ -109,9 +113,23 @@ function openFeature(secret) {
       Router.openRecords();
       break;
 
-    case MESSAGE_HISTORY_SECRET:
-      Messages.toggleHistoryMode();
+    case 'archive':
+      Router.openArchive();
       break;
+
+    case 'settings': {
+      // app.jsのopenSettings()はexportされていないため、
+      // 既存のsettingsOverlayを直接開く。
+      const overlay = document.getElementById('settingsOverlay');
+      if (overlay) {
+        overlay.classList.add('is-open');
+        overlay.setAttribute('aria-hidden', 'false');
+
+        const closeButton = document.getElementById('settingsCloseBtn');
+        window.requestAnimationFrame(() => closeButton?.focus());
+      }
+      break;
+    }
 
     default:
       break;
@@ -121,32 +139,32 @@ function openFeature(secret) {
 function handleCaptureClick(event) {
   if (!(event.target instanceof Element)) return;
 
-  // AI Spaceの履歴。開く時だけ毎回パスコード認証する。
-  const historyTarget = event.target.closest('[data-action="toggle-message-history"]');
-  if (historyTarget && Router.getCurrentScreen() === Router.Screen.MESSAGES) {
-    event.preventDefault();
-    event.stopImmediatePropagation();
+  const currentScreen = Router.getCurrentScreen();
 
-    if (Messages.isHistoryOpen()) {
-      Messages.toggleHistoryMode();
-    } else {
-      showLock(MESSAGE_HISTORY_SECRET);
-    }
-    return;
-  }
-
-  // Workspaceカードを押した時
-  const featureTarget = event.target.closest('[data-secret]');
-  const secret = featureTarget?.dataset?.secret;
+  // Workspaceカード(data-secret)から入るケース
+  const secretTarget = event.target.closest('[data-secret]');
+  const secret = secretTarget?.dataset?.secret;
 
   if (
     secret &&
     PROTECTED.has(secret) &&
-    Router.getCurrentScreen() === Router.Screen.WORKSPACE
+    currentScreen === Router.Screen.WORKSPACE
   ) {
     event.preventDefault();
     event.stopImmediatePropagation();
     showLock(secret);
+    return;
+  }
+
+  // Workspace上の設定ボタンが data-action="open-settings" の場合も必ずロック
+  const settingsTarget = event.target.closest('[data-action="open-settings"]');
+  if (
+    settingsTarget &&
+    currentScreen === Router.Screen.WORKSPACE
+  ) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    showLock('settings');
     return;
   }
 

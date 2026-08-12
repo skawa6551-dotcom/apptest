@@ -11,6 +11,7 @@ import Firebase from './firebase.js';
 import Settings from './settings.js';
 import Customization from './customization.js';
 import Storage, { STORAGE_KEYS } from './storage.js';
+import Passcode from './passcode.js';
 
 const CONTAINER_ID = 'messages';
 const LONG_PRESS_MS = 500;
@@ -30,6 +31,8 @@ let openedAtMs = 0;
 
 // 送信直後、Firestoreの次スナップショットで会話一式を履歴へ送るための印
 let archiveAfterSendAt = 0;
+let pendingHistoryAuth = false;
+let pendingViewModeAuth = false;
 
 function getContainer() {
   let container = document.getElementById(CONTAINER_ID);
@@ -393,21 +396,238 @@ export function create() {
   isBuilt = true;
 }
 
+
+function showHistoryAuth() {
+  pendingHistoryAuth = true;
+
+  const overlay = document.getElementById('featureAuthOverlay');
+  const input = document.getElementById('featureAuthInput');
+  const error = document.getElementById('featureAuthError');
+  const message = document.getElementById('featureAuthMessage');
+
+  if (message) {
+    message.textContent =
+      'メッセージ履歴を見るには、もう一度パスコードを入力してください';
+  }
+
+  if (error) error.hidden = true;
+  if (input) input.value = '';
+
+  if (overlay) {
+    overlay.classList.add('is-open');
+    overlay.setAttribute('aria-hidden', 'false');
+  }
+
+  window.requestAnimationFrame(() => input?.focus());
+}
+
+function hideHistoryAuth() {
+  pendingHistoryAuth = false;
+
+  const overlay = document.getElementById('featureAuthOverlay');
+  const input = document.getElementById('featureAuthInput');
+  const error = document.getElementById('featureAuthError');
+
+  if (overlay) {
+    overlay.classList.remove('is-open');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  if (input) input.value = '';
+  if (error) error.hidden = true;
+}
+
+
+function showViewModeAuth() {
+  pendingViewModeAuth = true;
+
+  const overlay = document.getElementById('featureAuthOverlay');
+  const input = document.getElementById('featureAuthInput');
+  const error = document.getElementById('featureAuthError');
+  const message = document.getElementById('featureAuthMessage');
+
+  if (message) {
+    message.textContent =
+      '閲覧モードを開くには、もう一度パスコードを入力してください';
+  }
+
+  if (error) error.hidden = true;
+  if (input) input.value = '';
+
+  if (overlay) {
+    overlay.classList.add('is-open');
+    overlay.setAttribute('aria-hidden', 'false');
+  }
+
+  window.requestAnimationFrame(() => input?.focus());
+}
+
+function hideViewModeAuth() {
+  pendingViewModeAuth = false;
+
+  const overlay = document.getElementById('featureAuthOverlay');
+  const input = document.getElementById('featureAuthInput');
+  const error = document.getElementById('featureAuthError');
+
+  if (overlay) {
+    overlay.classList.remove('is-open');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  if (input) input.value = '';
+  if (error) error.hidden = true;
+}
+
+function confirmViewModeAuth() {
+  const input = document.getElementById('featureAuthInput');
+  const error = document.getElementById('featureAuthError');
+
+  if (!input || !Passcode.validate(input.value)) {
+    if (error) error.hidden = false;
+    input?.select();
+    return;
+  }
+
+  hideViewModeAuth();
+
+  isViewMode = true;
+  isHistoryMode = false;
+
+  const container = getContainer();
+  container?.classList.add('is-view-mode');
+  container?.classList.remove('is-history-mode');
+
+  renderMessages(latestMessages);
+  updateModeButtons();
+}
+
+function confirmHistoryAuth() {
+  const input = document.getElementById('featureAuthInput');
+  const error = document.getElementById('featureAuthError');
+
+  if (!input || !Passcode.validate(input.value)) {
+    if (error) error.hidden = false;
+    input?.select();
+    return;
+  }
+
+  hideHistoryAuth();
+  isHistoryMode = true;
+  isViewMode = false;
+  renderMessages(latestMessages);
+}
+
+function dedupeMessages(messages) {
+  const result = [];
+  const seenIds = new Set();
+
+  for (const message of Array.isArray(messages) ? messages : []) {
+    if (!message) continue;
+
+    if (message.id) {
+      if (seenIds.has(message.id)) continue;
+      seenIds.add(message.id);
+    }
+
+    // 旧retry処理で同一内容がほぼ同時刻に二重送信された既存データを
+    // 画面上では1件にまとめる。
+    const previous = result[result.length - 1];
+    if (
+      previous &&
+      previous.senderId === message.senderId &&
+      String(previous.text ?? '') === String(message.text ?? '')
+    ) {
+      const a = messageTimeMs(previous);
+      const b = messageTimeMs(message);
+      if (a && b && Math.abs(b - a) <= 3000) {
+        continue;
+      }
+    }
+
+    result.push(message);
+  }
+
+  return result;
+}
+
 function registerLocalUiEvents() {
   const container = getContainer();
   if (!container) return;
 
-  // 閲覧モードだけmessages.js内で完結させる。
-  // lock-now / toggle-message-history / send-message等は既存app.jsの委譲を利用。
+  // captureで先に処理し、app.js / feature-lock-patch.jsとの競合を防ぐ。
   container.addEventListener('click', (event) => {
     if (!(event.target instanceof Element)) return;
 
-    const viewButton = event.target.closest('[data-action="toggle-ai-view-mode"]');
+    const historyButton =
+      event.target.closest('[data-action="toggle-message-history"]');
+
+    if (historyButton) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      // 履歴を閉じる時は再認証不要。
+      if (isHistoryMode) {
+        isHistoryMode = false;
+        renderMessages(latestMessages);
+      } else {
+        showHistoryAuth();
+      }
+      return;
+    }
+
+    const viewButton =
+      event.target.closest('[data-action="toggle-ai-view-mode"]');
+
     if (viewButton) {
       event.preventDefault();
-      toggleViewMode();
+      event.stopImmediatePropagation();
+
+      // 閲覧モードを閉じる時は再認証不要。
+      if (isViewMode) {
+        isViewMode = false;
+        const container = getContainer();
+        container?.classList.remove('is-view-mode');
+        renderMessages(latestMessages);
+        updateModeButtons();
+      } else {
+        showViewModeAuth();
+      }
     }
-  });
+  }, true);
+
+  // 共通認証オーバーレイの「開く」「キャンセル」も、
+  // 履歴認証中だけmessages.jsがcaptureで処理する。
+  document.addEventListener('click', (event) => {
+    if (!pendingHistoryAuth && !pendingViewModeAuth) return;
+    if (!(event.target instanceof Element)) return;
+
+    const confirm =
+      event.target.closest('[data-action="confirm-feature-auth"]');
+
+    if (confirm) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      if (pendingHistoryAuth) {
+        confirmHistoryAuth();
+      } else if (pendingViewModeAuth) {
+        confirmViewModeAuth();
+      }
+      return;
+    }
+
+    const cancel =
+      event.target.closest('[data-action="cancel-feature-auth"]');
+
+    if (cancel) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      if (pendingHistoryAuth) hideHistoryAuth();
+  if (pendingViewModeAuth) hideViewModeAuth();
+      if (pendingViewModeAuth) hideViewModeAuth();
+    }
+  }, true);
 }
 
 export function open() {
@@ -458,6 +678,7 @@ export function close() {
   isViewMode = false;
   latestMessages = [];
   archiveAfterSendAt = 0;
+  if (pendingHistoryAuth) hideHistoryAuth();
 
   const container = getContainer();
   if (!container) return;
@@ -479,7 +700,7 @@ function startMessageSubscription() {
   unsubscribeMessages = Firebase.subscribeToMessages(
     roomId,
     (messages) => {
-      latestMessages = Array.isArray(messages) ? messages : [];
+      latestMessages = dedupeMessages(messages);
 
       if (archiveAfterSendAt > 0) {
         const currentUid = Firebase.getCurrentUid();
@@ -756,12 +977,16 @@ export function isHistoryOpen() {
 }
 
 export function toggleViewMode() {
-  isViewMode = !isViewMode;
-  if (isViewMode) isHistoryMode = false;
+  // 外部から呼ばれた場合でも、開く時は必ず再認証。
+  if (!isViewMode) {
+    showViewModeAuth();
+    return;
+  }
+
+  isViewMode = false;
 
   const container = getContainer();
-  container?.classList.toggle('is-view-mode', isViewMode);
-  container?.classList.toggle('is-history-mode', isHistoryMode);
+  container?.classList.remove('is-view-mode');
 
   renderMessages(latestMessages);
   updateModeButtons();
