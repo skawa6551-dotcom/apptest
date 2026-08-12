@@ -14,6 +14,7 @@
 import Passcode from './passcode.js';
 import Router from './router.js';
 import Firebase from './firebase.js';
+import Messages from './messages.js';
 
 const PROTECTED = new Set([
   'messages',
@@ -23,6 +24,8 @@ const PROTECTED = new Set([
 ]);
 
 let pendingSecret = null;
+
+const MESSAGE_HISTORY_SECRET = 'messageHistory';
 
 function getOverlay() {
   return document.getElementById('featureAuthOverlay');
@@ -53,6 +56,7 @@ function showLock(secret) {
     calendar: 'カレンダー',
     photo: '写真',
     records: '記録',
+    messageHistory: 'メッセージ履歴',
   };
 
   if (message) {
@@ -105,6 +109,10 @@ function openFeature(secret) {
       Router.openRecords();
       break;
 
+    case MESSAGE_HISTORY_SECRET:
+      Messages.toggleHistoryMode();
+      break;
+
     default:
       break;
   }
@@ -112,6 +120,20 @@ function openFeature(secret) {
 
 function handleCaptureClick(event) {
   if (!(event.target instanceof Element)) return;
+
+  // AI Spaceの履歴。開く時だけ毎回パスコード認証する。
+  const historyTarget = event.target.closest('[data-action="toggle-message-history"]');
+  if (historyTarget && Router.getCurrentScreen() === Router.Screen.MESSAGES) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    if (Messages.isHistoryOpen()) {
+      Messages.toggleHistoryMode();
+    } else {
+      showLock(MESSAGE_HISTORY_SECRET);
+    }
+    return;
+  }
 
   // Workspaceカードを押した時
   const featureTarget = event.target.closest('[data-secret]');
