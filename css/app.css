@@ -450,6 +450,11 @@ input {
 
 }
 
+.calculator-header-spacer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .app-title {
 
   font-size: var(--font-size-lg);
