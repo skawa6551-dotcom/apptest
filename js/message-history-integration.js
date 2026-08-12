@@ -1,42 +1,77 @@
 // ============================================================
 // message-history-integration.js
-// Calculator 0209
-// 既存AI Spaceの通常画面は変更しない。
+// Calculator 0209 - History data fix46
+//
+// AI Space本体は変更しない。
+// 履歴ロック認証が成功して実際に履歴を開く瞬間に、
+// Firebase購読を開始してFirestoreの全メッセージを履歴画面へ渡す。
 // ============================================================
 
 import MessageHistory from './message-history.js';
+import Firebase from './firebase.js';
 
 let installed = false;
+let unsubscribeHistory = null;
+let latestSnapshot = [];
 
-async function startHistorySubscription() {
-  const Firebase = (await import('./firebase.js')).default;
+function stopHistorySubscription() {
+  if (unsubscribeHistory) {
+    unsubscribeHistory();
+    unsubscribeHistory = null;
+  }
+}
+
+function startHistorySubscription() {
+  stopHistorySubscription();
+
   const roomId = Firebase.getLocalRoomId();
-  if (!roomId) return () => {};
 
-  return Firebase.subscribeToMessages(
+  if (!roomId) {
+    MessageHistory.setMessages([]);
+    return;
+  }
+
+  unsubscribeHistory = Firebase.subscribeToMessages(
     roomId,
     (messages) => {
-      MessageHistory.setMessages(Array.isArray(messages) ? messages : []);
+      latestSnapshot = Array.isArray(messages) ? messages : [];
+      MessageHistory.setMessages(latestSnapshot);
     },
     (error) => {
-      console.warn('[message-history-integration] 履歴購読に失敗しました', error);
+      console.warn(
+        '[message-history-integration] 履歴データの取得に失敗しました',
+        error,
+      );
     },
   );
+}
+
+function openSeparateHistory() {
+  // ここではroomId/Auth初期化がすでに終わっているため、
+  // 起動直後に購読するより確実。
+  startHistorySubscription();
+  MessageHistory.openHistory(latestSnapshot);
 }
 
 export async function installMessageHistoryIntegration() {
   if (installed) return;
   installed = true;
 
-  await startHistorySubscription();
-
   const container = document.getElementById('messages');
-  if (!container) return;
+
+  if (!container) {
+    console.warn(
+      '[message-history-integration] #messages が見つかりません',
+    );
+    return;
+  }
 
   const observer = new MutationObserver(() => {
-    const historyOpen = container.classList.contains('is-history-mode');
+    const historyOpen =
+      container.classList.contains('is-history-mode');
+
     if (historyOpen) {
-      MessageHistory.openHistory();
+      openSeparateHistory();
     }
   });
 
@@ -45,30 +80,55 @@ export async function installMessageHistoryIntegration() {
     attributeFilter: ['class'],
   });
 
-  document.addEventListener('click', async (event) => {
-    if (!(event.target instanceof Element)) return;
-    const close = event.target.closest('[data-history-action="close-list"]');
-    if (!close) return;
+  document.addEventListener(
+    'click',
+    async (event) => {
+      if (!(event.target instanceof Element)) return;
 
-    try {
-      const Messages = (await import('./messages.js')).default;
-      if (Messages.isHistoryOpen()) {
-        Messages.toggleHistoryMode();
+      const closeList =
+        event.target.closest('[data-history-action="close-list"]');
+
+      if (!closeList) return;
+
+      stopHistorySubscription();
+
+      try {
+        const Messages = (await import('./messages.js')).default;
+
+        if (Messages.isHistoryOpen()) {
+          Messages.toggleHistoryMode();
+        }
+      } catch (error) {
+        console.warn(
+          '[message-history-integration] 履歴モード終了に失敗しました',
+          error,
+        );
       }
-    } catch (error) {
-      console.warn('[message-history-integration] 履歴モード終了に失敗しました', error);
-    }
-  }, true);
+    },
+    true,
+  );
+
+  window.addEventListener('pagehide', stopHistorySubscription);
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    installMessageHistoryIntegration().catch((error) => {
-      console.warn('[message-history-integration] 初期化失敗', error);
-    });
-  }, { once: true });
+  document.addEventListener(
+    'DOMContentLoaded',
+    () => {
+      installMessageHistoryIntegration().catch((error) => {
+        console.warn(
+          '[message-history-integration] 初期化失敗',
+          error,
+        );
+      });
+    },
+    { once: true },
+  );
 } else {
   installMessageHistoryIntegration().catch((error) => {
-    console.warn('[message-history-integration] 初期化失敗', error);
+    console.warn(
+      '[message-history-integration] 初期化失敗',
+      error,
+    );
   });
 }
