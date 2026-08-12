@@ -48,20 +48,8 @@
   <!-- ---------------- ヘッダー：タイトル／設定ボタン／履歴削除ボタン ---------------- -->
   <header class="app-header">
 
-    <!-- 設定ボタン：設定画面（settingsOverlay）を開く -->
-    <button
-      type="button"
-      class="icon-btn"
-      id="settingsOpenBtn"
-      data-action="open-settings"
-      aria-label="設定を開く"
-      aria-haspopup="dialog"
-      aria-controls="settingsOverlay">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z" stroke="currentColor" stroke-width="1.6"/>
-        <path d="M19.4 13a7.4 7.4 0 0 0 .06-1 7.4 7.4 0 0 0-.06-1l2.03-1.58a.5.5 0 0 0 .12-.63l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.5 7.5 0 0 0-1.73-1l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54a7.5 7.5 0 0 0-1.73 1l-2.39-.96a.5.5 0 0 0-.6.22L2.65 8.79a.5.5 0 0 0 .12.63L4.8 11a7.4 7.4 0 0 0-.06 1 7.4 7.4 0 0 0 .06 1l-2.03 1.58a.5.5 0 0 0-.12.63l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96a7.5 7.5 0 0 0 1.73 1l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54a7.5 7.5 0 0 0 1.73-1l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.63L19.4 13Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
-      </svg>
-    </button>
+    <!-- 電卓画面では設定を見せない。タイトル位置を保つための空きスペース。 -->
+    <span class="icon-btn calculator-header-spacer" aria-hidden="true"></span>
 
     <!-- アプリタイトル -->
     <h1 class="app-title">Calculator</h1>
