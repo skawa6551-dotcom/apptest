@@ -279,14 +279,6 @@ function createHeader() {
     className: 'ai-space-action--lock',
   });
 
-  const view = createCircleAction({
-    action: 'toggle-ai-view-mode',
-    label: '閲覧モード',
-    icon: '◉',
-    className: 'ai-space-action--view',
-  });
-  view.querySelector('button').setAttribute('aria-pressed', 'false');
-
   const history = createCircleAction({
     action: 'toggle-message-history',
     label: '履歴',
@@ -295,7 +287,7 @@ function createHeader() {
   });
   history.querySelector('button').setAttribute('aria-pressed', 'false');
 
-  actions.append(lock, view, history);
+  actions.append(lock, history);
   header.append(backButton, brand, actions);
 
   return header;

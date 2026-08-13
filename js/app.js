@@ -2721,6 +2721,14 @@ function hideLockOverlay() {
 
 function handleCloseWorkspace() {
 
+  Workspace.setViewModeActive(
+
+    false,
+
+  );
+
+  Router.disableViewMode();
+
   Router.closeWorkspace();
 
   passcodeBuffer =
@@ -2738,6 +2746,14 @@ function handleCloseRecords() {
 }
 
 function handleLockNow() {
+
+  Workspace.setViewModeActive(
+
+    false,
+
+  );
+
+  Router.disableViewMode();
 
   closeTransientOverlaysBeforeLock();
 

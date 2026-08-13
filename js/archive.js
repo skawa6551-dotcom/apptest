@@ -380,11 +380,10 @@ export function open() {
   const container = getContainer();
   if (!container) return;
 
-  if (Settings.isArchiveLockEnabled() && !isUnlockedThisSession) {
-    showAuthPanel();
-  } else {
-    showContent();
-  }
+  // Archiveの認証はWorkspace側の共通ロックで1回だけ行う。
+  // Archive内部の再認証は行わない（二重ロック防止）。
+  isUnlockedThisSession = true;
+  showContent();
 
   container.classList.add('is-open');
   container.setAttribute('aria-hidden', 'false');

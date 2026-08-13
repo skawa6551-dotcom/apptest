@@ -196,7 +196,7 @@ function createHeader() {
 
     'aria-label',
 
-    '鑑賞モード',
+    '閲覧モード',
 
   );
 
@@ -1094,6 +1094,72 @@ export function clearViewModeAuthInput() {
 
 // ------------------------------------------------------------
 
+function ensureGlobalViewModeIndicator() {
+
+  let indicator =
+
+    document.getElementById(
+
+      'globalViewModeIndicator',
+
+    );
+
+  if (
+
+    indicator
+
+  ) {
+
+    return indicator;
+
+  }
+
+  indicator =
+
+    document.createElement(
+
+      'div',
+
+    );
+
+  indicator.id =
+
+    'globalViewModeIndicator';
+
+  indicator.className =
+
+    'global-view-mode-indicator';
+
+  indicator.setAttribute(
+
+    'aria-live',
+
+    'polite',
+
+  );
+
+  indicator.setAttribute(
+
+    'aria-hidden',
+
+    'true',
+
+  );
+
+  indicator.innerHTML =
+
+    '<span aria-hidden="true">👁</span><span>閲覧モード</span>';
+
+  document.body.appendChild(
+
+    indicator,
+
+  );
+
+  return indicator;
+
+}
+
 export function setViewModeActive(
 
   active,
@@ -1134,6 +1200,18 @@ export function setViewModeActive(
 
     );
 
+    button.setAttribute(
+
+      'aria-label',
+
+      active
+
+        ? '閲覧モードを終了'
+
+        : '閲覧モードを開始',
+
+    );
+
   }
 
   if (container) {
@@ -1147,6 +1225,38 @@ export function setViewModeActive(
     );
 
   }
+
+  document.body.classList.toggle(
+
+    'global-view-mode-active',
+
+    active,
+
+  );
+
+  const indicator =
+
+    ensureGlobalViewModeIndicator();
+
+  indicator.classList.toggle(
+
+    'is-active',
+
+    active,
+
+  );
+
+  indicator.setAttribute(
+
+    'aria-hidden',
+
+    String(
+
+      !active,
+
+    ),
+
+  );
 
 }
 
