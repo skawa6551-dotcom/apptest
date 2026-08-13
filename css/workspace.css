@@ -1047,3 +1047,57 @@
   }
 
 }
+
+/* ============================================================
+   v71 閲覧モード共通表示
+   WorkspaceでのみON/OFFし、すべての機能画面で状態を表示する。
+   ============================================================ */
+
+.global-view-mode-indicator {
+  position: fixed;
+  top: max(
+    8px,
+    env(safe-area-inset-top)
+  );
+  left: 50%;
+  z-index: 20000;
+  display: none;
+  align-items: center;
+  gap: .38rem;
+  min-height: 30px;
+  padding: 0 .78rem;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 999px;
+  transform: translateX(-50%);
+  background: rgba(9, 83, 79, .88);
+  box-shadow: 0 8px 28px rgba(0,0,0,.28);
+  color: #eaffff;
+  font-size: .75rem;
+  font-weight: 750;
+  letter-spacing: .03em;
+  pointer-events: none;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.global-view-mode-indicator.is-active {
+  display: flex;
+}
+
+body.global-view-mode-active #viewModeToggleBtn {
+  background-color: var(--color-accent) !important;
+  color: var(--color-accent-contrast) !important;
+  box-shadow:
+    0 0 0 2px rgba(255,255,255,.12),
+    0 0 22px rgba(95, 226, 217, .45);
+}
+
+/* AI SpaceではWorkspaceで選んだ閲覧モードを反映。
+   送信欄を隠し、閲覧専用であることを明確にする。 */
+body.global-view-mode-active #messages .messages-composer {
+  display: none !important;
+}
+
+body.global-view-mode-active #messages .messages-list {
+  padding-bottom: 2rem !important;
+}
