@@ -263,16 +263,25 @@
             <span class="settings-row-title">パスコード</span>
             <span class="settings-row-desc">この端末だけで使う4〜8桁の数字</span>
           </div>
-          <input
-            type="password"
-            inputmode="numeric"
-            pattern="[0-9]*"
-            id="customPasscodeInput"
-            class="settings-text-input"
-            placeholder="0209"
-            minlength="4"
-            maxlength="8"
-            autocomplete="off">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input
+              type="password"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              id="customPasscodeInput"
+              class="settings-text-input"
+              placeholder="0209"
+              minlength="4"
+              maxlength="8"
+              autocomplete="off">
+            <button
+              type="button"
+              class="settings-action-btn"
+              data-action="save-custom-passcode"
+              style="width:auto; min-width:72px; margin:0;">
+              保存
+            </button>
+          </div>
         </div>
 
         <div class="settings-row settings-row-select">
