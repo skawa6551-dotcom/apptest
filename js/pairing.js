@@ -226,7 +226,6 @@ export function create() {
 
   const fragment = document.createDocumentFragment();
   fragment.appendChild(createHeader());
-  fragment.appendChild(createNamePanel());
   fragment.appendChild(createChoicePanel());
   fragment.appendChild(createGeneratePanel());
   fragment.appendChild(createJoinPanel());
@@ -240,7 +239,6 @@ export function create() {
 // ------------------------------------------------------------
 
 const PANEL_IDS = Object.freeze([
-  'pairingNamePanel',
   'pairingChoicePanel',
   'pairingGeneratePanel',
   'pairingJoinPanel',
@@ -325,7 +323,7 @@ export async function generateInvite() {
   if (codeEl) codeEl.textContent = '';
 
   try {
-    const displayName = Firebase.getLocalDisplayName() ?? '';
+    const displayName = '';
     const uid = await Firebase.ensureSignedIn();
     await Firebase.ensureUserProfile(uid, displayName);
 
@@ -411,7 +409,7 @@ export async function submitJoinCode() {
     throw new Error('招待コードを入力してください。');
   }
 
-  const displayName = Firebase.getLocalDisplayName() ?? '';
+  const displayName = '';
   const uid = await Firebase.ensureSignedIn();
   await Firebase.ensureUserProfile(uid, displayName);
 
@@ -446,16 +444,12 @@ export function open() {
   const container = getContainer();
   if (!container) return;
 
-  const displayName = Firebase.getLocalDisplayName();
   const joinInput = document.getElementById('pairingJoinInput');
   if (joinInput) joinInput.value = '';
   clearJoinError();
 
-  if (displayName) {
-    showChoicePanel();
-  } else {
-    showNamePanel();
-  }
+  // 二人専用アプリなので名前入力は行わない。
+  showChoicePanel();
 
   container.classList.add('is-open');
   container.setAttribute('aria-hidden', 'false');
