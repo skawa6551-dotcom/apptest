@@ -238,6 +238,9 @@ async function setBlob(
   key,
   blob,
 ) {
+  let indexedDbSaved =
+    false;
+
   try {
     const db =
       await openDb();
@@ -273,32 +276,100 @@ async function setBlob(
               tx.error,
             );
           };
+
+        tx.onabort =
+          () => {
+            db.close();
+            reject(
+              tx.error ||
+              new Error(
+                'IndexedDB transaction aborted',
+              ),
+            );
+          };
       },
     );
 
-    try {
-      localStorage.removeItem(
-        fallbackKey(key),
-      );
-    } catch (_) {}
-
-    return;
-  } catch (error) {
+    indexedDbSaved =
+      true;
+  } catch (
+    error
+  ) {
     console.warn(
-      '[screen-backgrounds] IndexedDB保存失敗。端末内保存へ切替',
+      '[screen-backgrounds] IndexedDB保存失敗',
       error,
     );
   }
 
-  const dataUrl =
-    await blobToDataUrl(
-      blob,
-    );
+  // Safari/PWA対策として小さいJPEGをlocalStorageにも保存。
+  // IndexedDBが使えない環境ではこちらが本体になる。
+  try {
+    const dataUrl =
+      await blobToDataUrl(
+        blob,
+      );
 
-  localStorage.setItem(
-    fallbackKey(key),
-    dataUrl,
-  );
+    try {
+      localStorage.setItem(
+        fallbackKey(key),
+        dataUrl,
+      );
+    } catch (
+      firstError
+    ) {
+      // 同じキーの旧データを消して1回だけ再試行。
+      try {
+        localStorage.removeItem(
+          fallbackKey(key),
+        );
+
+        localStorage.setItem(
+          fallbackKey(key),
+          dataUrl,
+        );
+      } catch (
+        retryError
+      ) {
+        if (
+          !indexedDbSaved
+        ) {
+          throw retryError;
+        }
+
+        console.warn(
+          '[screen-backgrounds] localStorage予備保存を省略',
+          retryError,
+        );
+      }
+    }
+  } catch (
+    error
+  ) {
+    if (
+      !indexedDbSaved
+    ) {
+      throw new Error(
+        'このiPhoneの保存領域に背景写真を保存できませんでした。',
+      );
+    }
+  }
+
+  if (
+    !indexedDbSaved
+  ) {
+    const fallback =
+      localStorage.getItem(
+        fallbackKey(key),
+      );
+
+    if (
+      !fallback
+    ) {
+      throw new Error(
+        '背景画像を保存できませんでした。',
+      );
+    }
+  }
 }
 
 async function removeBlob(
@@ -403,13 +474,64 @@ async function getFallbackBlob(
       return null;
     }
 
-    const response =
-      await fetch(
-        dataUrl,
+    const commaIndex =
+      dataUrl.indexOf(',');
+
+    if (
+      commaIndex < 0
+    ) {
+      return null;
+    }
+
+    const header =
+      dataUrl.slice(
+        0,
+        commaIndex,
       );
 
-    return await response.blob();
-  } catch (error) {
+    const base64 =
+      dataUrl.slice(
+        commaIndex + 1,
+      );
+
+    const mimeMatch =
+      header.match(
+        /^data:([^;]+)/,
+      );
+
+    const mime =
+      mimeMatch?.[1] ||
+      'image/jpeg';
+
+    const binary =
+      atob(
+        base64,
+      );
+
+    const bytes =
+      new Uint8Array(
+        binary.length,
+      );
+
+    for (
+      let i = 0;
+      i < binary.length;
+      i += 1
+    ) {
+      bytes[i] =
+        binary.charCodeAt(i);
+    }
+
+    return new Blob(
+      [bytes],
+      {
+        type:
+          mime,
+      },
+    );
+  } catch (
+    error
+  ) {
     console.warn(
       '[screen-backgrounds] 端末内背景の読込失敗',
       error,
@@ -597,7 +719,7 @@ function updateStatus(
 
 
 const BACKGROUND_UI_VERSION =
-  '5f';
+  '5g';
 
 async function loadImageSource(
   file,
@@ -741,7 +863,7 @@ async function prepareBackgroundBlob(
     // iPhone背景には十分な解像度を保ちつつ、
     // Safariの保存容量に収まりやすくする。
     const MAX_EDGE =
-      1280;
+      960;
 
     const scale =
       Math.min(
@@ -821,10 +943,11 @@ async function prepareBackgroundBlob(
     // 必要なら段階的に圧縮する。
     const qualities =
       [
-        0.78,
-        0.68,
-        0.58,
-        0.48,
+        0.72,
+        0.60,
+        0.50,
+        0.40,
+        0.32,
       ];
 
     let result =
@@ -842,7 +965,7 @@ async function prepareBackgroundBlob(
 
       if (
         result.size <=
-        850 * 1024
+        420 * 1024
       ) {
         break;
       }
