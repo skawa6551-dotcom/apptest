@@ -106,3 +106,18 @@
     padding: 12px 0;
   }
 }
+
+/* 履歴画面: 指定されたデフォルト写真、または各自が選んだ写真 */
+#messageHistoryV2,
+#messageHistoryDetailV2 {
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(3, 5, 8, .22),
+      rgba(3, 5, 8, .70)
+    ),
+    var(--history-user-bg, url("../assets/backgrounds/history-default.jpeg")) !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
