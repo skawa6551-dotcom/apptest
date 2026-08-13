@@ -1101,3 +1101,20 @@ body.global-view-mode-active #messages .messages-composer {
 body.global-view-mode-active #messages .messages-list {
   padding-bottom: 2rem !important;
 }
+
+
+/* ============================================================
+   v72 閲覧モード正式仕様
+   閲覧モードは自動ロックタイマーを停止するだけ。
+   入力・送信・編集など、各画面の通常操作は一切制限しない。
+   ============================================================ */
+
+body.global-view-mode-active #messages .messages-composer {
+  display: flex !important;
+}
+
+body.global-view-mode-active #messages .messages-list {
+  padding-bottom: inherit;
+}
+
+/* 閲覧モード表示は残す。操作制限は付けない。 */
