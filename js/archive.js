@@ -261,15 +261,78 @@ function createEntryCard(entry) {
   const card = document.createElement('li');
   card.className = 'archive-entry';
 
+  const archiveId =
+    Records.getArchiveEntryId(
+      entry,
+    );
+
+  card.dataset.archiveId =
+    archiveId;
+
+  const top =
+    document.createElement('div');
+
+  top.className =
+    'archive-entry-top';
+
   const date = document.createElement('p');
   date.className = 'archive-entry-date';
   date.textContent = formatTimestamp(entry.timestamp);
+
+  const deleteButton =
+    document.createElement('button');
+
+  deleteButton.type =
+    'button';
+
+  deleteButton.className =
+    'archive-entry-delete';
+
+  deleteButton.dataset.action =
+    'delete-archive-entry';
+
+  deleteButton.dataset.archiveId =
+    archiveId;
+
+  deleteButton.setAttribute(
+    'aria-label',
+    'このArchiveを削除',
+  );
+
+  deleteButton.textContent =
+    '×';
+
+  top.append(
+    date,
+    deleteButton,
+  );
 
   const text = document.createElement('p');
   text.className = 'archive-entry-text';
   text.textContent = entry.text;
 
-  card.appendChild(date);
+  if (
+    entry?.source ===
+      'message' &&
+    entry?.sender
+  ) {
+    const source =
+      document.createElement(
+        'p',
+      );
+
+    source.className =
+      'archive-entry-source';
+
+    source.textContent =
+      `メッセージ・${entry.sender}`;
+
+    card.appendChild(
+      source,
+    );
+  }
+
+  card.appendChild(top);
   card.appendChild(text);
 
   return card;
@@ -427,6 +490,30 @@ export function search(query) {
  * 背景プリセットを切り替え、Storageへ選択状態を保存する。
  * @param {string} backgroundId
  */
+export function deleteEntry(
+  archiveId,
+) {
+  if (
+    typeof archiveId !== 'string' ||
+    !archiveId.trim()
+  ) {
+    return false;
+  }
+
+  const deleted =
+    Records.deleteArchiveEntry(
+      archiveId.trim(),
+    );
+
+  if (
+    deleted
+  ) {
+    renderList();
+  }
+
+  return deleted;
+}
+
 export function selectBackground(backgroundId) {
   const isValid = BACKGROUND_PRESETS.some((preset) => preset.id === backgroundId);
   if (!isValid) return;
@@ -531,6 +618,7 @@ const Archive = {
   close,
   isOpen,
   search,
+  deleteEntry,
   selectBackground,
   getAuthInputValue,
   clearAuthInput,

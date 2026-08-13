@@ -251,7 +251,25 @@ export function saveToArchive(
         )
       : Date.now();
 
+  const archiveId =
+    typeof options?.archiveId ===
+      'string' &&
+    options.archiveId.trim()
+      ? options.archiveId.trim()
+      : (
+          typeof crypto !==
+            'undefined' &&
+          typeof crypto.randomUUID ===
+            'function'
+            ? crypto.randomUUID()
+            : `archive-${Date.now()}-${Math.random()
+                .toString(36)
+                .slice(2)}`
+        );
+
   entries.unshift({
+    id:
+      archiveId,
     text:
       text.trim(),
     timestamp,
@@ -278,6 +296,7 @@ export function saveToArchive(
 }
 
 /**
+ * アーカイブ全件/**
  * アーカイブ全件を返す（Archive画面・検索・将来のFirebase同期用）。
  * 新しい記録が先頭に来る順序で返す。
  * @returns {RecordEntry[]}
@@ -290,6 +309,98 @@ export function getArchive() {
  * アーカイブ（記録の保存内容）をすべて削除する。
  * 設定画面の「データ管理」から呼ばれる想定。
  */
+export function getArchiveEntryId(
+  entry,
+) {
+  if (
+    typeof entry?.id === 'string' &&
+    entry.id.trim()
+  ) {
+    return entry.id.trim();
+  }
+
+  const timestamp =
+    Number(
+      entry?.timestamp ?? 0,
+    );
+
+  const text =
+    String(
+      entry?.text ?? '',
+    );
+
+  const sourceMessageId =
+    String(
+      entry?.sourceMessageId ?? '',
+    );
+
+  // v81以前の保存データにも安定した識別子を与える。
+  let hash = 2166136261;
+
+  const seed =
+    `${timestamp}|${sourceMessageId}|${text}`;
+
+  for (
+    let index = 0;
+    index < seed.length;
+    index += 1
+  ) {
+    hash ^=
+      seed.charCodeAt(
+        index,
+      );
+
+    hash =
+      Math.imul(
+        hash,
+        16777619,
+      );
+  }
+
+  return `legacy-${timestamp}-${(
+    hash >>> 0
+  ).toString(36)}`;
+}
+
+export function deleteArchiveEntry(
+  archiveId,
+) {
+  if (
+    typeof archiveId !== 'string' ||
+    !archiveId.trim()
+  ) {
+    return false;
+  }
+
+  const entries =
+    loadArchive();
+
+  const targetId =
+    archiveId.trim();
+
+  const next =
+    entries.filter(
+      (entry) =>
+        getArchiveEntryId(
+          entry,
+        ) !==
+        targetId,
+    );
+
+  if (
+    next.length ===
+    entries.length
+  ) {
+    return false;
+  }
+
+  saveArchive(
+    next,
+  );
+
+  return true;
+}
+
 export function clearArchive() {
   saveArchive([]);
 }
@@ -303,6 +414,8 @@ const Records = {
   clearInput,
   saveToArchive,
   getArchive,
+  getArchiveEntryId,
+  deleteArchiveEntry,
   clearArchive,
 };
 

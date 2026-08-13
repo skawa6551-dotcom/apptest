@@ -3394,6 +3394,47 @@ function handleCancelArchiveAuth() {
 
 }
 
+function handleDeleteArchiveEntry(
+  target,
+) {
+
+  const {
+    archiveId,
+  } =
+    target.dataset;
+
+  if (
+    !archiveId
+  ) {
+    return;
+  }
+
+  const confirmed =
+    window.confirm(
+      'このArchiveを削除しますか？',
+    );
+
+  if (
+    !confirmed
+  ) {
+    return;
+  }
+
+  const deleted =
+    Archive.deleteEntry(
+      archiveId,
+    );
+
+  playFeedbackSound(
+    deleted
+      ? 'success'
+      : 'error',
+  );
+
+  playFeedbackVibration();
+
+}
+
 const ARCHIVE_ACTION_HANDLERS =
 
   Object.freeze({
@@ -3447,6 +3488,24 @@ function handleArchiveScreenClick(
   ) {
 
     handleSelectBackground(
+
+      target,
+
+    );
+
+    return;
+
+  }
+
+  if (
+
+    action ===
+
+    'delete-archive-entry'
+
+  ) {
+
+    handleDeleteArchiveEntry(
 
       target,
 
