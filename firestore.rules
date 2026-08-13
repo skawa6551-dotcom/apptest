@@ -117,6 +117,29 @@ service cloud.firestore {
       // -----------------------------
       // /rooms/{roomId}/messages/{messageId}
       // -----------------------------
+      // ------------------------------------------------------------
+      // /rooms/{roomId}/photos/{photoId}
+      // ------------------------------------------------------------
+      match /photos/{photoId} {
+        allow read: if isSignedIn()
+          && request.auth.uid in get(
+            /databases/$(database)/documents/rooms/$(roomId)
+          ).data.memberIds;
+
+        allow create: if isSignedIn()
+          && request.auth.uid in get(
+            /databases/$(database)/documents/rooms/$(roomId)
+          ).data.memberIds
+          && request.resource.data.createdBy == request.auth.uid;
+
+        allow update: if false;
+
+        allow delete: if isSignedIn()
+          && request.auth.uid in get(
+            /databases/$(database)/documents/rooms/$(roomId)
+          ).data.memberIds;
+      }
+
       match /messages/{messageId} {
         allow read: if isSignedIn()
           && request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberIds;
