@@ -2544,6 +2544,37 @@ function closeSettings() {
 
 }
 
+
+// ============================================================
+// 強制ロック前の全オーバーレイ閉じ
+// ============================================================
+
+function closeTransientOverlaysBeforeLock() {
+
+  // SettingsはRouter管理外のモーダルなので明示的に閉じる。
+  closeSettings();
+
+  // Workspace内の再認証オーバーレイが残っている場合も閉じる。
+  hideFeatureAuth();
+
+  // 閲覧モード認証オーバーレイも閉じる。
+  Workspace.hideViewModeAuth();
+  Workspace.clearViewModeAuthInput();
+
+  // Messagesのアクションシートが開いていれば閉じる。
+  try {
+    Messages.closeActionSheet();
+  } catch (
+    error
+  ) {
+    console.warn(
+      '[app.js] メッセージアクションシートを閉じられませんでした',
+      error,
+    );
+  }
+
+}
+
 // ============================================================
 
 // 生体認証ロック
@@ -2647,6 +2678,8 @@ function handleCloseRecords() {
 }
 
 function handleLockNow() {
+
+  closeTransientOverlaysBeforeLock();
 
   Router.lockNow();
 
@@ -6730,17 +6763,6 @@ function handleVisibilityChange() {
 
   ) {
 
-    // iPhoneでホームへ戻る・別アプリへ切り替えるなど、
-    // アプリがバックグラウンドへ移った時点で必ず電卓へ戻す。
-    //
-    // 次回復帰時にMessages / Calendar / Archive / Photo /
-    // Workspaceなどの秘密画面を残さない。
-    Router.lockNow();
-
-    passcodeBuffer =
-
-      '';
-
     Sound.stopAll();
 
   }
@@ -6748,13 +6770,6 @@ function handleVisibilityChange() {
 }
 
 function handlePageHide() {
-
-  // Safari/PWAがページを破棄・退避する場合も電卓状態へ戻す。
-  Router.lockNow();
-
-  passcodeBuffer =
-
-    '';
 
   Sound.stopAll();
 
@@ -6783,12 +6798,6 @@ function handlePageHide() {
 }
 
 function handleBeforeUnload() {
-
-  Router.lockNow();
-
-  passcodeBuffer =
-
-    '';
 
   Sound.stopAll();
 
