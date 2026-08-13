@@ -172,65 +172,28 @@ async function getBlob(
   key,
 ) {
   try {
-    const db =
-      await openDb();
+    const dataUrl =
+      localStorage.getItem(
+        fallbackKey(key),
+      );
 
-    return await new Promise(
-      (
-        resolve,
-        reject,
-      ) => {
-        const tx =
-          db.transaction(
-            STORE_NAME,
-            'readonly',
-          );
+    if (!dataUrl) {
+      return null;
+    }
 
-        const request =
-          tx.objectStore(
-            STORE_NAME,
-          ).get(key);
+    const response =
+      await fetch(
+        dataUrl,
+      );
 
-        request.onsuccess =
-          () => {
-            const result =
-              request.result ??
-              null;
-            db.close();
-
-            if (result) {
-              resolve(result);
-              return;
-            }
-
-            getFallbackBlob(
-              key,
-            )
-              .then(resolve)
-              .catch(
-                () =>
-                  resolve(null),
-              );
-          };
-
-        request.onerror =
-          () => {
-            db.close();
-            reject(
-              request.error,
-            );
-          };
-      },
-    );
+    return await response.blob();
   } catch (error) {
     console.warn(
-      '[screen-backgrounds] IndexedDB読込失敗',
+      '[screen-backgrounds] 背景読込失敗',
       error,
     );
 
-    return getFallbackBlob(
-      key,
-    );
+    return null;
   }
 }
 
@@ -238,113 +201,38 @@ async function setBlob(
   key,
   blob,
 ) {
-  try {
-    const db =
-      await openDb();
-
-    await new Promise(
-      (
-        resolve,
-        reject,
-      ) => {
-        const tx =
-          db.transaction(
-            STORE_NAME,
-            'readwrite',
-          );
-
-        tx.objectStore(
-          STORE_NAME,
-        ).put(
-          blob,
-          key,
-        );
-
-        tx.oncomplete =
-          () => {
-            db.close();
-            resolve();
-          };
-
-        tx.onerror =
-          () => {
-            db.close();
-            reject(
-              tx.error,
-            );
-          };
-      },
-    );
-
-    try {
-      localStorage.removeItem(
-        fallbackKey(key),
-      );
-    } catch (_) {}
-
-    return;
-  } catch (error) {
-    console.warn(
-      '[screen-backgrounds] IndexedDB保存失敗。端末内保存へ切替',
-      error,
-    );
-  }
-
   const dataUrl =
     await blobToDataUrl(
       blob,
     );
 
-  localStorage.setItem(
-    fallbackKey(key),
-    dataUrl,
-  );
+  try {
+    localStorage.setItem(
+      fallbackKey(key),
+      dataUrl,
+    );
+  } catch (error) {
+    // 同じ背景の旧データを削除して1回だけ再試行
+    try {
+      localStorage.removeItem(
+        fallbackKey(key),
+      );
+
+      localStorage.setItem(
+        fallbackKey(key),
+        dataUrl,
+      );
+    } catch (retryError) {
+      throw new Error(
+        'この写真は保存容量を超えています。別の写真を選んでください。',
+      );
+    }
+  }
 }
 
 async function removeBlob(
   key,
 ) {
-  try {
-    const db =
-      await openDb();
-
-    await new Promise(
-      (
-        resolve,
-        reject,
-      ) => {
-        const tx =
-          db.transaction(
-            STORE_NAME,
-            'readwrite',
-          );
-
-        tx.objectStore(
-          STORE_NAME,
-        ).delete(key);
-
-        tx.oncomplete =
-          () => {
-            db.close();
-            resolve();
-          };
-
-        tx.onerror =
-          () => {
-            db.close();
-            reject(
-              tx.error,
-            );
-          };
-      },
-    );
-  } catch (error) {
-    console.warn(
-      '[screen-backgrounds] IndexedDB削除失敗',
-      error,
-    );
-  }
-
   try {
     localStorage.removeItem(
       fallbackKey(key),
@@ -388,35 +276,6 @@ function blobToDataUrl(
       );
     },
   );
-}
-
-async function getFallbackBlob(
-  key,
-) {
-  try {
-    const dataUrl =
-      localStorage.getItem(
-        fallbackKey(key),
-      );
-
-    if (!dataUrl) {
-      return null;
-    }
-
-    const response =
-      await fetch(
-        dataUrl,
-      );
-
-    return await response.blob();
-  } catch (error) {
-    console.warn(
-      '[screen-backgrounds] 端末内背景の読込失敗',
-      error,
-    );
-
-    return null;
-  }
 }
 
 function revokeUrl(
@@ -741,7 +600,7 @@ async function prepareBackgroundBlob(
     // iPhone背景には十分な解像度を保ちつつ、
     // Safariの保存容量に収まりやすくする。
     const MAX_EDGE =
-      1280;
+      900;
 
     const scale =
       Math.min(
@@ -821,10 +680,11 @@ async function prepareBackgroundBlob(
     // 必要なら段階的に圧縮する。
     const qualities =
       [
-        0.78,
         0.68,
-        0.58,
-        0.48,
+        0.56,
+        0.46,
+        0.36,
+        0.28,
       ];
 
     let result =
@@ -842,7 +702,7 @@ async function prepareBackgroundBlob(
 
       if (
         result.size <=
-        850 * 1024
+        320 * 1024
       ) {
         break;
       }
