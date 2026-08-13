@@ -9,6 +9,7 @@
 // ============================================================
 
 import Firebase from './firebase.js';
+import Records from './records.js';
 
 const LIST_ID = 'messageHistoryV2';
 const DETAIL_ID = 'messageHistoryDetailV2';
@@ -18,6 +19,14 @@ let latestMessages = [];
 let currentQuery = '';
 let selectedDateKey = null;
 let isBuilt = false;
+
+let longPressTimer = null;
+let longPressStartX = 0;
+let longPressStartY = 0;
+let pendingArchiveMessageId = null;
+const LONG_PRESS_MS = 550;
+const LONG_PRESS_MOVE_PX = 12;
+
 
 function messageTimeMs(message) {
   const ts = message?.timestamp;
@@ -203,6 +212,53 @@ function buildScreens() {
       </div>
     </div>
 
+    <div
+      id="historyV2ArchiveToast"
+      class="history-v2-archive-toast"
+      role="status"
+      aria-live="polite"
+      hidden
+    ></div>
+
+    <div
+      id="historyV2LongPressMenu"
+      class="history-v2-longpress-menu"
+      aria-hidden="true"
+    >
+      <button
+        type="button"
+        class="history-v2-longpress-backdrop"
+        data-history-v2-action="close-longpress-menu"
+        aria-label="メニューを閉じる"
+      ></button>
+
+      <div
+        class="history-v2-longpress-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label="メッセージ操作"
+      >
+        <div class="history-v2-longpress-handle" aria-hidden="true"></div>
+        <p class="history-v2-longpress-title">このメッセージ</p>
+
+        <button
+          type="button"
+          class="history-v2-longpress-action"
+          data-history-v2-action="archive-message"
+        >
+          Archiveに保存
+        </button>
+
+        <button
+          type="button"
+          class="history-v2-longpress-cancel"
+          data-history-v2-action="close-longpress-menu"
+        >
+          キャンセル
+        </button>
+      </div>
+    </div>
+
     <div class="history-v2-composer">
       <div class="history-v2-input-wrap">
         <textarea
@@ -286,6 +342,56 @@ function buildScreens() {
   detail.addEventListener(
     'click',
     handleClick,
+  );
+
+  list.addEventListener(
+    'pointerdown',
+    handleHistoryPointerDown,
+  );
+
+  list.addEventListener(
+    'pointermove',
+    handleHistoryPointerMove,
+  );
+
+  list.addEventListener(
+    'pointerup',
+    cancelHistoryLongPress,
+  );
+
+  list.addEventListener(
+    'pointercancel',
+    cancelHistoryLongPress,
+  );
+
+  detail.addEventListener(
+    'pointerdown',
+    handleHistoryPointerDown,
+  );
+
+  detail.addEventListener(
+    'pointermove',
+    handleHistoryPointerMove,
+  );
+
+  detail.addEventListener(
+    'pointerup',
+    cancelHistoryLongPress,
+  );
+
+  detail.addEventListener(
+    'pointercancel',
+    cancelHistoryLongPress,
+  );
+
+  list.addEventListener(
+    'contextmenu',
+    handleHistoryContextMenu,
+  );
+
+  detail.addEventListener(
+    'contextmenu',
+    handleHistoryContextMenu,
   );
 
   list.querySelector(
@@ -540,6 +646,15 @@ function createFullHistoryMessage(
         ? 'is-own'
         : 'is-other'
     }`;
+
+  if (
+    message?.id
+  ) {
+    row.dataset.historyV2MessageId =
+      String(
+        message.id,
+      );
+  }
 
   const bubble =
     document.createElement(
@@ -911,8 +1026,9 @@ function renderDetail(
   messages.forEach(
     (message) => {
       const isOwn =
-        message?.senderId ===
-        uid;
+        Firebase.isOwnSenderId(
+          message?.senderId,
+        );
 
       const row =
         document.createElement(
@@ -925,6 +1041,15 @@ function renderDetail(
             ? 'is-own'
             : 'is-other'
         }`;
+
+      if (
+        message?.id
+      ) {
+        row.dataset.historyV2MessageId =
+          String(
+            message.id,
+          );
+      }
 
       const bubble =
         document.createElement(
@@ -1128,6 +1253,9 @@ async function closeHistory() {
 
   selectedDateKey = null;
 
+  closeLongPressMenu();
+  cancelHistoryLongPress();
+
   stopSubscription();
 
   // 既存AI Space側の「履歴モード」も終了。
@@ -1227,6 +1355,320 @@ function closeDetail() {
   );
 }
 
+
+function findMessageById(
+  messageId,
+) {
+  if (!messageId) {
+    return null;
+  }
+
+  return dedupeMessages(
+    latestMessages,
+  ).find(
+    (message) =>
+      String(
+        message?.id ?? '',
+      ) ===
+      String(
+        messageId,
+      ),
+  ) ?? null;
+}
+
+function showArchiveToast(
+  message,
+) {
+  const toast =
+    document.getElementById(
+      'historyV2ArchiveToast',
+    );
+
+  if (!toast) {
+    return;
+  }
+
+  toast.textContent =
+    message;
+
+  toast.hidden =
+    false;
+
+  toast.classList.add(
+    'is-visible',
+  );
+
+  window.clearTimeout(
+    showArchiveToast._timer,
+  );
+
+  showArchiveToast._timer =
+    window.setTimeout(
+      () => {
+        toast.classList.remove(
+          'is-visible',
+        );
+
+        window.setTimeout(
+          () => {
+            toast.hidden =
+              true;
+          },
+          180,
+        );
+      },
+      1800,
+    );
+}
+
+function openLongPressMenu(
+  messageId,
+) {
+  if (!messageId) {
+    return;
+  }
+
+  pendingArchiveMessageId =
+    String(
+      messageId,
+    );
+
+  const menu =
+    document.getElementById(
+      'historyV2LongPressMenu',
+    );
+
+  if (!menu) {
+    return;
+  }
+
+  menu.classList.add(
+    'is-open',
+  );
+
+  menu.setAttribute(
+    'aria-hidden',
+    'false',
+  );
+
+  if (
+    navigator.vibrate
+  ) {
+    try {
+      navigator.vibrate(
+        18,
+      );
+    } catch {}
+  }
+}
+
+function closeLongPressMenu() {
+  pendingArchiveMessageId =
+    null;
+
+  const menu =
+    document.getElementById(
+      'historyV2LongPressMenu',
+    );
+
+  if (!menu) {
+    return;
+  }
+
+  menu.classList.remove(
+    'is-open',
+  );
+
+  menu.setAttribute(
+    'aria-hidden',
+    'true',
+  );
+}
+
+function cancelHistoryLongPress() {
+  if (
+    longPressTimer
+  ) {
+    window.clearTimeout(
+      longPressTimer,
+    );
+
+    longPressTimer =
+      null;
+  }
+}
+
+function handleHistoryPointerDown(
+  event,
+) {
+  if (
+    event.pointerType ===
+      'mouse' &&
+    event.button !== 0
+  ) {
+    return;
+  }
+
+  if (
+    !(
+      event.target
+      instanceof Element
+    )
+  ) {
+    return;
+  }
+
+  const row =
+    event.target.closest(
+      '[data-history-v2-message-id]',
+    );
+
+  const messageId =
+    row?.dataset
+      ?.historyV2MessageId;
+
+  if (!messageId) {
+    return;
+  }
+
+  cancelHistoryLongPress();
+
+  longPressStartX =
+    event.clientX;
+
+  longPressStartY =
+    event.clientY;
+
+  longPressTimer =
+    window.setTimeout(
+      () => {
+        longPressTimer =
+          null;
+
+        openLongPressMenu(
+          messageId,
+        );
+      },
+      LONG_PRESS_MS,
+    );
+}
+
+function handleHistoryPointerMove(
+  event,
+) {
+  if (!longPressTimer) {
+    return;
+  }
+
+  const dx =
+    Math.abs(
+      event.clientX -
+      longPressStartX,
+    );
+
+  const dy =
+    Math.abs(
+      event.clientY -
+      longPressStartY,
+    );
+
+  if (
+    dx >
+      LONG_PRESS_MOVE_PX ||
+    dy >
+      LONG_PRESS_MOVE_PX
+  ) {
+    cancelHistoryLongPress();
+  }
+}
+
+function handleHistoryContextMenu(
+  event,
+) {
+  if (
+    !(
+      event.target
+      instanceof Element
+    )
+  ) {
+    return;
+  }
+
+  const row =
+    event.target.closest(
+      '[data-history-v2-message-id]',
+    );
+
+  const messageId =
+    row?.dataset
+      ?.historyV2MessageId;
+
+  if (!messageId) {
+    return;
+  }
+
+  event.preventDefault();
+
+  cancelHistoryLongPress();
+
+  openLongPressMenu(
+    messageId,
+  );
+}
+
+function archivePendingMessage() {
+  const message =
+    findMessageById(
+      pendingArchiveMessageId,
+    );
+
+  if (!message) {
+    closeLongPressMenu();
+
+    showArchiveToast(
+      'メッセージを取得できませんでした',
+    );
+
+    return;
+  }
+
+  const saved =
+    Records.saveToArchive(
+      String(
+        message?.text ??
+        '',
+      ),
+      {
+        source:
+          'message',
+        sourceMessageId:
+          String(
+            message?.id ??
+            '',
+          ),
+        timestamp:
+          messageTimeMs(
+            message,
+          ) ||
+          Date.now(),
+        sender:
+          Firebase.isOwnSenderId(
+            message?.senderId,
+          )
+            ? '自分'
+            : '相手',
+      },
+    );
+
+  closeLongPressMenu();
+
+  showArchiveToast(
+    saved
+      ? 'Archiveに保存しました'
+      : 'すでにArchiveに保存されています',
+  );
+}
+
 function handleClick(
   event,
 ) {
@@ -1273,6 +1715,22 @@ function handleClick(
       'send-reply'
     ) {
       sendHistoryReply();
+      return;
+    }
+
+    if (
+      action ===
+      'archive-message'
+    ) {
+      archivePendingMessage();
+      return;
+    }
+
+    if (
+      action ===
+      'close-longpress-menu'
+    ) {
+      closeLongPressMenu();
       return;
     }
   }

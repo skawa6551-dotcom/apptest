@@ -206,12 +206,75 @@ export function clearInput() {
  * Archive画面から振り返ることができる。
  * @param {string} text
  */
-export function saveToArchive(text) {
-  if (typeof text !== 'string' || text.trim() === '') return;
+export function saveToArchive(
+  text,
+  options = {},
+) {
+  if (
+    typeof text !== 'string' ||
+    text.trim() === ''
+  ) {
+    return false;
+  }
 
-  const entries = loadArchive();
-  entries.unshift({ text: text.trim(), timestamp: Date.now() });
-  saveArchive(entries);
+  const entries =
+    loadArchive();
+
+  const sourceMessageId =
+    typeof options?.sourceMessageId ===
+      'string'
+      ? options.sourceMessageId.trim()
+      : '';
+
+  if (
+    sourceMessageId &&
+    entries.some(
+      (entry) =>
+        entry?.sourceMessageId ===
+        sourceMessageId,
+    )
+  ) {
+    return false;
+  }
+
+  const timestamp =
+    Number.isFinite(
+      Number(
+        options?.timestamp,
+      ),
+    ) &&
+    Number(
+      options.timestamp,
+    ) > 0
+      ? Number(
+          options.timestamp,
+        )
+      : Date.now();
+
+  entries.unshift({
+    text:
+      text.trim(),
+    timestamp,
+    source:
+      options?.source ===
+        'message'
+        ? 'message'
+        : 'record',
+    sourceMessageId:
+      sourceMessageId ||
+      undefined,
+    sender:
+      typeof options?.sender ===
+        'string'
+        ? options.sender
+        : undefined,
+  });
+
+  saveArchive(
+    entries,
+  );
+
+  return true;
 }
 
 /**
