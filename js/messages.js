@@ -91,6 +91,25 @@ function ensureFallbackStyles() {
       margin:8px 0 0; font-size:34px; line-height:1; font-weight:650;
       color:#8fe6e0;
     }
+    #messages .messages-workspace-back {
+      flex:0 0 auto;
+      width:44px; height:44px; margin-top:2px;
+      display:grid; place-items:center;
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:50%;
+      background:rgba(255,255,255,.055);
+      color:#f7f8fb;
+      font:inherit;
+      font-size:34px;
+      line-height:1;
+      cursor:pointer;
+      -webkit-tap-highlight-color:transparent;
+    }
+    #messages .messages-workspace-back span {
+      display:block;
+      transform:translateY(-2px);
+      pointer-events:none;
+    }
     #messages .ai-space-online {
       display:flex; align-items:center; gap:7px; margin-top:13px;
       color:rgba(255,255,255,.72); font-size:13px;
@@ -229,6 +248,14 @@ function createHeader() {
   const header = document.createElement('header');
   header.className = 'messages-header ai-space-header';
 
+  // Step 2: MessagesからWorkspaceへ戻る専用ボタン
+  const backButton = document.createElement('button');
+  backButton.type = 'button';
+  backButton.className = 'messages-workspace-back';
+  backButton.dataset.action = 'close-messages';
+  backButton.setAttribute('aria-label', 'Workspaceへ戻る');
+  backButton.innerHTML = '<span aria-hidden="true">‹</span>';
+
   const brand = document.createElement('div');
   brand.className = 'ai-space-brand';
 
@@ -269,7 +296,7 @@ function createHeader() {
   history.querySelector('button').setAttribute('aria-pressed', 'false');
 
   actions.append(lock, view, history);
-  header.append(brand, actions);
+  header.append(backButton, brand, actions);
 
   return header;
 }
