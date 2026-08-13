@@ -22,7 +22,7 @@
 
 //
 
-// CACHE_VERSION 59
+// CACHE_VERSION 60
 
 // ============================================================
 
@@ -34,7 +34,7 @@
 
 // ============================================================
 
-const CACHE_VERSION = 59;
+const CACHE_VERSION = 60;
 
 const CACHE_PREFIX =
 
@@ -86,6 +86,8 @@ const PRECACHE_URLS =
 
     './css/photo.css',
 
+    './css/screen-backgrounds.css',
+
     // --------------------------------------------------------
 
     // JavaScript
@@ -136,6 +138,8 @@ const PRECACHE_URLS =
 
     './js/notifications.js',
 
+    './js/screen-backgrounds.js',
+
     // --------------------------------------------------------
 
     // Icons
@@ -147,6 +151,8 @@ const PRECACHE_URLS =
     './assets/icons/icon-512.png',
 
     './assets/icons/icon-512-maskable.png',
+
+    './assets/history-default.jpeg',
 
   ]);
 
