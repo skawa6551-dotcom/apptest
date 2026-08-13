@@ -10,7 +10,22 @@
 const DEFAULT_PASSCODE = '0209';
 
 /** 現在有効なパスコード。 */
-let currentPasscode = DEFAULT_PASSCODE;
+const PASSCODE_STORAGE_KEY = 'calculator0209_custom_passcode';
+
+function readStoredPasscode() {
+  try {
+    const value = window.localStorage.getItem(PASSCODE_STORAGE_KEY);
+    return typeof value === 'string' && /^\d{4,8}$/.test(value)
+      ? value
+      : DEFAULT_PASSCODE;
+  } catch (error) {
+    console.warn('[passcode.js] 保存済みパスコードを読めませんでした', error);
+    return DEFAULT_PASSCODE;
+  }
+}
+
+/** 現在のパスコード（この端末だけに保存）。 */
+let currentPasscode = readStoredPasscode();
 
 /**
  * 現在のパスコードを返す。
@@ -31,10 +46,16 @@ export function getPasscode() {
  */
 export function setPasscode(value) {
   if (typeof value !== 'string') return false;
-  if (!/^\d+$/.test(value)) return false;
+  if (!/^\d{4,8}$/.test(value)) return false;
 
-  currentPasscode = value;
-  return true;
+  try {
+    window.localStorage.setItem(PASSCODE_STORAGE_KEY, value);
+    currentPasscode = value;
+    return true;
+  } catch (error) {
+    console.warn('[passcode.js] パスコードを保存できませんでした', error);
+    return false;
+  }
 }
 
 /**

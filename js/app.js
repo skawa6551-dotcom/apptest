@@ -1522,6 +1522,19 @@ function renderSettings() {
 
   }
 
+  const customPasscodeInput =
+    document.getElementById(
+      'customPasscodeInput',
+    );
+
+  if (
+    customPasscodeInput
+  ) {
+    customPasscodeInput.value = '';
+    customPasscodeInput.placeholder =
+      `${'•'.repeat(Passcode.getPasscode().length)}（設定済み）`;
+  }
+
   const autoLockSelect =
 
     document.getElementById(
@@ -5684,6 +5697,48 @@ function handleSettingsTextInputChange(
   target,
 
 ) {
+
+  if (
+    target.id ===
+    'customPasscodeInput'
+  ) {
+    const value =
+      String(target.value ?? '')
+        .trim();
+
+    if (
+      value === ''
+    ) {
+      return;
+    }
+
+    if (
+      !/^\d{4,8}$/.test(value)
+    ) {
+      window.alert(
+        'パスコードは4〜8桁の数字で設定してください。',
+      );
+      target.value = '';
+      return;
+    }
+
+    if (
+      Passcode.setPasscode(value)
+    ) {
+      window.alert(
+        'この端末のパスコードを変更しました。',
+      );
+      target.value = '';
+      target.placeholder =
+        `${'•'.repeat(Passcode.getPasscode().length)}（設定済み）`;
+    } else {
+      window.alert(
+        'パスコードを保存できませんでした。',
+      );
+    }
+
+    return;
+  }
 
   if (
 
