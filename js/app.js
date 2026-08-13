@@ -6753,6 +6753,22 @@ function handleServiceWorkerMessage(
 
 // ============================================================
 
+function forceReturnToCalculator() {
+
+  // Router外で管理されている設定モーダル等を先に閉じる。
+  closeTransientOverlaysBeforeLock();
+
+  // 全機能画面を閉じて電卓へ戻す。
+  Router.lockNow();
+
+  passcodeBuffer =
+
+    '';
+
+  render();
+
+}
+
 function handleVisibilityChange() {
 
   if (
@@ -6763,6 +6779,8 @@ function handleVisibilityChange() {
 
   ) {
 
+    forceReturnToCalculator();
+
     Sound.stopAll();
 
   }
@@ -6770,6 +6788,8 @@ function handleVisibilityChange() {
 }
 
 function handlePageHide() {
+
+  forceReturnToCalculator();
 
   Sound.stopAll();
 
@@ -6799,6 +6819,8 @@ function handlePageHide() {
 
 function handleBeforeUnload() {
 
+  forceReturnToCalculator();
+
   Sound.stopAll();
 
 }
@@ -6826,6 +6848,30 @@ function registerTeardownHandlers() {
     'beforeunload',
 
     handleBeforeUnload,
+
+  );
+
+  window.addEventListener(
+
+    'pageshow',
+
+    (
+
+      event,
+
+    ) => {
+
+      if (
+
+        event.persisted
+
+      ) {
+
+        forceReturnToCalculator();
+
+      }
+
+    },
 
   );
 
