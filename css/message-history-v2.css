@@ -605,3 +605,176 @@
   padding-top:
     4px !important;
 }
+
+
+/* ============================================================
+   v74 履歴 = 全文会話 + その場で返信
+   ============================================================ */
+
+.message-history-v2.is-open {
+  display: flex;
+  flex-direction: column;
+}
+
+#messageHistoryV2 .history-v2-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding:
+    6px
+    14px
+    14px;
+}
+
+#messageHistoryV2 .history-v2-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.history-v2-chat-date {
+  align-self: center;
+  margin: 11px 0 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.32);
+  color: rgba(255,255,255,.68);
+  font-size: 11px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.history-v2-chat-row {
+  display: flex;
+  width: 100%;
+}
+
+.history-v2-chat-row.is-own {
+  justify-content: flex-end;
+}
+
+.history-v2-chat-row.is-other {
+  justify-content: flex-start;
+}
+
+.history-v2-chat-bubble {
+  max-width: min(82%, 36rem);
+  padding: 10px 12px 11px;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.history-v2-chat-row.is-own .history-v2-chat-bubble {
+  border-bottom-right-radius: 5px;
+  background: rgba(30, 88, 92, .72);
+}
+
+.history-v2-chat-row.is-other .history-v2-chat-bubble {
+  border-bottom-left-radius: 5px;
+  background: rgba(25, 25, 31, .68);
+}
+
+.history-v2-chat-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  color: rgba(255,255,255,.58);
+  font-size: 10px;
+}
+
+.history-v2-chat-row.is-own .history-v2-chat-meta {
+  justify-content: flex-end;
+}
+
+.history-v2-chat-meta strong {
+  color: rgba(255,255,255,.78);
+  font-size: 11px;
+}
+
+.history-v2-chat-text {
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.history-v2-composer {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-end;
+  gap: 8px;
+  padding:
+    9px
+    14px
+    max(
+      10px,
+      env(safe-area-inset-bottom)
+    );
+  border-top: 1px solid rgba(255,255,255,.10);
+  background: rgba(5, 5, 7, .60);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.history-v2-input-wrap {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 46px;
+  align-items: center;
+  padding: 4px 13px;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 24px;
+  background: rgba(255,255,255,.08);
+}
+
+.history-v2-reply-input {
+  width: 100%;
+  min-height: 34px;
+  max-height: 120px;
+  padding: 7px 0;
+  border: 0;
+  outline: 0;
+  resize: none;
+  overflow-y: auto;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.history-v2-reply-input::placeholder {
+  color: rgba(255,255,255,.40);
+}
+
+.history-v2-send {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(43, 151, 151, .88);
+  color: #fff;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.history-v2-send:disabled {
+  opacity: .45;
+}
+
+/* v74では日別プレビューカードは使わない */
+#messageHistoryV2 .history-v2-day,
+#messageHistoryV2 .history-v2-card,
+#messageHistoryV2 .history-v2-day-heading {
+  display: none;
+}
