@@ -595,6 +595,289 @@ function updateStatus(
   }
 }
 
+
+const BACKGROUND_UI_VERSION =
+  '5f';
+
+async function loadImageSource(
+  file,
+) {
+  if (
+    typeof createImageBitmap ===
+    'function'
+  ) {
+    try {
+      return await createImageBitmap(
+        file,
+        {
+          imageOrientation:
+            'from-image',
+        },
+      );
+    } catch (
+      error
+    ) {
+      console.warn(
+        '[screen-backgrounds] createImageBitmapで読めなかったためimg要素へ切替',
+        error,
+      );
+    }
+  }
+
+  const objectUrl =
+    URL.createObjectURL(
+      file,
+    );
+
+  try {
+    return await new Promise(
+      (
+        resolve,
+        reject,
+      ) => {
+        const image =
+          new Image();
+
+        image.onload =
+          () =>
+            resolve(
+              image,
+            );
+
+        image.onerror =
+          () =>
+            reject(
+              new Error(
+                'この写真形式をSafariで読み込めませんでした。',
+              ),
+            );
+
+        image.src =
+          objectUrl;
+      },
+    );
+  } finally {
+    // img.onload後でも描画完了まではsrcが参照されるため、
+    // revokeは呼び出し側の描画後に行う。
+  }
+}
+
+function sourceDimensions(
+  source,
+) {
+  return {
+    width:
+      source.width ??
+      source.naturalWidth ??
+      0,
+    height:
+      source.height ??
+      source.naturalHeight ??
+      0,
+  };
+}
+
+function canvasToJpegBlob(
+  canvas,
+  quality,
+) {
+  return new Promise(
+    (
+      resolve,
+      reject,
+    ) => {
+      canvas.toBlob(
+        (
+          blob,
+        ) => {
+          if (
+            blob instanceof Blob
+          ) {
+            resolve(
+              blob,
+            );
+            return;
+          }
+
+          reject(
+            new Error(
+              '写真をJPEGへ変換できませんでした。',
+            ),
+          );
+        },
+        'image/jpeg',
+        quality,
+      );
+    },
+  );
+}
+
+async function prepareBackgroundBlob(
+  file,
+) {
+  const source =
+    await loadImageSource(
+      file,
+    );
+
+  try {
+    const {
+      width,
+      height,
+    } =
+      sourceDimensions(
+        source,
+      );
+
+    if (
+      !width ||
+      !height
+    ) {
+      throw new Error(
+        '写真のサイズを取得できませんでした。',
+      );
+    }
+
+    // iPhone背景には十分な解像度を保ちつつ、
+    // Safariの保存容量に収まりやすくする。
+    const MAX_EDGE =
+      1280;
+
+    const scale =
+      Math.min(
+        1,
+        MAX_EDGE /
+          Math.max(
+            width,
+            height,
+          ),
+      );
+
+    const outputWidth =
+      Math.max(
+        1,
+        Math.round(
+          width *
+          scale,
+        ),
+      );
+
+    const outputHeight =
+      Math.max(
+        1,
+        Math.round(
+          height *
+          scale,
+        ),
+      );
+
+    const canvas =
+      document.createElement(
+        'canvas',
+      );
+
+    canvas.width =
+      outputWidth;
+
+    canvas.height =
+      outputHeight;
+
+    const context =
+      canvas.getContext(
+        '2d',
+        {
+          alpha:
+            false,
+        },
+      );
+
+    if (
+      !context
+    ) {
+      throw new Error(
+        '写真変換用Canvasを作成できませんでした。',
+      );
+    }
+
+    context.fillStyle =
+      '#000';
+
+    context.fillRect(
+      0,
+      0,
+      outputWidth,
+      outputHeight,
+    );
+
+    context.drawImage(
+      source,
+      0,
+      0,
+      outputWidth,
+      outputHeight,
+    );
+
+    // 保存上限に引っかかりにくいよう、
+    // 必要なら段階的に圧縮する。
+    const qualities =
+      [
+        0.78,
+        0.68,
+        0.58,
+        0.48,
+      ];
+
+    let result =
+      null;
+
+    for (
+      const quality
+      of qualities
+    ) {
+      result =
+        await canvasToJpegBlob(
+          canvas,
+          quality,
+        );
+
+      if (
+        result.size <=
+        850 * 1024
+      ) {
+        break;
+      }
+    }
+
+    if (
+      !(result instanceof Blob)
+    ) {
+      throw new Error(
+        '背景用写真を作成できませんでした。',
+      );
+    }
+
+    return result;
+  } finally {
+    if (
+      typeof source.close ===
+      'function'
+    ) {
+      source.close();
+    }
+
+    if (
+      source instanceof
+      HTMLImageElement
+    ) {
+      try {
+        URL.revokeObjectURL(
+          source.src,
+        );
+      } catch (_) {}
+    }
+  }
+}
+
 function createRow(
   screen,
 ) {
@@ -669,9 +952,14 @@ function createRow(
       }
 
       try {
+        const preparedBlob =
+          await prepareBackgroundBlob(
+            file,
+          );
+
         await setBlob(
           screen.key,
-          file,
+          preparedBlob,
         );
 
         await applyScreen(
@@ -686,6 +974,7 @@ function createRow(
         );
 
         window.alert(
+          error?.message ||
           '背景画像を保存できませんでした。',
         );
       } finally {
@@ -746,12 +1035,23 @@ function createRow(
 }
 
 function injectSettings() {
-  if (
+  const existing =
     document.getElementById(
       'screenBackgroundSettings',
-    )
+    );
+
+  if (
+    existing?.dataset
+      .backgroundUiVersion ===
+    BACKGROUND_UI_VERSION
   ) {
     return;
+  }
+
+  if (
+    existing
+  ) {
+    existing.remove();
   }
 
   const body =
@@ -773,6 +1073,10 @@ function injectSettings() {
 
   section.className =
     'screen-bg-settings';
+
+  section.dataset
+    .backgroundUiVersion =
+      BACKGROUND_UI_VERSION;
 
   const heading =
     document.createElement(
