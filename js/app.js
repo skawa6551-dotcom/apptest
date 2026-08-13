@@ -5372,9 +5372,12 @@ function handleSettingsChange(
 
       HTMLInputElement &&
 
-    target.type ===
-
-      'text'
+    (
+      target.type ===
+        'text' ||
+      target.type ===
+        'password'
+    )
 
   ) {
 
