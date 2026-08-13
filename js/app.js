@@ -7338,3 +7338,23 @@ document.addEventListener(
   init,
 
 );
+
+// v73: アプリを離れた時は閲覧モードを必ず終了
+document.addEventListener(
+  'visibilitychange',
+  () => {
+    if (document.visibilityState === 'hidden') {
+      Workspace.setViewModeActive(false);
+      Router.disableViewMode();
+    }
+  },
+  true,
+);
+
+window.addEventListener(
+  'pagehide',
+  () => {
+    Workspace.setViewModeActive(false);
+    Router.disableViewMode();
+  },
+);
