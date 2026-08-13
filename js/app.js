@@ -2600,6 +2600,39 @@ function closeTransientOverlaysBeforeLock() {
     );
   }
 
+  // message-history-v2.js はRouter外の独立画面なので、
+  // アプリ離脱時には明示的に閉じる。
+  [
+    'messageHistoryV2',
+    'messageHistoryDetailV2',
+  ].forEach(
+    (
+      id,
+    ) => {
+      const element =
+        document.getElementById(
+          id,
+        );
+
+      if (!element) {
+        return;
+      }
+
+      element.classList.remove(
+        'is-open',
+      );
+
+      element.setAttribute(
+        'aria-hidden',
+        'true',
+      );
+    },
+  );
+
+  document.body.classList.remove(
+    'history-v2-open',
+  );
+
 }
 
 // ============================================================
@@ -3653,6 +3686,16 @@ function handleSendMessage() {
 
           error,
 
+        );
+
+        const message =
+          typeof error?.message ===
+            'string'
+            ? error.message
+            : 'メッセージを送信できませんでした。';
+
+        window.alert(
+          message,
         );
 
       },

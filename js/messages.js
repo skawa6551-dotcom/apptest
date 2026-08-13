@@ -989,6 +989,37 @@ export async function sendMessage() {
     throw new Error('送信者情報を取得できませんでした。');
   }
 
+  // Firestoreのメッセージ作成ルールでは、
+  // 現在UIDがroom.memberIdsに含まれている必要がある。
+  // Safari/PWA/プライベートブラウズの切替等で匿名UIDが変わると、
+  // 古いroomIdだけが端末側に残り permission-denied になる。
+  const room =
+    await Firebase.getRoom(
+      roomId,
+    );
+
+  const memberIds =
+    Array.isArray(
+      room?.memberIds,
+    )
+      ? room.memberIds
+      : [];
+
+  if (
+    !room ||
+    !memberIds.includes(
+      currentUid,
+    )
+  ) {
+    Firebase.saveLocalRoomId(
+      null,
+    );
+
+    throw new Error(
+      'この端末のペアリング情報が古くなっていたため解除しました。AI Spaceを閉じてもう一度開き、招待コードを発行して接続し直してください。',
+    );
+  }
+
   const sendButton = getContainer()?.querySelector('[data-action="send-message"]');
   if (sendButton instanceof HTMLButtonElement) sendButton.disabled = true;
 
