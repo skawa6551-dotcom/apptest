@@ -291,7 +291,7 @@ function setElementBackground(
     const historyBackground =
       url
         ? `url("${url}")`
-        : 'url("assets/backgrounds/history-default.jpeg")';
+        : 'url("assets/history-default.jpeg")';
 
     element.style
       .setProperty(
