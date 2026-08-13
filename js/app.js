@@ -4034,6 +4034,72 @@ function handleClearHistory() {
 
 }
 
+function handleSaveCustomPasscode() {
+
+  const input =
+    document.getElementById(
+      'customPasscodeInput',
+    );
+
+  if (!input) {
+    return;
+  }
+
+  const value =
+    String(
+      input.value ?? '',
+    )
+      .replace(/\D/g, '')
+      .slice(0, 8);
+
+  if (
+    !/^\d{4,8}$/.test(
+      value,
+    )
+  ) {
+    window.alert(
+      'パスコードは4〜8桁の数字で設定してください。',
+    );
+    input.focus();
+    return;
+  }
+
+  const saved =
+    Passcode.setPasscode(
+      value,
+    );
+
+  if (!saved) {
+    window.alert(
+      'パスコードを保存できませんでした。',
+    );
+    return;
+  }
+
+  // 保存直後の現在値もその場で検証する。
+  if (
+    !Passcode.validate(
+      value,
+    )
+  ) {
+    window.alert(
+      'パスコードの反映に失敗しました。',
+    );
+    return;
+  }
+
+  input.value = '';
+  input.placeholder =
+    `${'•'.repeat(Passcode.getPasscode().length)}（設定済み）`;
+
+  passcodeBuffer = '';
+
+  window.alert(
+    'パスコードを変更しました。',
+  );
+
+}
+
 async function handleClearCache() {
 
   try {
@@ -4668,6 +4734,10 @@ const ACTION_HANDLERS =
 
       toggleHistoryPanel,
 
+    'save-custom-passcode':
+
+      handleSaveCustomPasscode,
+
     'clear-cache':
 
       handleClearCache,
@@ -5292,6 +5362,18 @@ function handleDocumentInput(
 
     return;
 
+  }
+
+  if (
+    target.id ===
+    'customPasscodeInput'
+  ) {
+    target.value =
+      target.value
+        .replace(/\D/g, '')
+        .slice(0, 8);
+
+    return;
   }
 
   if (
