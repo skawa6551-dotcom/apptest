@@ -137,19 +137,39 @@ export function getDiagnosticEventName() {
 
 export function getRoomId() {
   try {
-    const savedRoomId = Storage.get(STORAGE_KEYS.CURRENT_ROOM_ID, null);
-    if (typeof savedRoomId === 'string' && savedRoomId.trim()) {
+    const savedRoomId =
+      Storage.get(
+        STORAGE_KEYS.CURRENT_ROOM_ID,
+        null,
+      );
+
+    if (
+      typeof savedRoomId ===
+        'string' &&
+      savedRoomId.trim()
+    ) {
       return savedRoomId.trim();
     }
 
-    // Calculator 0209 の共有写真ルーム。
-    // 端末側に room_id がまだ保存されていない場合でも、
-    // 写真をローカル保存へ逃がさず同じSupabaseルームへ保存する。
-    const defaultRoomId = '0209';
-    Storage.set(STORAGE_KEYS.CURRENT_ROOM_ID, defaultRoomId);
-    return defaultRoomId;
+    // ペアリング情報だけが一時的に解除されても、
+    // 写真は以前のルームを参照し続ける。
+    const recoveryRoomId =
+      Storage.get(
+        STORAGE_KEYS.RECOVERY_ROOM_ID,
+        null,
+      );
+
+    if (
+      typeof recoveryRoomId ===
+        'string' &&
+      recoveryRoomId.trim()
+    ) {
+      return recoveryRoomId.trim();
+    }
+
+    return null;
   } catch (_) {
-    return '0209';
+    return null;
   }
 }
 
@@ -275,6 +295,52 @@ export async function syncCurrentRoom() {
     roomId,
   });
   return true;
+}
+
+
+export async function getSignedPhotoUrl(
+  path,
+) {
+  if (!path) {
+    return '';
+  }
+
+  const roomId =
+    getRoomId();
+
+  if (
+    !roomId ||
+    !String(path).startsWith(
+      `${roomId}/`,
+    )
+  ) {
+    throw new Error(
+      '写真パスが現在のルームと一致しません。',
+    );
+  }
+
+  await ensureSignedIn();
+  await syncCurrentRoom();
+
+  const supabase =
+    requireClient();
+
+  const {
+    data,
+    error,
+  } =
+    await supabase.storage
+      .from(PHOTO_BUCKET)
+      .createSignedUrl(
+        String(path),
+        60 * 60,
+      );
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.signedUrl || '';
 }
 
 export async function listPhotos() {
@@ -417,6 +483,7 @@ const Supabase = Object.freeze({
   getRoomId,
   getCurrentUser,
   getCurrentUid,
+  getSignedPhotoUrl,
   listPhotos,
   uploadPhoto,
   deletePhoto,

@@ -39,6 +39,7 @@
 import Customization from './customization.js';
 
 import Supabase from './supabase.js';
+import Firebase from './firebase.js';
 
 // ============================================================
 
@@ -1658,25 +1659,108 @@ async function refreshSharedPhotos(
 
   try {
 
-    await Supabase.ensureSignedIn();
+    const roomId =
+      Supabase.getRoomId();
 
+    await Supabase.ensureSignedIn();
     await Supabase.syncCurrentRoom();
 
-    const photos =
+    const metadata =
+      await Firebase
+        .listPhotoMetadata(
+          roomId,
+        );
 
-      await Supabase.listPhotos();
+    const loaded = [];
+
+    for (
+      const item of metadata
+    ) {
+      try {
+        const signedUrl =
+          await Supabase
+            .getSignedPhotoUrl(
+              item.path,
+            );
+
+        if (!signedUrl) {
+          continue;
+        }
+
+        loaded.push({
+          id:
+            item.id,
+          path:
+            item.path,
+          name:
+            item.name || '',
+          createdAt:
+            typeof item?.createdAt?.toMillis ===
+              'function'
+              ? item.createdAt.toMillis()
+              : Date.now(),
+          signedUrl,
+        });
+      } catch (
+        signError
+      ) {
+        console.warn(
+          '[photo.js] 写真URLの復元に失敗しました',
+          signError,
+        );
+      }
+    }
+
+    // v78以前の写真を可能なら自動救済。
+    if (
+      loaded.length === 0
+    ) {
+      try {
+        const legacy =
+          await Supabase
+            .listPhotos();
+
+        for (
+          const item of legacy
+        ) {
+          loaded.push(
+            item,
+          );
+
+          try {
+            await Firebase
+              .savePhotoMetadata(
+                roomId,
+                {
+                  id:
+                    item.id,
+                  path:
+                    item.path,
+                  name:
+                    item.name,
+                },
+              );
+          } catch (
+            backfillError
+          ) {
+            console.warn(
+              '[photo.js] 旧写真メタデータ補完に失敗しました',
+              backfillError,
+            );
+          }
+        }
+      } catch (
+        legacyError
+      ) {
+        console.warn(
+          '[photo.js] 旧写真一覧の救済取得に失敗しました',
+          legacyError,
+        );
+      }
+    }
 
     sharedPhotos =
-
-      Array.isArray(
-
-        photos,
-
-      )
-
-        ? photos
-
-        : [];
+      loaded;
 
     if (
 
@@ -3494,11 +3578,30 @@ async function handleSelectedFiles(
 
       ) {
 
-        await Supabase.uploadPhoto(
+        const uploaded =
+          await Supabase.uploadPhoto(
 
-          file,
+            file,
 
-        );
+          );
+
+        const roomId =
+          Supabase.getRoomId();
+
+        await Firebase
+          .savePhotoMetadata(
+            roomId,
+            {
+              id:
+                uploaded?.id ||
+                uploaded?.path,
+              path:
+                uploaded?.path,
+              name:
+                file?.name ||
+                '',
+            },
+          );
 
       } else {
 
@@ -4565,6 +4668,20 @@ export async function deletePhotoFromTarget(
         path,
 
       );
+
+      const roomId =
+        Supabase.getRoomId();
+
+      if (
+        roomId &&
+        photoId
+      ) {
+        await Firebase
+          .deletePhotoMetadata(
+            roomId,
+            photoId,
+          );
+      }
 
       await refreshSharedPhotos({
 

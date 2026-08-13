@@ -3499,6 +3499,168 @@ function buildSearchKeywords(
 
 // ============================================================
 
+
+// ============================================================
+// 共有写真メタデータ
+// ============================================================
+
+export async function savePhotoMetadata(
+  roomId,
+  photo,
+) {
+  if (!roomId || !photo?.path) {
+    throw new Error(
+      '写真メタデータが不正です。',
+    );
+  }
+
+  const uid =
+    await ensureSignedIn();
+
+  const {
+    db,
+    firestoreFns,
+  } =
+    await loadFirebase();
+
+  const photoId =
+    String(
+      photo.id ||
+      photo.path,
+    )
+      .replace(
+        /[^a-zA-Z0-9_-]/g,
+        '_',
+      )
+      .slice(
+        0,
+        180,
+      );
+
+  const ref =
+    firestoreFns.doc(
+      db,
+      'rooms',
+      roomId,
+      'photos',
+      photoId,
+    );
+
+  await firestoreFns.setDoc(
+    ref,
+    {
+      path:
+        String(photo.path),
+      name:
+        String(
+          photo.name ||
+          '',
+        ),
+      createdBy:
+        uid,
+      createdAt:
+        firestoreFns.serverTimestamp(),
+      schemaVersion:
+        SCHEMA_VERSION,
+    },
+    {
+      merge:
+        true,
+    },
+  );
+
+  return photoId;
+}
+
+export async function listPhotoMetadata(
+  roomId,
+) {
+  if (!roomId) {
+    return [];
+  }
+
+  const {
+    db,
+    firestoreFns,
+  } =
+    await loadFirebase();
+
+  const photosRef =
+    firestoreFns.collection(
+      db,
+      'rooms',
+      roomId,
+      'photos',
+    );
+
+  const snapshot =
+    await firestoreFns.getDocs(
+      photosRef,
+    );
+
+  const result =
+    snapshot.docs.map(
+      (
+        snap,
+      ) => ({
+        id:
+          snap.id,
+        ...snap.data(),
+      }),
+    );
+
+  result.sort(
+    (
+      a,
+      b,
+    ) => {
+      const aTime =
+        typeof a?.createdAt?.toMillis ===
+          'function'
+          ? a.createdAt.toMillis()
+          : 0;
+
+      const bTime =
+        typeof b?.createdAt?.toMillis ===
+          'function'
+          ? b.createdAt.toMillis()
+          : 0;
+
+      return bTime - aTime;
+    },
+  );
+
+  return result;
+}
+
+export async function deletePhotoMetadata(
+  roomId,
+  photoId,
+) {
+  if (!roomId || !photoId) {
+    return;
+  }
+
+  const {
+    db,
+    firestoreFns,
+  } =
+    await loadFirebase();
+
+  const ref =
+    firestoreFns.doc(
+      db,
+      'rooms',
+      roomId,
+      'photos',
+      photoId,
+    );
+
+  await firestoreFns.deleteDoc(
+    ref,
+  );
+}
+
 export async function sendMessage(
 
   roomId,
@@ -5946,6 +6108,10 @@ const Firebase = {
   // Messages
 
   // ----------------------------------------------------------
+
+  savePhotoMetadata,
+  listPhotoMetadata,
+  deletePhotoMetadata,
 
   sendMessage,
 
