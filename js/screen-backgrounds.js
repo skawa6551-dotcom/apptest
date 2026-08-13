@@ -30,10 +30,6 @@ const SCREENS = [
     selectors: [
       '#messageHistoryV2',
       '#messageHistoryDetailV2',
-      '#messageHistoryV2 .history-v2-shell',
-      '#messageHistoryDetailV2 .history-v2-detail-shell',
-      '#messageHistoryV2 .history-v2-hero',
-      '#messageHistoryDetailV2 .history-v2-detail-card',
     ],
   },
   {

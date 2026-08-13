@@ -169,13 +169,10 @@ function buildScreens() {
 
       <div class="history-v2-header-title">
         <h2>メッセージ履歴</h2>
-        <p>大切なやりとりの記録 <span aria-hidden="true">♡</span></p>
       </div>
 
       <div class="history-v2-header-spacer"></div>
     </header>
-
-    <div class="history-v2-hero" id="historyV2Hero"></div>
 
     <div class="history-v2-search-row">
       <label class="history-v2-search">
@@ -236,8 +233,6 @@ function buildScreens() {
 
       <div class="history-v2-header-spacer"></div>
     </header>
-
-    <div class="history-v2-detail-hero" id="historyV2DetailHero"></div>
 
     <div
       id="historyV2DetailList"
@@ -445,8 +440,8 @@ function createHistoryPreview(
 
   who.textContent =
     message._isOwn
-      ? 'あなた'
-      : 'あの人';
+      ? '自分'
+      : '相手';
 
   const time =
     document.createElement('time');
