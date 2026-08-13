@@ -102,6 +102,8 @@ export const CUSTOMIZABLE_SCREENS = Object.freeze([
 
   { key: 'photo', label: '写真' },
 
+  { key: 'places', label: '行きたい場所' },
+
 ]);
 
 // ------------------------------------------------------------

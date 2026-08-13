@@ -2550,7 +2550,8 @@ function closeSettings() {
 // ============================================================
 
 function closeTransientOverlaysBeforeLock() {
-// SettingsはRouter管理外のモーダルなので明示的に閉じる。
+
+  // SettingsはRouter管理外のモーダルなので明示的に閉じる。
   closeSettings();
 
   // Workspace内の再認証オーバーレイが残っている場合も閉じる。
