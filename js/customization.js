@@ -102,7 +102,6 @@ export const CUSTOMIZABLE_SCREENS = Object.freeze([
 
   { key: 'photo', label: '写真' },
 
-  { key: 'places', label: '行きたい場所' },
 
 ]);
 
@@ -151,16 +150,6 @@ export const DEFAULT_CARD_DEFINITIONS = Object.freeze([
     label: '写真',
 
     icon: '📷',
-
-  }),
-
-  Object.freeze({
-
-    key: 'places',
-
-    label: '行きたい場所',
-
-    icon: '📍',
 
   }),
 
