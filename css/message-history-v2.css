@@ -520,3 +520,88 @@
     max-width: 84%;
   }
 }
+
+
+/* ============================================================
+   v70 Final history design
+   ============================================================ */
+
+.message-history-v2,
+.message-history-detail-v2 {
+  --history-user-bg:
+    url("../assets/history-default.jpeg");
+
+  background-color:
+    #181818 !important;
+
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(0,0,0,.30),
+      rgba(0,0,0,.12) 36%,
+      rgba(0,0,0,.42)
+    ),
+    var(--history-user-bg) !important;
+
+  background-size:
+    cover !important;
+
+  background-position:
+    center !important;
+
+  background-repeat:
+    no-repeat !important;
+}
+
+.history-v2-bg-layer {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(0,0,0,.06),
+      rgba(0,0,0,.12)
+    ) !important;
+}
+
+.history-v2-header {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(0,0,0,.45),
+      rgba(0,0,0,.10)
+    );
+  padding-bottom:
+    6px;
+}
+
+.history-v2-header-title p {
+  display:
+    none !important;
+}
+
+.history-v2-hero,
+.history-v2-detail-hero,
+.history-v2-couple {
+  display:
+    none !important;
+}
+
+.history-v2-search-row {
+  padding:
+    4px
+    18px
+    12px !important;
+}
+
+.history-v2-search {
+  background:
+    rgba(15,15,15,.46) !important;
+  border-color:
+    rgba(255,255,255,.20) !important;
+  box-shadow:
+    0 8px 28px rgba(0,0,0,.18);
+}
+
+.history-v2-scroll {
+  padding-top:
+    4px !important;
+}

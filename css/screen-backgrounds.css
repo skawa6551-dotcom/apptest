@@ -161,3 +161,11 @@
   --history-user-bg:
     url("../assets/history-default.jpeg");
 }
+
+
+/* v70: 履歴の初期背景は指定画像 */
+#messageHistoryV2,
+#messageHistoryDetailV2 {
+  --history-user-bg:
+    url("../assets/history-default.jpeg");
+}
