@@ -30,6 +30,10 @@ const SCREENS = [
     selectors: [
       '#messageHistoryV2',
       '#messageHistoryDetailV2',
+      '#messageHistoryV2 .history-v2-shell',
+      '#messageHistoryDetailV2 .history-v2-detail-shell',
+      '#messageHistoryV2 .history-v2-hero',
+      '#messageHistoryDetailV2 .history-v2-detail-card',
     ],
   },
   {
@@ -343,6 +347,34 @@ function setElementBackground(
       .setProperty(
         '--history-user-bg',
         historyBackground,
+      );
+
+    element.style
+      .setProperty(
+        'background-image',
+        `linear-gradient(180deg, rgba(4,6,12,.18), rgba(4,6,12,.70)), ${historyBackground}`,
+        'important',
+      );
+
+    element.style
+      .setProperty(
+        'background-size',
+        'cover',
+        'important',
+      );
+
+    element.style
+      .setProperty(
+        'background-position',
+        'center',
+        'important',
+      );
+
+    element.style
+      .setProperty(
+        'background-repeat',
+        'no-repeat',
+        'important',
       );
 
     return;
@@ -975,12 +1007,46 @@ function install() {
   applyAll();
 
   // 履歴画面は動的生成なので、生成されたら再適用。
-  window.addEventListener(
-    'calculator0209-history-v2-ready',
-    () => {
-      applyAll();
-    },
-  );
+window.addEventListener(
+  'calculator0209-history-v2-ready',
+  () => {
+    requestAnimationFrame(
+      () => {
+        applyScreen(
+          SCREENS.find(
+            (
+              screen,
+            ) =>
+              screen.key ===
+              'history',
+          ),
+        );
+
+        setTimeout(
+          () => {
+            const screen =
+              SCREENS.find(
+                (
+                  item,
+                ) =>
+                  item.key ===
+                  'history',
+              );
+
+            if (
+              screen
+            ) {
+              applyScreen(
+                screen,
+              );
+            }
+          },
+          120,
+        );
+      },
+    );
+  },
+);
 
   // 設定画面の再描画に備えて監視。
   const observer =
