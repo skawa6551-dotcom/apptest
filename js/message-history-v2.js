@@ -202,6 +202,27 @@ function buildScreens() {
         <p>履歴はまだありません</p>
       </div>
     </div>
+
+    <div class="history-v2-composer">
+      <div class="history-v2-input-wrap">
+        <textarea
+          id="historyV2ReplyInput"
+          class="history-v2-reply-input"
+          rows="1"
+          maxlength="2000"
+          placeholder="メッセージを入力…"
+          aria-label="返信メッセージ"
+        ></textarea>
+      </div>
+
+      <button
+        type="button"
+        id="historyV2SendButton"
+        class="history-v2-send"
+        data-history-v2-action="send-reply"
+        aria-label="送信"
+      >↑</button>
+    </div>
   `;
 
   const detail =
@@ -280,6 +301,31 @@ function buildScreens() {
           .toLowerCase();
 
       renderList();
+    },
+  );
+
+  list.querySelector(
+    '#historyV2ReplyInput',
+  )?.addEventListener(
+    'input',
+    autoResizeHistoryReplyInput,
+  );
+
+  list.querySelector(
+    '#historyV2ReplyInput',
+  )?.addEventListener(
+    'keydown',
+    (
+      event,
+    ) => {
+      if (
+        event.key ===
+          'Enter' &&
+        !event.shiftKey
+      ) {
+        event.preventDefault();
+        sendHistoryReply();
+      }
     },
   );
 
@@ -478,6 +524,239 @@ function createHistoryPreview(
   return row;
 }
 
+
+function createFullHistoryMessage(
+  message,
+) {
+  const row =
+    document.createElement(
+      'div',
+    );
+
+  row.className =
+    `history-v2-chat-row ${
+      message._isOwn
+        ? 'is-own'
+        : 'is-other'
+    }`;
+
+  const bubble =
+    document.createElement(
+      'div',
+    );
+
+  bubble.className =
+    'history-v2-chat-bubble';
+
+  const meta =
+    document.createElement(
+      'div',
+    );
+
+  meta.className =
+    'history-v2-chat-meta';
+
+  const who =
+    document.createElement(
+      'strong',
+    );
+
+  who.textContent =
+    message._isOwn
+      ? '自分'
+      : '相手';
+
+  const time =
+    document.createElement(
+      'time',
+    );
+
+  time.textContent =
+    formatTime(
+      message,
+    );
+
+  meta.append(
+    who,
+    time,
+  );
+
+  const text =
+    document.createElement(
+      'div',
+    );
+
+  text.className =
+    'history-v2-chat-text';
+
+  text.textContent =
+    message?.text ??
+    '';
+
+  bubble.append(
+    meta,
+    text,
+  );
+
+  row.appendChild(
+    bubble,
+  );
+
+  return row;
+}
+
+function scrollHistoryToBottom() {
+  const scroll =
+    document.querySelector(
+      '#messageHistoryV2 .history-v2-scroll',
+    );
+
+  if (!scroll) {
+    return;
+  }
+
+  window.requestAnimationFrame(
+    () => {
+      scroll.scrollTop =
+        scroll.scrollHeight;
+    },
+  );
+}
+
+async function sendHistoryReply() {
+  const input =
+    document.getElementById(
+      'historyV2ReplyInput',
+    );
+
+  const button =
+    document.getElementById(
+      'historyV2SendButton',
+    );
+
+  if (!input) {
+    return;
+  }
+
+  const text =
+    String(
+      input.value ??
+      '',
+    ).trim();
+
+  if (!text) {
+    return;
+  }
+
+  const roomId =
+    Firebase.getLocalRoomId();
+
+  if (!roomId) {
+    window.alert(
+      'ルームに接続されていません。',
+    );
+    return;
+  }
+
+  try {
+    if (button) {
+      button.disabled =
+        true;
+    }
+
+    const currentUid =
+      Firebase.getCurrentUid() ||
+      await Firebase.ensureSignedIn();
+
+    if (!currentUid) {
+      throw new Error(
+        '送信者情報を取得できませんでした。',
+      );
+    }
+
+    const room =
+      await Firebase.getRoom(
+        roomId,
+      );
+
+    const memberIds =
+      Array.isArray(
+        room?.memberIds,
+      )
+        ? room.memberIds
+        : [];
+
+    if (
+      !room ||
+      !memberIds.includes(
+        currentUid,
+      )
+    ) {
+      Firebase.saveLocalRoomId(
+        null,
+      );
+
+      throw new Error(
+        'ペアリング情報が古くなっています。AI Spaceから接続し直してください。',
+      );
+    }
+
+    await Firebase.sendMessage(
+      roomId,
+      {
+        text,
+        senderId:
+          currentUid,
+      },
+    );
+
+    input.value =
+      '';
+
+    input.style.height =
+      '';
+
+    scrollHistoryToBottom();
+  } catch (
+    error
+  ) {
+    console.error(
+      '[message-history-v2] 返信送信に失敗しました',
+      error,
+    );
+
+    window.alert(
+      error?.message ||
+      'メッセージを送信できませんでした。',
+    );
+  } finally {
+    if (button) {
+      button.disabled =
+        false;
+    }
+  }
+}
+
+function autoResizeHistoryReplyInput() {
+  const input =
+    document.getElementById(
+      'historyV2ReplyInput',
+    );
+
+  if (!input) {
+    return;
+  }
+
+  input.style.height =
+    'auto';
+
+  input.style.height =
+    `${Math.min(
+      input.scrollHeight,
+      120,
+    )}px`;
+}
+
 function renderList() {
   buildScreens();
 
@@ -499,150 +778,87 @@ function renderList() {
   }
 
   const messages =
-    normalizedMessages();
+    normalizedMessages()
+      .sort(
+        (
+          a,
+          b,
+        ) =>
+          messageTimeMs(a) -
+          messageTimeMs(b),
+      );
 
   if (
-    messages.length === 0
+    messages.length ===
+    0
   ) {
-    groupsEl.replaceChildren();
-    emptyEl.hidden = false;
+    groupsEl
+      .replaceChildren();
+
+    emptyEl.hidden =
+      false;
+
     return;
   }
 
-  emptyEl.hidden = true;
+  emptyEl.hidden =
+    true;
 
   const fragment =
-    document.createDocumentFragment();
+    document
+      .createDocumentFragment();
 
-  const groups =
-    groupByDate(
-      messages,
-    );
+  let previousDateKey =
+    null;
 
-  groups.forEach(
+  messages.forEach(
     (
-      items,
-      dateKey,
+      message,
     ) => {
-      const section =
-        document.createElement(
-          'section',
-        );
-
-      section.className =
-        'history-v2-day';
-
-      const heading =
-        document.createElement(
-          'button',
-        );
-
-      heading.type =
-        'button';
-
-      heading.className =
-        'history-v2-day-heading';
-
-      heading.dataset
-        .historyV2Date =
-          dateKey;
-
-      const date =
-        document.createElement(
-          'span',
-        );
-
-      date.className =
-        'history-v2-date';
-
-      date.textContent =
-        formatDateLabel(
-          dateKey,
-        );
-
-      const count =
-        document.createElement(
-          'span',
-        );
-
-      count.className =
-        'history-v2-count';
-
-      count.textContent =
-        `${items.length}件`;
-
-      heading.append(
-        date,
-        count,
-      );
-
-      const card =
-        document.createElement(
-          'button',
-        );
-
-      card.type =
-        'button';
-
-      card.className =
-        'history-v2-card';
-
-      card.dataset
-        .historyV2Date =
-          dateKey;
-
-      items
-        .slice(
-          0,
-          4,
-        )
-        .forEach(
-          (message) => {
-            card.appendChild(
-              createHistoryPreview(
-                message,
-              ),
-            );
-          },
-        );
-
       if (
-        items.length > 4
+        message._dateKey !==
+        previousDateKey
       ) {
-        const more =
+        const divider =
           document.createElement(
             'div',
           );
 
-        more.className =
-          'history-v2-more';
+        divider.className =
+          'history-v2-chat-date';
 
-        more.textContent =
-          `ほか ${
-            items.length - 4
-          }件`;
+        divider.textContent =
+          formatDateLabel(
+            message._dateKey,
+          );
 
-        card.appendChild(
-          more,
+        fragment.appendChild(
+          divider,
         );
+
+        previousDateKey =
+          message._dateKey;
       }
 
-      section.append(
-        heading,
-        card,
-      );
-
       fragment.appendChild(
-        section,
+        createFullHistoryMessage(
+          message,
+        ),
       );
     },
   );
 
-  groupsEl.replaceChildren(
-    fragment,
-  );
-}
+  groupsEl
+    .replaceChildren(
+      fragment,
+    );
 
+  if (
+    !currentQuery
+  ) {
+    scrollHistoryToBottom();
+  }
+}
 function renderDetail(
   dateKey,
 ) {
@@ -1048,6 +1264,14 @@ function handleClick(
       'close-detail'
     ) {
       closeDetail();
+      return;
+    }
+
+    if (
+      action ===
+      'send-reply'
+    ) {
+      sendHistoryReply();
       return;
     }
   }
