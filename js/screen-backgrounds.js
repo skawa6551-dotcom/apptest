@@ -37,12 +37,12 @@ const SCREENS = [
   {
     key: 'calendar',
     label: 'Calendar',
-    selectors: ['#calendar'],
+    selectors: ['#calendar', '.calendar', '[data-screen="calendar"]'],
   },
   {
     key: 'archive',
     label: 'Archive',
-    selectors: ['#archive'],
+    selectors: ['#archive', '.archive', '[data-screen="archive"]'],
   },
   {
     key: 'photo',

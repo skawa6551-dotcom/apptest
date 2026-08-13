@@ -19,7 +19,43 @@ let currentPasscode = DEFAULT_PASSCODE;
  * @returns {string}
  */
 export function getPasscode() {
-  return currentPasscode;
+  const stored =
+    window.localStorage.getItem(
+      'calculator0209_custom_passcode',
+    );
+
+  if (
+    typeof stored === 'string' &&
+    /^\d{4,8}$/.test(stored)
+  ) {
+    return stored;
+  }
+
+  return '0209';
+}
+
+export function setPasscode(value) {
+  const normalized =
+    String(value ?? '').trim();
+
+  if (!/^\d{4,8}$/.test(normalized)) {
+    throw new Error(
+      'パスコードは4〜8桁の数字で設定してください。',
+    );
+  }
+
+  window.localStorage.setItem(
+    'calculator0209_custom_passcode',
+    normalized,
+  );
+
+  return normalized;
+}
+
+export function resetPasscode() {
+  window.localStorage.removeItem(
+    'calculator0209_custom_passcode',
+  );
 }
 
 /**
@@ -50,7 +86,10 @@ export function validate(value) {
 
 const Passcode = {
   getPasscode,
+  
   setPasscode,
+  resetPasscode,
+setPasscode,
   validate,
 };
 

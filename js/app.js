@@ -2551,6 +2551,23 @@ function closeSettings() {
 
 function closeTransientOverlaysBeforeLock() {
 
+  // 独立した履歴画面も強制的に閉じる。
+  document
+    .querySelectorAll(
+      '#messageHistoryV2.is-open, #messageHistoryDetailV2.is-open, #messageHistoryScreen.is-open, #messageHistoryDetailScreen.is-open'
+    )
+    .forEach((element) => {
+      element.classList.remove('is-open');
+      element.setAttribute('aria-hidden', 'true');
+    });
+
+  document.body.classList.remove(
+    'history-v2-open',
+    'message-history-open',
+  );
+
+
+
   // SettingsはRouter管理外のモーダルなので明示的に閉じる。
   closeSettings();
 
