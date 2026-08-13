@@ -288,12 +288,15 @@ function setElementBackground(
     key === 'history' ||
     key === 'historyDetail'
   ) {
+    const historyBackground =
+      url
+        ? `url("${url}")`
+        : 'url("assets/backgrounds/history-default.jpeg")';
+
     element.style
       .setProperty(
         '--history-user-bg',
-        url
-          ? `url("${url}")`
-          : 'none',
+        historyBackground,
       );
 
     return;
