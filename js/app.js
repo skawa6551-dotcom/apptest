@@ -3657,6 +3657,39 @@ async function handleSubmitRecoveryCode() {
 
 }
 
+
+async function handleSingleDevicePairingTest() {
+
+  try {
+
+    await Pairing
+      .startSingleDevicePairingTest();
+
+    playFeedbackSound(
+      'success',
+    );
+
+    playFeedbackVibration();
+
+  } catch (
+    error
+  ) {
+
+    playFeedbackSound(
+      'error',
+    );
+
+    playFeedbackVibration();
+
+    window.alert(
+      error?.message ||
+      '1台テストを開始できませんでした。',
+    );
+
+  }
+
+}
+
 const PAIRING_ACTION_HANDLERS =
 
   Object.freeze({
@@ -3696,6 +3729,10 @@ const PAIRING_ACTION_HANDLERS =
     'submit-recovery-code':
 
       handleSubmitRecoveryCode,
+
+    'single-device-pairing-test':
+
+      handleSingleDevicePairingTest,
 
     'back-to-choice':
 

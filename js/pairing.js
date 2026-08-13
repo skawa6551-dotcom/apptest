@@ -163,11 +163,29 @@ function createChoicePanel() {
   recoveryUseButton.textContent =
     '復旧コードで戻す';
 
+  const singleDeviceTestButton =
+    document.createElement(
+      'button',
+    );
+
+  singleDeviceTestButton.type =
+    'button';
+
+  singleDeviceTestButton.className =
+    'pairing-secondary-btn';
+
+  singleDeviceTestButton.dataset.action =
+    'single-device-pairing-test';
+
+  singleDeviceTestButton.textContent =
+    '1台で動作テスト';
+
   panel.appendChild(message);
   panel.appendChild(generateButton);
   panel.appendChild(joinButton);
   panel.appendChild(recoveryGenerateButton);
   panel.appendChild(recoveryUseButton);
+  panel.appendChild(singleDeviceTestButton);
 
   return panel;
 }
@@ -874,6 +892,49 @@ export function showRecoveryError(
 
 }
 
+
+export async function startSingleDevicePairingTest() {
+
+  const uid =
+    await Firebase
+      .ensureSignedIn();
+
+  await Firebase
+    .ensureUserProfile(
+      uid,
+      '',
+    );
+
+  // 1台テストでは、現在UIDだけをメンバーに持つ
+  // pending roomを新規作成する。
+  // メッセージ送信・履歴・背景・復旧コードなど、
+  // 2台目を必要としない機能を実機確認できる。
+  const {
+    roomId,
+  } =
+    await Firebase
+      .createRoomAndInviteCode(
+        uid,
+        '',
+      );
+
+  Firebase
+    .saveLocalRoomId(
+      roomId,
+    );
+
+  if (
+    typeof onPairedCallback ===
+      'function'
+  ) {
+    onPairedCallback(
+      roomId,
+    );
+  }
+
+  return roomId;
+}
+
 // ------------------------------------------------------------
 // 画面の開閉／初期化
 // ------------------------------------------------------------
@@ -951,6 +1012,7 @@ const Pairing = {
   issueRecoveryCode,
   submitRecoveryCode,
   showRecoveryError,
+  startSingleDevicePairingTest,
 };
 
 export default Pairing;
