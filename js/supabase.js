@@ -449,13 +449,39 @@ export async function runDiagnostic() {
   try {
     const user = await ensureSignedIn();
     const roomId = getRoomId();
-    if (roomId) await syncCurrentRoom();
-    return updateDiagnostic('diagnostic-ok', 'Supabase接続は正常です', null, {
-      userId: user?.id || null,
-      roomId,
-    });
+
+    if (roomId) {
+      await syncCurrentRoom();
+    }
+
+    const diagnostic =
+      updateDiagnostic(
+        'diagnostic-ok',
+        'Supabase接続は正常です',
+        null,
+        {
+          userId: user?.id || null,
+          roomId,
+        },
+      );
+
+    return {
+      ok: true,
+      diagnostic,
+    };
   } catch (error) {
-    return updateDiagnostic('diagnostic-error', 'Supabase接続診断に失敗しました', error);
+    const diagnostic =
+      updateDiagnostic(
+        'diagnostic-error',
+        'Supabase接続診断に失敗しました',
+        error,
+      );
+
+    return {
+      ok: false,
+      diagnostic,
+      error,
+    };
   }
 }
 

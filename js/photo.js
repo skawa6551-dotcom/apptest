@@ -5223,9 +5223,15 @@ export async function open() {
 
       await runSupabaseDiagnostic();
 
+    const diagnosticOk =
+      diagnosticResult?.ok ===
+        true ||
+      diagnosticResult?.diagnostic?.stage ===
+        'diagnostic-ok';
+
     if (
 
-      !diagnosticResult?.ok
+      !diagnosticOk
 
     ) {
 
