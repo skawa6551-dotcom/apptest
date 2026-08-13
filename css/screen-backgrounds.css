@@ -116,7 +116,7 @@
       rgba(3, 5, 8, .22),
       rgba(3, 5, 8, .70)
     ),
-    var(--history-user-bg, url("../assets/backgrounds/history-default.jpeg")) !important;
+    var(--history-user-bg, url("../assets/history-default.jpeg")) !important;
   background-size: cover !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
