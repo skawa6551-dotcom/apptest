@@ -101,6 +101,17 @@ service cloud.firestore {
         && request.resource.data.memberIds == resource.data.memberIds.concat([request.auth.uid])
         && request.resource.data.status == 'active';
 
+      // ケース3: 復旧コード利用後の端末UID差し替え。
+      // roomIdは復旧コードを知っている人だけが取得する前提。
+      // memberIdsの人数を増やさず、新しい自分のuidを1件入れ、
+      // 既存memberIds以外のuidは自分以外追加できない形に限定する。
+      allow update: if isSignedIn()
+        && !(request.auth.uid in resource.data.memberIds)
+        && request.resource.data.memberIds.size() == resource.data.memberIds.size()
+        && request.auth.uid in request.resource.data.memberIds
+        && request.resource.data.memberIds.hasOnly(resource.data.memberIds.concat([request.auth.uid]))
+        && request.resource.data.status == 'active';
+
       allow delete: if false;
 
       // -----------------------------
@@ -141,6 +152,26 @@ service cloud.firestore {
         // 事故が起きるのを防ぐため、Phase1時点では明示的に禁止する。
         allow read, write: if false;
       }
+    }
+
+
+    // ------------------------------------------------------------
+    // /recoveryCodes/{code}
+    // ------------------------------------------------------------
+    match /recoveryCodes/{code} {
+      // コードそのものを知っている人だけがドキュメントパスを指定できる。
+      allow read: if isSignedIn();
+
+      // 復旧コードは現在そのルームのメンバーだけが作成できる。
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.auth.uid in get(
+          /databases/$(database)/documents/rooms/$(request.resource.data.roomId)
+        ).data.memberIds;
+
+      // 復旧コードは永続。変更・削除はクライアントから行わない。
+      allow update, delete: if false;
     }
 
     // ------------------------------------------------------------
