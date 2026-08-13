@@ -215,20 +215,20 @@ export function setAutoLockDurationMs(valueMs) {
 }
 
 export function isArchiveLockEnabled() {
-  return getSchemaValue('archiveLockEnabled');
+  return true;
 }
 
 export function setArchiveLockEnabled(value) {
   return setSchemaValue('archiveLockEnabled', value);
 }
 
-export function isMessagesLockEnabled() { return getSchemaValue('messagesLockEnabled'); }
+export function isMessagesLockEnabled() { return true; }
 export function setMessagesLockEnabled(value) { return setSchemaValue('messagesLockEnabled', value); }
-export function isCalendarLockEnabled() { return getSchemaValue('calendarLockEnabled'); }
+export function isCalendarLockEnabled() { return true; }
 export function setCalendarLockEnabled(value) { return setSchemaValue('calendarLockEnabled', value); }
-export function isPhotoLockEnabled() { return getSchemaValue('photoLockEnabled'); }
+export function isPhotoLockEnabled() { return true; }
 export function setPhotoLockEnabled(value) { return setSchemaValue('photoLockEnabled', value); }
-export function isRecordsLockEnabled() { return getSchemaValue('recordsLockEnabled'); }
+export function isRecordsLockEnabled() { return true; }
 export function setRecordsLockEnabled(value) { return setSchemaValue('recordsLockEnabled', value); }
 
 // ------------------------------------------------------------
