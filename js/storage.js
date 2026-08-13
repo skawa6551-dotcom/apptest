@@ -20,6 +20,8 @@ export const STORAGE_KEYS = Object.freeze({
   RECORDS_ARCHIVE: 'records_archive',
   CLIENT_ID: 'client_id',
   CURRENT_ROOM_ID: 'current_room_id',
+  RECOVERY_ROOM_ID: 'recovery_room_id',
+  RECOVERED_SENDER_IDS: 'recovered_sender_ids',
   DISPLAY_NAME: 'display_name',
   AUTO_LOCK_DURATION_MS: 'auto_lock_duration_ms',
   ARCHIVE_LOCK_ENABLED: 'archive_lock_enabled',

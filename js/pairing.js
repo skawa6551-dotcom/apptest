@@ -129,9 +129,45 @@ function createChoicePanel() {
   joinButton.dataset.action = 'choose-join';
   joinButton.textContent = '招待コードを入力する';
 
+  const recoveryGenerateButton =
+    document.createElement(
+      'button',
+    );
+
+  recoveryGenerateButton.type =
+    'button';
+
+  recoveryGenerateButton.className =
+    'pairing-secondary-btn';
+
+  recoveryGenerateButton.dataset.action =
+    'choose-recovery-generate';
+
+  recoveryGenerateButton.textContent =
+    '復旧コードを発行する';
+
+  const recoveryUseButton =
+    document.createElement(
+      'button',
+    );
+
+  recoveryUseButton.type =
+    'button';
+
+  recoveryUseButton.className =
+    'pairing-secondary-btn';
+
+  recoveryUseButton.dataset.action =
+    'choose-recovery-use';
+
+  recoveryUseButton.textContent =
+    '復旧コードで戻す';
+
   panel.appendChild(message);
   panel.appendChild(generateButton);
   panel.appendChild(joinButton);
+  panel.appendChild(recoveryGenerateButton);
+  panel.appendChild(recoveryUseButton);
 
   return panel;
 }
@@ -216,6 +252,205 @@ function createJoinPanel() {
   return panel;
 }
 
+
+function createRecoveryGeneratePanel() {
+  const panel =
+    document.createElement(
+      'div',
+    );
+
+  panel.id =
+    'pairingRecoveryGeneratePanel';
+
+  panel.className =
+    'pairing-panel';
+
+  const message =
+    document.createElement(
+      'p',
+    );
+
+  message.className =
+    'pairing-message';
+
+  message.textContent =
+    'このコードは端末データを消した時の復旧用です。安全な場所に保存してください。';
+
+  const codeDisplay =
+    document.createElement(
+      'p',
+    );
+
+  codeDisplay.id =
+    'pairingRecoveryCodeDisplay';
+
+  codeDisplay.className =
+    'pairing-code-display';
+
+  const status =
+    document.createElement(
+      'p',
+    );
+
+  status.id =
+    'pairingRecoveryGenerateStatus';
+
+  status.className =
+    'pairing-status';
+
+  const issueButton =
+    document.createElement(
+      'button',
+    );
+
+  issueButton.type =
+    'button';
+
+  issueButton.className =
+    'pairing-primary-btn';
+
+  issueButton.dataset.action =
+    'issue-recovery-code';
+
+  issueButton.textContent =
+    '復旧コードを発行';
+
+  const backButton =
+    document.createElement(
+      'button',
+    );
+
+  backButton.type =
+    'button';
+
+  backButton.className =
+    'pairing-secondary-btn';
+
+  backButton.dataset.action =
+    'back-to-choice';
+
+  backButton.textContent =
+    '戻る';
+
+  panel.append(
+    message,
+    codeDisplay,
+    status,
+    issueButton,
+    backButton,
+  );
+
+  return panel;
+}
+
+function createRecoveryUsePanel() {
+  const panel =
+    document.createElement(
+      'div',
+    );
+
+  panel.id =
+    'pairingRecoveryUsePanel';
+
+  panel.className =
+    'pairing-panel';
+
+  const message =
+    document.createElement(
+      'p',
+    );
+
+  message.className =
+    'pairing-message';
+
+  message.textContent =
+    '以前に保存した12桁の復旧コードを入力してください。';
+
+  const input =
+    document.createElement(
+      'input',
+    );
+
+  input.type =
+    'text';
+
+  input.id =
+    'pairingRecoveryInput';
+
+  input.className =
+    'pairing-input pairing-code-input';
+
+  input.placeholder =
+    'XXXX-XXXX-XXXX';
+
+  input.maxLength =
+    14;
+
+  input.autocomplete =
+    'off';
+
+  input.autocapitalize =
+    'characters';
+
+  const error =
+    document.createElement(
+      'p',
+    );
+
+  error.id =
+    'pairingRecoveryError';
+
+  error.className =
+    'pairing-error';
+
+  error.hidden =
+    true;
+
+  const submitButton =
+    document.createElement(
+      'button',
+    );
+
+  submitButton.type =
+    'button';
+
+  submitButton.className =
+    'pairing-primary-btn';
+
+  submitButton.dataset.action =
+    'submit-recovery-code';
+
+  submitButton.textContent =
+    '以前のデータへ戻す';
+
+  const backButton =
+    document.createElement(
+      'button',
+    );
+
+  backButton.type =
+    'button';
+
+  backButton.className =
+    'pairing-secondary-btn';
+
+  backButton.dataset.action =
+    'back-to-choice';
+
+  backButton.textContent =
+    '戻る';
+
+  panel.append(
+    message,
+    input,
+    error,
+    submitButton,
+    backButton,
+  );
+
+  return panel;
+}
+
 /**
  * #pairing の中身を構築する。既に構築済みの場合は何もしない（二重生成防止）。
  */
@@ -229,6 +464,8 @@ export function create() {
   fragment.appendChild(createChoicePanel());
   fragment.appendChild(createGeneratePanel());
   fragment.appendChild(createJoinPanel());
+  fragment.appendChild(createRecoveryGeneratePanel());
+  fragment.appendChild(createRecoveryUsePanel());
   container.replaceChildren(fragment);
 
   isBuilt = true;
@@ -242,6 +479,8 @@ const PANEL_IDS = Object.freeze([
   'pairingChoicePanel',
   'pairingGeneratePanel',
   'pairingJoinPanel',
+  'pairingRecoveryGeneratePanel',
+  'pairingRecoveryUsePanel',
 ]);
 
 /**
@@ -275,6 +514,29 @@ export function showJoinPanel() {
 export function showGeneratePanel() {
   showOnlyPanel('pairingGeneratePanel');
 }
+
+export function showRecoveryGeneratePanel() {
+  showOnlyPanel(
+    'pairingRecoveryGeneratePanel',
+  );
+}
+
+export function showRecoveryUsePanel() {
+  const error =
+    document.getElementById(
+      'pairingRecoveryError',
+    );
+
+  if (error) {
+    error.hidden = true;
+    error.textContent = '';
+  }
+
+  showOnlyPanel(
+    'pairingRecoveryUsePanel',
+  );
+}
+
 
 /**
  * 選択パネルへ戻る。招待コード発行中の待機（購読）があれば止める。
@@ -327,7 +589,54 @@ export async function generateInvite() {
     const uid = await Firebase.ensureSignedIn();
     await Firebase.ensureUserProfile(uid, displayName);
 
-    const { roomId, code } = await Firebase.createRoomAndInviteCode(uid, displayName);
+    const recoveryRoomId =
+      Firebase.getRecoveryRoomId();
+
+    let invite;
+
+    if (
+      recoveryRoomId
+    ) {
+      try {
+        invite =
+          await Firebase
+            .createInviteForExistingRoom(
+              recoveryRoomId,
+              uid,
+            );
+
+        if (
+          statusEl
+        ) {
+          statusEl.textContent =
+            '以前のデータを残したまま再接続します…';
+        }
+      } catch (
+        recoveryError
+      ) {
+        console.warn(
+          '[pairing.js] 以前のルームへの再接続招待を作れませんでした',
+          recoveryError,
+        );
+      }
+    }
+
+    if (
+      !invite
+    ) {
+      invite =
+        await Firebase
+          .createRoomAndInviteCode(
+            uid,
+            displayName,
+          );
+    }
+
+    const {
+      roomId,
+      code,
+    } =
+      invite;
 
     if (codeEl) codeEl.textContent = code;
     if (statusEl) statusEl.textContent = '相手の参加を待っています…';
@@ -423,6 +732,148 @@ export async function submitJoinCode() {
   return roomId;
 }
 
+
+export async function issueRecoveryCode() {
+
+  const status =
+    document.getElementById(
+      'pairingRecoveryGenerateStatus',
+    );
+
+  const display =
+    document.getElementById(
+      'pairingRecoveryCodeDisplay',
+    );
+
+  if (status) {
+    status.textContent =
+      '復旧コードを発行しています…';
+  }
+
+  if (display) {
+    display.textContent =
+      '';
+  }
+
+  const uid =
+    await Firebase
+      .ensureSignedIn();
+
+  const roomId =
+    Firebase.getLocalRoomId() ||
+    Firebase.getRecoveryRoomId();
+
+  if (!roomId) {
+    throw new Error(
+      '先にペアリングを完了してください。',
+    );
+  }
+
+  const code =
+    await Firebase
+      .createRecoveryCode(
+        roomId,
+        uid,
+      );
+
+  if (display) {
+    display.textContent =
+      code;
+  }
+
+  if (status) {
+    status.textContent =
+      'このコードを安全な場所に保存してください。';
+  }
+
+  return code;
+}
+
+export async function submitRecoveryCode() {
+
+  const input =
+    document.getElementById(
+      'pairingRecoveryInput',
+    );
+
+  const error =
+    document.getElementById(
+      'pairingRecoveryError',
+    );
+
+  const code =
+    input
+      ? input.value.trim()
+      : '';
+
+  if (!code) {
+    throw new Error(
+      '復旧コードを入力してください。',
+    );
+  }
+
+  if (error) {
+    error.hidden =
+      true;
+    error.textContent =
+      '';
+  }
+
+  const uid =
+    await Firebase
+      .ensureSignedIn();
+
+  await Firebase
+    .ensureUserProfile(
+      uid,
+      '',
+    );
+
+  const result =
+    await Firebase
+      .recoverRoomWithCode(
+        code,
+        uid,
+        '',
+      );
+
+  Firebase.saveLocalRoomId(
+    result.roomId,
+  );
+
+  if (
+    typeof onPairedCallback ===
+      'function'
+  ) {
+    onPairedCallback(
+      result.roomId,
+    );
+  }
+
+  return result.roomId;
+}
+
+export function showRecoveryError(
+  message,
+) {
+
+  const error =
+    document.getElementById(
+      'pairingRecoveryError',
+    );
+
+  if (!error) {
+    return;
+  }
+
+  error.textContent =
+    message;
+
+  error.hidden =
+    false;
+
+}
+
 // ------------------------------------------------------------
 // 画面の開閉／初期化
 // ------------------------------------------------------------
@@ -487,6 +938,8 @@ const Pairing = {
   showChoicePanel,
   showJoinPanel,
   showGeneratePanel,
+  showRecoveryGeneratePanel,
+  showRecoveryUsePanel,
   backToChoice,
   getDisplayNameInputValue,
   saveDisplayName,
@@ -495,6 +948,9 @@ const Pairing = {
   showJoinError,
   clearJoinError,
   submitJoinCode,
+  issueRecoveryCode,
+  submitRecoveryCode,
+  showRecoveryError,
 };
 
 export default Pairing;

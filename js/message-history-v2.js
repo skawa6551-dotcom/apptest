@@ -405,8 +405,9 @@ function normalizedMessages() {
             message,
           ),
         _isOwn:
-          message?.senderId ===
-          uid,
+          Firebase.isOwnSenderId(
+            message?.senderId,
+          ),
       }),
     )
     .sort(

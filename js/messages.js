@@ -871,7 +871,7 @@ function formatMessageTime(message) {
 
 function createMessageElement(message, currentUid) {
   const wrapper = document.createElement('div');
-  const isOwn = message.senderId === currentUid;
+  const isOwn = Firebase.isOwnSenderId(message.senderId);
 
   wrapper.className = `message-row ${isOwn ? 'is-own' : 'is-other'}`;
   wrapper.dataset.messageId = message.id;

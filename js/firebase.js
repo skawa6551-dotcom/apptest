@@ -74,6 +74,12 @@ const INVITE_CODE_TTL_MS =
 
   10 * 60 * 1000;
 
+const RECOVERY_CODE_LENGTH = 12;
+const RECOVERY_CODE_ALPHABET =
+  'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+
+
 const INVITE_CODE_CHARSET =
 
   '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -1356,6 +1362,18 @@ export function getLocalRoomId() {
 
 }
 
+export function getRecoveryRoomId() {
+
+  return Storage.get(
+
+    STORAGE_KEYS.RECOVERY_ROOM_ID,
+
+    null,
+
+  );
+
+}
+
 export function saveLocalRoomId(
 
   roomId,
@@ -1370,7 +1388,168 @@ export function saveLocalRoomId(
 
   );
 
+  // 接続解除時にroomIdをnullへしても、
+  // データ復旧用roomIdは消さない。
+  if (
+    typeof roomId ===
+      'string' &&
+    roomId.trim()
+  ) {
+    Storage.set(
+      STORAGE_KEYS.RECOVERY_ROOM_ID,
+      roomId.trim(),
+    );
+  }
+
 }
+
+export function clearRecoveryRoomId() {
+
+  Storage.remove(
+
+    STORAGE_KEYS.RECOVERY_ROOM_ID,
+
+  );
+
+}
+
+export function getRecoveredSenderIds() {
+
+  const value =
+    Storage.get(
+      STORAGE_KEYS.RECOVERED_SENDER_IDS,
+      [],
+    );
+
+  return Array.isArray(value)
+    ? value.filter(
+        (
+          item,
+        ) =>
+          typeof item ===
+          'string' &&
+          item.trim(),
+      )
+    : [];
+
+}
+
+export function isOwnSenderId(
+  senderId,
+) {
+
+  if (
+    !senderId
+  ) {
+    return false;
+  }
+
+  const currentUid =
+    getCurrentUid();
+
+  if (
+    senderId ===
+    currentUid
+  ) {
+    return true;
+  }
+
+  return getRecoveredSenderIds()
+    .includes(
+      senderId,
+    );
+
+}
+
+function rememberRecoveredSenderId(
+  senderId,
+) {
+
+  if (
+    !senderId
+  ) {
+    return;
+  }
+
+  const current =
+    getRecoveredSenderIds();
+
+  if (
+    current.includes(
+      senderId,
+    )
+  ) {
+    return;
+  }
+
+  Storage.set(
+    STORAGE_KEYS.RECOVERED_SENDER_IDS,
+    [
+      ...current,
+      senderId,
+    ].slice(-8),
+  );
+
+}
+
+function normalizeRecoveryCode(
+  code,
+) {
+
+  return String(
+    code ?? '',
+  )
+    .toUpperCase()
+    .replace(
+      /[^A-Z0-9]/g,
+      '',
+    );
+
+}
+
+function formatRecoveryCode(
+  code,
+) {
+
+  const normalized =
+    normalizeRecoveryCode(
+      code,
+    );
+
+  return normalized
+    .match(/.{1,4}/g)
+    ?.join('-') ??
+    normalized;
+
+}
+
+function generateRecoveryCodeValue() {
+
+  const bytes =
+    new Uint8Array(
+      RECOVERY_CODE_LENGTH,
+    );
+
+  crypto.getRandomValues(
+    bytes,
+  );
+
+  let code = '';
+
+  for (
+    const byte of bytes
+  ) {
+    code +=
+      RECOVERY_CODE_ALPHABET[
+        byte %
+        RECOVERY_CODE_ALPHABET.length
+      ];
+  }
+
+  return code;
+
+}
+
 
 // ============================================================
 
@@ -1936,6 +2115,424 @@ export async function createRoomAndInviteCode(
 
   };
 
+}
+
+
+
+// ============================================================
+// 永続復旧コード
+// ============================================================
+
+export async function createRecoveryCode(
+  roomId,
+  uid,
+) {
+
+  if (
+    !roomId ||
+    !uid
+  ) {
+    throw new Error(
+      '復旧コードを発行できません。',
+    );
+  }
+
+  const {
+    db,
+    firestoreFns,
+  } =
+    await loadFirebase();
+
+  const roomRef =
+    firestoreFns.doc(
+      db,
+      'rooms',
+      roomId,
+    );
+
+  const roomSnap =
+    await firestoreFns.getDoc(
+      roomRef,
+    );
+
+  if (
+    !roomSnap.exists()
+  ) {
+    throw new Error(
+      'ルームが見つかりません。',
+    );
+  }
+
+  const roomData =
+    roomSnap.data();
+
+  const memberIds =
+    Array.isArray(
+      roomData.memberIds,
+    )
+      ? roomData.memberIds
+      : [];
+
+  if (
+    !memberIds.includes(
+      uid,
+    )
+  ) {
+    throw new Error(
+      'この端末はルームのメンバーではありません。',
+    );
+  }
+
+  for (
+    let attempt = 0;
+    attempt < 10;
+    attempt += 1
+  ) {
+    const rawCode =
+      generateRecoveryCodeValue();
+
+    const codeRef =
+      firestoreFns.doc(
+        db,
+        'recoveryCodes',
+        rawCode,
+      );
+
+    const existing =
+      await firestoreFns.getDoc(
+        codeRef,
+      );
+
+    if (
+      existing.exists()
+    ) {
+      continue;
+    }
+
+    await firestoreFns.setDoc(
+      codeRef,
+      {
+        roomId,
+        ownerUid:
+          uid,
+        createdBy:
+          uid,
+        createdAt:
+          firestoreFns.serverTimestamp(),
+        schemaVersion:
+          SCHEMA_VERSION,
+      },
+    );
+
+    return formatRecoveryCode(
+      rawCode,
+    );
+  }
+
+  throw new Error(
+    '復旧コードの発行に失敗しました。',
+  );
+
+}
+
+export async function recoverRoomWithCode(
+  code,
+  newUid,
+  displayName = '',
+) {
+
+  const normalizedCode =
+    normalizeRecoveryCode(
+      code,
+    );
+
+  if (
+    normalizedCode.length !==
+    RECOVERY_CODE_LENGTH
+  ) {
+    throw new Error(
+      '復旧コードは12桁です。',
+    );
+  }
+
+  if (
+    !newUid
+  ) {
+    throw new Error(
+      'ユーザー情報がありません。',
+    );
+  }
+
+  const {
+    db,
+    firestoreFns,
+  } =
+    await loadFirebase();
+
+  const codeRef =
+    firestoreFns.doc(
+      db,
+      'recoveryCodes',
+      normalizedCode,
+    );
+
+  const codeSnap =
+    await firestoreFns.getDoc(
+      codeRef,
+    );
+
+  if (
+    !codeSnap.exists()
+  ) {
+    throw new Error(
+      '復旧コードが見つかりません。',
+    );
+  }
+
+  const codeData =
+    codeSnap.data();
+
+  const roomId =
+    codeData.roomId;
+
+  const ownerUid =
+    codeData.ownerUid;
+
+  if (
+    !roomId ||
+    !ownerUid
+  ) {
+    throw new Error(
+      '復旧コードの情報が壊れています。',
+    );
+  }
+
+  const roomRef =
+    firestoreFns.doc(
+      db,
+      'rooms',
+      roomId,
+    );
+
+  await firestoreFns.runTransaction(
+    db,
+    async (
+      transaction,
+    ) => {
+      const roomSnap =
+        await transaction.get(
+          roomRef,
+        );
+
+      if (
+        !roomSnap.exists()
+      ) {
+        throw new Error(
+          '以前のルームが見つかりません。',
+        );
+      }
+
+      const room =
+        roomSnap.data();
+
+      const memberIds =
+        Array.isArray(
+          room.memberIds,
+        )
+          ? room.memberIds
+          : [];
+
+      if (
+        memberIds.includes(
+          newUid,
+        )
+      ) {
+        return;
+      }
+
+      if (
+        !memberIds.includes(
+          ownerUid,
+        )
+      ) {
+        throw new Error(
+          'この復旧コードは現在のルーム状態では使用できません。',
+        );
+      }
+
+      const nextMemberIds =
+        memberIds.map(
+          (
+            memberId,
+          ) =>
+            memberId ===
+              ownerUid
+              ? newUid
+              : memberId,
+        );
+
+      const oldProfile =
+        room.memberProfiles?.[
+          ownerUid
+        ] ??
+        {};
+
+      transaction.update(
+        roomRef,
+        {
+          memberIds:
+            nextMemberIds,
+          formerMemberIds:
+            firestoreFns.arrayUnion(
+              ownerUid,
+            ),
+          [`memberProfiles.${newUid}`]:
+            {
+              ...oldProfile,
+              displayName:
+                typeof displayName ===
+                  'string'
+                  ? displayName
+                  : '',
+              status:
+                'active',
+              joinedAt:
+                firestoreFns.serverTimestamp(),
+              leftAt:
+                null,
+            },
+          [`memberProfiles.${ownerUid}.status`]:
+            'recovered',
+          [`memberProfiles.${ownerUid}.leftAt`]:
+            firestoreFns.serverTimestamp(),
+        },
+      );
+    },
+  );
+
+  const userRef =
+    firestoreFns.doc(
+      db,
+      'users',
+      newUid,
+    );
+
+  await firestoreFns.setDoc(
+    userRef,
+    {
+      roomIds:
+        firestoreFns.arrayUnion(
+          roomId,
+        ),
+      updatedAt:
+        firestoreFns.serverTimestamp(),
+    },
+    {
+      merge:
+        true,
+    },
+  );
+
+  rememberRecoveredSenderId(
+    ownerUid,
+  );
+
+  saveLocalRoomId(
+    roomId,
+  );
+
+  return {
+    roomId,
+    previousUid:
+      ownerUid,
+  };
+
+}
+
+// ============================================================
+// 既存ルームへ再接続するための招待コード
+// ============================================================
+
+export async function createInviteForExistingRoom(
+  roomId,
+  uid,
+) {
+  if (
+    !roomId ||
+    !uid
+  ) {
+    throw new Error(
+      '再接続情報がありません。',
+    );
+  }
+
+  const {
+    db,
+    firestoreFns,
+  } =
+    await loadFirebase();
+
+  const roomRef =
+    firestoreFns.doc(
+      db,
+      'rooms',
+      roomId,
+    );
+
+  const roomSnap =
+    await firestoreFns.getDoc(
+      roomRef,
+    );
+
+  if (
+    !roomSnap.exists()
+  ) {
+    throw new Error(
+      '以前のルームが見つかりませんでした。',
+    );
+  }
+
+  const roomData =
+    roomSnap.data();
+
+  const memberIds =
+    Array.isArray(
+      roomData.memberIds,
+    )
+      ? roomData.memberIds
+      : [];
+
+  if (
+    !memberIds.includes(
+      uid,
+    )
+  ) {
+    throw new Error(
+      'この端末は以前のルームのメンバーとして確認できませんでした。',
+    );
+  }
+
+  const code =
+    await createInviteCodeDoc(
+      db,
+      firestoreFns,
+      roomId,
+      uid,
+      'initial',
+      null,
+    );
+
+  return {
+    roomId,
+    code,
+    recovered:
+      true,
+    expiresAt:
+      new Date(
+        Date.now() +
+        INVITE_CODE_TTL_MS,
+      ),
+  };
 }
 
 // ============================================================
@@ -5228,7 +5825,15 @@ const Firebase = {
 
   getLocalRoomId,
 
+  getRecoveryRoomId,
+
+  getRecoveredSenderIds,
+
+  isOwnSenderId,
+
   saveLocalRoomId,
+
+  clearRecoveryRoomId,
 
   // ----------------------------------------------------------
 
@@ -5245,6 +5850,12 @@ const Firebase = {
   // ----------------------------------------------------------
 
   createRoomAndInviteCode,
+
+  createRecoveryCode,
+
+  recoverRoomWithCode,
+
+  createInviteForExistingRoom,
 
   joinRoomWithCode,
 

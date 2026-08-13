@@ -3577,6 +3577,86 @@ async function handleSubmitJoinCode() {
 
 }
 
+
+function handleChooseRecoveryGenerate() {
+
+  Pairing
+    .showRecoveryGeneratePanel();
+
+}
+
+function handleChooseRecoveryUse() {
+
+  Pairing
+    .showRecoveryUsePanel();
+
+}
+
+async function handleIssueRecoveryCode() {
+
+  try {
+
+    await Pairing
+      .issueRecoveryCode();
+
+    playFeedbackSound(
+      'success',
+    );
+
+    playFeedbackVibration();
+
+  } catch (
+    error
+  ) {
+
+    playFeedbackSound(
+      'error',
+    );
+
+    playFeedbackVibration();
+
+    window.alert(
+      error?.message ||
+      '復旧コードの発行に失敗しました。',
+    );
+
+  }
+
+}
+
+async function handleSubmitRecoveryCode() {
+
+  try {
+
+    await Pairing
+      .submitRecoveryCode();
+
+    playFeedbackSound(
+      'success',
+    );
+
+    playFeedbackVibration();
+
+  } catch (
+    error
+  ) {
+
+    playFeedbackSound(
+      'error',
+    );
+
+    playFeedbackVibration();
+
+    Pairing
+      .showRecoveryError(
+        error?.message ||
+        '復旧に失敗しました。',
+      );
+
+  }
+
+}
+
 const PAIRING_ACTION_HANDLERS =
 
   Object.freeze({
@@ -3600,6 +3680,22 @@ const PAIRING_ACTION_HANDLERS =
     'choose-join':
 
       handleChooseJoin,
+
+    'choose-recovery-generate':
+
+      handleChooseRecoveryGenerate,
+
+    'choose-recovery-use':
+
+      handleChooseRecoveryUse,
+
+    'issue-recovery-code':
+
+      handleIssueRecoveryCode,
+
+    'submit-recovery-code':
+
+      handleSubmitRecoveryCode,
 
     'back-to-choice':
 
