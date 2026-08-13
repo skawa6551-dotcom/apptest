@@ -1557,6 +1557,78 @@ function generateRecoveryCodeValue() {
 
 // ============================================================
 
+
+// ============================================================
+// ペアリング済み状態の復元
+// ============================================================
+
+export async function resolvePersistentRoomId() {
+
+  const uid =
+    await ensureSignedIn();
+
+  const candidates =
+    [
+      getLocalRoomId(),
+      getRecoveryRoomId(),
+    ]
+      .filter(
+        (
+          value,
+          index,
+          array,
+        ) =>
+          typeof value ===
+            'string' &&
+          value.trim() &&
+          array.indexOf(value) ===
+            index,
+      );
+
+  for (
+    const roomId of candidates
+  ) {
+    try {
+      const room =
+        await getRoom(
+          roomId,
+        );
+
+      if (!room) {
+        continue;
+      }
+
+      const memberIds =
+        Array.isArray(
+          room.memberIds,
+        )
+          ? room.memberIds
+          : [];
+
+      if (
+        memberIds.includes(
+          uid,
+        )
+      ) {
+        saveLocalRoomId(
+          roomId,
+        );
+
+        return roomId;
+      }
+    } catch (
+      error
+    ) {
+      console.warn(
+        '[firebase.js] 保存済みルームの確認に失敗しました',
+        error,
+      );
+    }
+  }
+
+  return null;
+}
+
 export async function ensureUserProfile(
 
   uid,
@@ -5830,6 +5902,8 @@ const Firebase = {
   getRecoveredSenderIds,
 
   isOwnSenderId,
+
+  resolvePersistentRoomId,
 
   saveLocalRoomId,
 

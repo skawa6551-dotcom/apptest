@@ -3043,25 +3043,44 @@ function handleWorkspaceScreenClick(
 
 }
 
-function handleOpenMessagesCard() {
+async function handleOpenMessagesCard() {
 
-  const roomId =
+  try {
 
-    Firebase.getLocalRoomId();
+    const roomId =
 
-  if (
+      await Firebase
+        .resolvePersistentRoomId();
 
-    roomId
+    if (
+
+      roomId
+
+    ) {
+
+      Router.openMessages();
+
+      return;
+
+    }
+
+  } catch (
+
+    error
 
   ) {
 
-    Router.openMessages();
+    console.warn(
 
-  } else {
+      '[app.js] ペアリング状態の復元確認に失敗しました',
 
-    Router.openPairing();
+      error,
+
+    );
 
   }
+
+  Router.openPairing();
 
 }
 
