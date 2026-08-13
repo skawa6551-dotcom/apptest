@@ -2721,14 +2721,8 @@ function hideLockOverlay() {
 
 function handleCloseWorkspace() {
 
-  Workspace.setViewModeActive(
-
-    false,
-
-  );
-
-  Router.disableViewMode();
-
+  // 閲覧モードは「自動ロックを止める」ためのモード。
+  // Workspaceから各画面へ移動しても状態を維持する。
   Router.closeWorkspace();
 
   passcodeBuffer =
