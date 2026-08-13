@@ -121,3 +121,43 @@
   background-position: center !important;
   background-repeat: no-repeat !important;
 }
+
+
+/* Step 8: 履歴背景を画面全体へ確実に反映 */
+#messageHistoryV2,
+#messageHistoryDetailV2,
+#messageHistoryV2 .history-v2-shell,
+#messageHistoryDetailV2 .history-v2-detail-shell {
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(4, 6, 12, .18),
+      rgba(4, 6, 12, .70)
+    ),
+    var(
+      --history-user-bg,
+      url("../assets/history-default.jpeg")
+    ) !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
+
+/* 旧デザインの固定イラスト/グラデーションが背景を覆わないようにする */
+#messageHistoryV2 .history-v2-hero,
+#messageHistoryDetailV2 .history-v2-detail-card {
+  background:
+    rgba(10, 12, 20, .42) !important;
+  backdrop-filter:
+    blur(8px);
+  -webkit-backdrop-filter:
+    blur(8px);
+}
+
+
+/* Step 8b: 履歴の初期背景を固定 */
+#messageHistoryV2,
+#messageHistoryDetailV2 {
+  --history-user-bg:
+    url("../assets/history-default.jpeg");
+}
