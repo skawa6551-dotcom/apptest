@@ -106,129 +106,252 @@ function openDb() {
 async function getBlob(
   key,
 ) {
-  const db =
-    await openDb();
+  try {
+    const db =
+      await openDb();
 
-  return new Promise(
-    (
-      resolve,
-      reject,
-    ) => {
-      const tx =
-        db.transaction(
-          STORE_NAME,
-          'readonly',
-        );
-
-      const store =
-        tx.objectStore(
-          STORE_NAME,
-        );
-
-      const request =
-        store.get(key);
-
-      request.onsuccess =
-        () =>
-          resolve(
-            request.result ??
-            null,
+    return await new Promise(
+      (
+        resolve,
+        reject,
+      ) => {
+        const tx =
+          db.transaction(
+            STORE_NAME,
+            'readonly',
           );
 
-      request.onerror =
-        () =>
-          reject(
-            request.error,
-          );
+        const request =
+          tx.objectStore(
+            STORE_NAME,
+          ).get(key);
 
-      tx.oncomplete =
-        () =>
-          db.close();
-    },
-  );
+        request.onsuccess =
+          () => {
+            const result =
+              request.result ??
+              null;
+            db.close();
+
+            if (result) {
+              resolve(result);
+              return;
+            }
+
+            getFallbackBlob(
+              key,
+            )
+              .then(resolve)
+              .catch(
+                () =>
+                  resolve(null),
+              );
+          };
+
+        request.onerror =
+          () => {
+            db.close();
+            reject(
+              request.error,
+            );
+          };
+      },
+    );
+  } catch (error) {
+    console.warn(
+      '[screen-backgrounds] IndexedDB読込失敗',
+      error,
+    );
+
+    return getFallbackBlob(
+      key,
+    );
+  }
 }
 
 async function setBlob(
   key,
   blob,
 ) {
-  const db =
-    await openDb();
+  try {
+    const db =
+      await openDb();
 
-  return new Promise(
-    (
-      resolve,
-      reject,
-    ) => {
-      const tx =
-        db.transaction(
-          STORE_NAME,
-          'readwrite',
-        );
+    await new Promise(
+      (
+        resolve,
+        reject,
+      ) => {
+        const tx =
+          db.transaction(
+            STORE_NAME,
+            'readwrite',
+          );
 
-      const store =
         tx.objectStore(
           STORE_NAME,
+        ).put(
+          blob,
+          key,
         );
 
-      store.put(
-        blob,
-        key,
+        tx.oncomplete =
+          () => {
+            db.close();
+            resolve();
+          };
+
+        tx.onerror =
+          () => {
+            db.close();
+            reject(
+              tx.error,
+            );
+          };
+      },
+    );
+
+    try {
+      localStorage.removeItem(
+        fallbackKey(key),
       );
+    } catch (_) {}
 
-      tx.oncomplete =
-        () => {
-          db.close();
-          resolve();
-        };
+    return;
+  } catch (error) {
+    console.warn(
+      '[screen-backgrounds] IndexedDB保存失敗。端末内保存へ切替',
+      error,
+    );
+  }
 
-      tx.onerror =
-        () => {
-          db.close();
-          reject(
-            tx.error,
-          );
-        };
-    },
+  const dataUrl =
+    await blobToDataUrl(
+      blob,
+    );
+
+  localStorage.setItem(
+    fallbackKey(key),
+    dataUrl,
   );
 }
 
 async function removeBlob(
   key,
 ) {
-  const db =
-    await openDb();
+  try {
+    const db =
+      await openDb();
 
+    await new Promise(
+      (
+        resolve,
+        reject,
+      ) => {
+        const tx =
+          db.transaction(
+            STORE_NAME,
+            'readwrite',
+          );
+
+        tx.objectStore(
+          STORE_NAME,
+        ).delete(key);
+
+        tx.oncomplete =
+          () => {
+            db.close();
+            resolve();
+          };
+
+        tx.onerror =
+          () => {
+            db.close();
+            reject(
+              tx.error,
+            );
+          };
+      },
+    );
+  } catch (error) {
+    console.warn(
+      '[screen-backgrounds] IndexedDB削除失敗',
+      error,
+    );
+  }
+
+  try {
+    localStorage.removeItem(
+      fallbackKey(key),
+    );
+  } catch (_) {}
+}
+
+function fallbackKey(
+  key,
+) {
+  return `calculator0209_bg_${key}`;
+}
+
+function blobToDataUrl(
+  blob,
+) {
   return new Promise(
     (
       resolve,
       reject,
     ) => {
-      const tx =
-        db.transaction(
-          STORE_NAME,
-          'readwrite',
-        );
+      const reader =
+        new FileReader();
 
-      tx.objectStore(
-        STORE_NAME,
-      ).delete(key);
-
-      tx.oncomplete =
-        () => {
-          db.close();
-          resolve();
-        };
-
-      tx.onerror =
-        () => {
-          db.close();
-          reject(
-            tx.error,
+      reader.onload =
+        () =>
+          resolve(
+            String(
+              reader.result ?? '',
+            ),
           );
-        };
+
+      reader.onerror =
+        () =>
+          reject(
+            reader.error,
+          );
+
+      reader.readAsDataURL(
+        blob,
+      );
     },
   );
+}
+
+async function getFallbackBlob(
+  key,
+) {
+  try {
+    const dataUrl =
+      localStorage.getItem(
+        fallbackKey(key),
+      );
+
+    if (!dataUrl) {
+      return null;
+    }
+
+    const response =
+      await fetch(
+        dataUrl,
+      );
+
+    return await response.blob();
+  } catch (error) {
+    console.warn(
+      '[screen-backgrounds] 端末内背景の読込失敗',
+      error,
+    );
+
+    return null;
+  }
 }
 
 function revokeUrl(
