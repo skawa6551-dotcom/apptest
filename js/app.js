@@ -2170,18 +2170,18 @@ function renderBackgroundCustomizationList() {
           );
 
         const linkedLabel =
-          linkedCard?.label ??
-          (
-            screen.key ===
-              'workspace'
-              ? (
-                  Customization
-                    .getCached()
-                    .workspaceTitle ||
-                  screen.label
-                )
-              : screen.label
-          );
+          screen.key ===
+            'workspace'
+            ? (
+                Customization
+                  .getCached()
+                  .workspaceTitle ||
+                'Workspace'
+              )
+            : (
+                linkedCard?.label ??
+                screen.label
+              );
 
         title.textContent =
 

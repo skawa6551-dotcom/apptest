@@ -15,46 +15,111 @@ const STORE_NAME = 'backgrounds';
 
 const SCREENS = [
   {
-    key: 'messages',
-    label: 'AI Space',
-    selectors: ['#messages'],
-  },
-  {
-    key: 'history',
-    label: 'メッセージ履歴',
-    selectors: ['#messageHistoryV2'],
-  },
-  {
-    key: 'historyDetail',
-    label: '履歴詳細',
-    selectors: ['#messageHistoryDetailV2'],
-  },
-  {
     key: 'workspace',
     label: 'Workspace',
     selectors: ['#workspace'],
   },
   {
-    key: 'calendar',
-    label: 'Calendar',
-    selectors: ['#calendar', '.calendar', '[data-screen="calendar"]'],
+    key: 'messages',
+    label: 'メッセージ',
+    selectors: ['#messages'],
+  },
+  {
+    key: 'history',
+    label: '履歴',
+    selectors: [
+      '#messageHistoryV2',
+      '#messageHistoryDetailV2',
+    ],
   },
   {
     key: 'archive',
     label: 'Archive',
-    selectors: ['#archive', '.archive', '[data-screen="archive"]'],
+    selectors: [
+      '#archive',
+      '.archive',
+      '[data-screen="archive"]',
+    ],
+  },
+  {
+    key: 'calendar',
+    label: 'カレンダー',
+    selectors: [
+      '#calendar',
+      '.calendar',
+      '[data-screen="calendar"]',
+    ],
   },
   {
     key: 'photo',
-    label: 'Photo',
+    label: '思い出',
     selectors: ['#photo'],
   },
-  {
-    key: 'records',
-    label: 'Records',
-    selectors: ['#records'],
-  },
 ];
+
+function getLinkedLabel(
+  screen,
+) {
+  try {
+    const raw =
+      window.localStorage.getItem(
+        'calculator0209_workspace_customization_cache',
+      );
+
+    const parsed =
+      raw
+        ? JSON.parse(raw)
+        : null;
+
+    const cards =
+      parsed?.cards ??
+      {};
+
+    const workspaceTitle =
+      parsed?.workspaceTitle;
+
+    if (
+      screen.key ===
+      'workspace'
+    ) {
+      return (
+        typeof workspaceTitle === 'string' &&
+        workspaceTitle.trim()
+          ? workspaceTitle.trim()
+          : 'Workspace'
+      );
+    }
+
+    if (
+      screen.key ===
+      'history'
+    ) {
+      return '履歴';
+    }
+
+    const override =
+      cards?.[
+        screen.key
+      ]?.label;
+
+    if (
+      typeof override === 'string' &&
+      override.trim()
+    ) {
+      return override.trim();
+    }
+  } catch (
+    error
+  ) {
+    console.warn(
+      '[screen-backgrounds] 表示名の取得に失敗しました',
+      error,
+    );
+  }
+
+  return screen.label;
+}
+
 
 const objectUrls =
   new Map();
@@ -408,8 +473,7 @@ function setElementBackground(
   url,
 ) {
   if (
-    key === 'history' ||
-    key === 'historyDetail'
+    key === 'history'
   ) {
     const historyBackground =
       url
@@ -549,8 +613,13 @@ function createRow(
   const title =
     document.createElement('strong');
 
+  const linkedLabel =
+    getLinkedLabel(
+      screen,
+    );
+
   title.textContent =
-    `${screen.label} 背景`;
+    `${linkedLabel} 背景`;
 
   const status =
     document.createElement('span');
