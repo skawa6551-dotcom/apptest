@@ -260,6 +260,23 @@
       <div class="settings-group" role="group" aria-label="セキュリティ">
         <div class="settings-row settings-row-select">
           <div class="settings-row-text">
+            <span class="settings-row-title">パスコード</span>
+            <span class="settings-row-desc">この端末だけで使う4〜8桁の数字</span>
+          </div>
+          <input
+            type="password"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            id="customPasscodeInput"
+            class="settings-text-input"
+            placeholder="0209"
+            minlength="4"
+            maxlength="8"
+            autocomplete="off">
+        </div>
+
+        <div class="settings-row settings-row-select">
+          <div class="settings-row-text">
             <span class="settings-row-title">自動ロックまでの時間</span>
           </div>
           <select id="autoLockDurationSelect" class="settings-select" aria-label="自動ロックまでの時間"></select>
