@@ -3113,9 +3113,51 @@ async function handleOpenMessagesCard() {
 
     ) {
 
-      Router.openMessages();
+      const room =
 
-      return;
+        await Firebase.getRoom(
+
+          roomId,
+
+        );
+
+      const memberIds =
+
+        Array.isArray(
+
+          room?.memberIds,
+
+        )
+
+          ? room.memberIds
+
+          : [];
+
+      /*
+       * AI Spaceは「2人のペアリング完了後」だけ開く。
+       *
+       * 以前は、自分1人だけ入ったpendingルームでも
+       * resolvePersistentRoomId() がroomIdを返すため、
+       * 招待コードを相手が入力していなくても
+       * AI Spaceへ入れてしまっていた。
+       */
+      if (
+
+        room?.status ===
+
+          'active' &&
+
+        memberIds.length ===
+
+          2
+
+      ) {
+
+        Router.openMessages();
+
+        return;
+
+      }
 
     }
 
