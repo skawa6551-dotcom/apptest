@@ -4973,6 +4973,258 @@ async function handleRetryAuth() {
 
 // ============================================================
 
+
+async function handleSendSelfPushTest(
+
+  button,
+
+) {
+
+  const statusLabel =
+
+    document.getElementById(
+
+      'selfPushTestStatus',
+
+    );
+
+  const setStatus =
+
+    (
+
+      message,
+
+    ) => {
+
+      if (
+
+        statusLabel
+
+      ) {
+
+        statusLabel.textContent =
+
+          message;
+
+      }
+
+    };
+
+  if (
+
+    button instanceof
+
+      HTMLButtonElement
+
+  ) {
+
+    button.disabled =
+
+      true;
+
+  }
+
+  setStatus(
+
+    'テスト通知を送信しています…',
+
+  );
+
+  try {
+
+    if (
+
+      !Settings.isNotificationsEnabled()
+
+    ) {
+
+      throw new Error(
+
+        '通知をONにしてください。',
+
+      );
+
+    }
+
+    if (
+
+      Notifications.getPermissionState() !==
+
+        'granted'
+
+    ) {
+
+      throw new Error(
+
+        'iPhoneの通知許可が有効ではありません。',
+
+      );
+
+    }
+
+    const roomId =
+
+      Firebase.getLocalRoomId();
+
+    if (
+
+      !roomId
+
+    ) {
+
+      throw new Error(
+
+        '通知登録先のルームがありません。',
+
+      );
+
+    }
+
+    const uid =
+
+      await Firebase.ensureSignedIn();
+
+    const clientId =
+
+      Firebase.getOrCreateClientId();
+
+    const target =
+
+      await Firebase.getPushRegistrationTarget(
+
+        roomId,
+
+        uid,
+
+        clientId,
+
+      );
+
+    if (
+
+      !target
+
+    ) {
+
+      throw new Error(
+
+        'このiPhoneの通知先IDをFirestoreから取得できません。通知をOFF→ONして再登録してください。',
+
+      );
+
+    }
+
+    const result =
+
+      await Supabase.sendMessagePush({
+
+        targetId:
+
+          target.targetId,
+
+        targetType:
+
+          target.targetType,
+
+        title:
+
+          'Calculator',
+
+        message:
+
+          'テスト通知です',
+
+        data: {
+
+          type:
+
+            'calculator-0209-self-test',
+
+          roomId,
+
+          sentAt:
+
+            new Date().toISOString(),
+
+        },
+
+      });
+
+    if (
+
+      result?.success !==
+
+        true
+
+    ) {
+
+      throw new Error(
+
+        'FCMがテスト通知を受け付けませんでした。',
+
+      );
+
+    }
+
+    setStatus(
+
+      target.targetType ===
+
+        'fid'
+
+        ? '送信成功（FID）。Calculatorを閉じて通知が届くか確認してください。'
+        : '送信成功（FCM）。Calculatorを閉じて通知が届くか確認してください。',
+
+    );
+
+  } catch (
+
+    error
+
+  ) {
+
+    const message =
+
+      error instanceof Error
+
+        ? error.message
+
+        : String(error);
+
+    setStatus(
+
+      `テスト失敗：${message}`,
+
+    );
+
+    console.error(
+
+      '[app.js] 自分宛てPushテストに失敗しました',
+
+      error,
+
+    );
+
+  } finally {
+
+    if (
+
+      button instanceof
+
+        HTMLButtonElement
+
+    ) {
+
+      button.disabled =
+
+        false;
+
+    }
+
+  }
+
+}
+
 const ACTION_HANDLERS =
 
   Object.freeze({
@@ -5004,6 +5256,10 @@ const ACTION_HANDLERS =
     'clear-cache':
 
       handleClearCache,
+
+    'send-self-push-test':
+
+      handleSendSelfPushTest,
 
     'delete-all-my-messages':
 

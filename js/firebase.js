@@ -5977,6 +5977,133 @@ export async function getPushRegistrationStatus(
 
 // ============================================================
 
+
+export async function getPushRegistrationTarget(
+
+  roomId,
+
+  uid,
+
+  clientId,
+
+) {
+
+  if (
+
+    !roomId ||
+
+    !uid ||
+
+    !clientId
+
+  ) {
+
+    return null;
+
+  }
+
+  const {
+
+    db,
+
+    firestoreFns,
+
+  } =
+
+    await loadFirebase();
+
+  const roomRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+    );
+
+  const snap =
+
+    await firestoreFns.getDoc(
+
+      roomRef,
+
+    );
+
+  const registration =
+
+    snap.data()
+
+      ?.memberProfiles
+
+      ?.[uid]
+
+      ?.pushRegistrations
+
+      ?.[clientId];
+
+  if (
+
+    !registration ||
+
+    registration.enabled !==
+
+      true ||
+
+    typeof registration.id !==
+
+      'string' ||
+
+    !registration.id.trim()
+
+  ) {
+
+    return null;
+
+  }
+
+  const method =
+
+    registration.method ===
+
+      'token'
+
+      ? 'token'
+
+      : registration.method ===
+
+          'fid'
+
+        ? 'fid'
+
+        : null;
+
+  if (
+
+    !method
+
+  ) {
+
+    return null;
+
+  }
+
+  return {
+
+    targetId:
+
+      registration.id.trim(),
+
+    targetType:
+
+      method,
+
+  };
+
+}
+
 export async function disablePushRegistration(
 
   roomId,
@@ -6639,6 +6766,7 @@ const Firebase = {
 
   savePushRegistration,
   getPushRegistrationStatus,
+  getPushRegistrationTarget,
 
   disablePushRegistration,
 
