@@ -5677,24 +5677,45 @@ export async function savePushRegistration(
 
   }
 
-  /*
-   * v88:
-   * pushRegistrationsマップ全体を書き換えず、
-   * clientId配下の各leafを直接updateする。
-   * これにより既存端末を壊さずserverTimestampも確実に保存する。
-   */
+  const currentProfile =
 
-  const basePath =
+    roomData.memberProfiles?.[
 
-    `memberProfiles.${uid}.pushRegistrations.${clientId}`;
+      uid
 
-  await firestoreFns.updateDoc(
+    ] ??
 
-    roomRef,
+    {};
 
-    {
+  const currentRegistrations =
 
-      [`${basePath}.id`]:
+    currentProfile.pushRegistrations &&
+
+    typeof currentProfile.pushRegistrations ===
+
+      'object'
+
+      ? currentProfile.pushRegistrations
+
+      : {};
+
+  const normalizedMethod =
+
+    registrationMethod ===
+
+      'token'
+
+      ? 'token'
+
+      : 'fid';
+
+  const nextRegistrations = {
+
+    ...currentRegistrations,
+
+    [clientId]: {
+
+      id:
 
         String(
 
@@ -5702,28 +5723,237 @@ export async function savePushRegistration(
 
         ),
 
-      [`${basePath}.method`]:
+      method:
 
-        registrationMethod ===
-          'token'
-          ? 'token'
-          : 'fid',
+        normalizedMethod,
 
-      [`${basePath}.enabled`]:
+      enabled:
 
         true,
 
-      [`${basePath}.updatedAt`]:
+      updatedAt:
 
         firestoreFns.serverTimestamp(),
 
     },
 
+  };
+
+  /*
+   * v90:
+   * 端末ID配下のdot-path更新ではなく、
+   * pushRegistrations mapそのものを1回で更新する。
+   * clientIdがどんな文字列でもFieldPath解釈の影響を受けない。
+   */
+  await firestoreFns.updateDoc(
+
+    roomRef,
+
+    {
+
+      [`memberProfiles.${uid}.pushRegistrations`]:
+
+        nextRegistrations,
+
+    },
+
   );
+
+  /*
+   * 書き込み成功レスポンスだけを信用せず、
+   * Firestoreから読み直して保存結果を検証する。
+   */
+  const verifySnap =
+
+    await firestoreFns.getDoc(
+
+      roomRef,
+
+    );
+
+  const savedRegistration =
+
+    verifySnap.data()
+
+      ?.memberProfiles
+
+      ?.[uid]
+
+      ?.pushRegistrations
+
+      ?.[clientId];
+
+  if (
+
+    !savedRegistration ||
+
+    typeof savedRegistration.id !==
+
+      'string' ||
+
+    savedRegistration.id !==
+
+      String(
+
+        registrationId,
+
+      ) ||
+
+    savedRegistration.method !==
+
+      normalizedMethod ||
+
+    savedRegistration.enabled !==
+
+      true
+
+  ) {
+
+    throw new Error(
+
+      'Firestoreへの通知端末登録を保存後に確認できませんでした。',
+
+    );
+
+  }
+
+  return {
+
+    clientId,
+
+    id:
+
+      savedRegistration.id,
+
+    method:
+
+      savedRegistration.method,
+
+    enabled:
+
+      savedRegistration.enabled,
+
+  };
 
 }
 
 // ============================================================
+
+export async function getPushRegistrationStatus(
+
+  roomId,
+
+  uid,
+
+  clientId,
+
+) {
+
+  if (
+
+    !roomId ||
+
+    !uid ||
+
+    !clientId
+
+  ) {
+
+    return {
+
+      saved:
+
+        false,
+
+      method:
+
+        null,
+
+    };
+
+  }
+
+  const {
+
+    db,
+
+    firestoreFns,
+
+  } =
+
+    await loadFirebase();
+
+  const roomRef =
+
+    firestoreFns.doc(
+
+      db,
+
+      'rooms',
+
+      roomId,
+
+    );
+
+  const snap =
+
+    await firestoreFns.getDoc(
+
+      roomRef,
+
+    );
+
+  const registration =
+
+    snap.data()
+
+      ?.memberProfiles
+
+      ?.[uid]
+
+      ?.pushRegistrations
+
+      ?.[clientId];
+
+  return {
+
+    saved:
+
+      Boolean(
+
+        registration &&
+
+        typeof registration.id ===
+
+          'string' &&
+
+        registration.id.trim() &&
+
+        registration.enabled ===
+
+          true,
+
+      ),
+
+    method:
+
+      registration?.method ===
+
+        'token'
+
+        ? 'token'
+
+        : registration?.method ===
+
+            'fid'
+
+          ? 'fid'
+
+          : null,
+
+  };
+
+}
 
 // Push登録無効化
 
@@ -6390,6 +6620,7 @@ const Firebase = {
   subscribeToForegroundMessages,
 
   savePushRegistration,
+  getPushRegistrationStatus,
 
   disablePushRegistration,
 

@@ -2473,8 +2473,8 @@ function renderNotificationStatus() {
 
         registrationState.method ===
           'fid'
-          ? '新着メッセージの通知（FID登録済み）'
-          : '新着メッセージの通知（FCM登録済み）';
+          ? '新着メッセージの通知（FID・Firestore保存確認済み）'
+          : '新着メッセージの通知（FCM・Firestore保存確認済み）';
 
     } else {
 

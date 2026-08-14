@@ -533,19 +533,49 @@ async function registerCurrentDevice() {
 
   }
 
-  await Firebase.savePushRegistration(
+  const savedRegistration =
 
-    roomId,
+    await Firebase.savePushRegistration(
 
-    uid,
+      roomId,
 
-    clientId,
+      uid,
 
-    registrationInfo.id,
+      clientId,
 
-    registrationInfo.method,
+      registrationInfo.id,
 
-  );
+      registrationInfo.method,
+
+    );
+
+  const verifiedStatus =
+
+    await Firebase.getPushRegistrationStatus(
+
+      roomId,
+
+      uid,
+
+      clientId,
+
+    );
+
+  if (
+
+    !savedRegistration ||
+
+    !verifiedStatus.saved
+
+  ) {
+
+    throw new Error(
+
+      '通知端末IDを取得しましたが、Firestoreへの保存確認に失敗しました。',
+
+    );
+
+  }
 
   /**
 
@@ -569,10 +599,10 @@ async function registerCurrentDevice() {
 
   setRegistrationState(
     'registered',
-    registrationInfo.method === 'fid'
-      ? 'FID登録済み'
-      : 'FCM token登録済み',
-    registrationInfo.method,
+    verifiedStatus.method === 'fid'
+      ? 'FID登録・Firestore保存確認済み'
+      : 'FCM登録・Firestore保存確認済み',
+    verifiedStatus.method,
   );
 
   return true;
