@@ -299,7 +299,7 @@
               hidden>通知を使うにはホーム画面のCalculatorから起動してください</span>
             <span
               class="settings-row-desc"
-              id="notificationBuildLabel">通知モジュール v91</span>
+              id="notificationBuildLabel">通知モジュール v92</span>
           </div>
           <label class="toggle">
             <input type="checkbox" id="notificationsToggle" checked>
@@ -335,6 +335,23 @@
             <input type="checkbox" id="notificationVibrationToggle" checked>
             <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
           </label>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <span class="settings-row-title">自分にテスト通知</span>
+            <span
+              class="settings-row-desc"
+              id="selfPushTestStatus">1台だけで通知経路を確認します</span>
+          </div>
+          <button
+            type="button"
+            class="settings-action-btn"
+            id="selfPushTestBtn"
+            data-action="send-self-push-test"
+            style="width:auto; min-width:132px; margin:0;">
+            テスト送信
+          </button>
         </div>
       </div>
 
@@ -489,7 +506,7 @@
      calculator.js / settings.js / storage.js / auth.js / sound.js /
      themes.js はすべてapp.jsからimportされるため、ここには書かない。
      ========================================================== -->
-<script type="module" src="js/app.js?v=91"></script>
+<script type="module" src="js/app.js?v=92"></script>
 <script type="module" src="js/feature-lock-patch.js?v=36"></script>
 
 <div id="featureAuthOverlay" class="feature-auth-overlay" aria-hidden="true">
