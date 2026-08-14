@@ -2399,6 +2399,10 @@ function renderNotificationStatus() {
 
     Notifications.getPermissionState();
 
+  const registrationState =
+
+    Notifications.getRegistrationState();
+
   if (
 
     permission ===
@@ -2417,6 +2421,39 @@ function renderNotificationStatus() {
 
   if (
 
+    registrationState?.status ===
+      'error'
+
+  ) {
+
+    statusLabel.textContent =
+
+      `通知登録エラー：${
+        registrationState.message ||
+        '原因不明'
+      }`;
+
+    return;
+
+  }
+
+  if (
+
+    registrationState?.status ===
+      'registering'
+
+  ) {
+
+    statusLabel.textContent =
+
+      '新着メッセージの通知（端末登録中…）';
+
+    return;
+
+  }
+
+  if (
+
     permission ===
 
       'granted' &&
@@ -2425,9 +2462,27 @@ function renderNotificationStatus() {
 
   ) {
 
-    statusLabel.textContent =
+    if (
 
-      '新着メッセージの通知（有効）';
+      registrationState?.status ===
+        'registered'
+
+    ) {
+
+      statusLabel.textContent =
+
+        registrationState.method ===
+          'fid'
+          ? '新着メッセージの通知（FID登録済み）'
+          : '新着メッセージの通知（FCM登録済み）';
+
+    } else {
+
+      statusLabel.textContent =
+
+        '新着メッセージの通知（許可済み・登録確認中）';
+
+    }
 
     return;
 
@@ -6746,6 +6801,11 @@ function registerEventListeners() {
 
     handleDocumentInput,
 
+  );
+
+  window.addEventListener(
+    'calculator-notification-registration-state',
+    renderNotificationStatus,
   );
 
   const settingsBody =

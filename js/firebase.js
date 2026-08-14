@@ -612,15 +612,266 @@ export async function registerForPush(
 
     messaging,
 
+    supportsFid,
+
   } =
 
     await loadMessaging();
 
   /*
-   * v86:
-   * Supabaseへデプロイ済みのsend-message-pushは
-   * FCM registration tokenを受け取るため、
-   * この版ではtoken方式に統一する。
+   * v88:
+   * Firebase公式の現在方式:
+   * register() + onRegistered() でFIDを受け取る。
+   */
+
+  if (
+
+    supportsFid
+
+  ) {
+
+    try {
+
+      const fid =
+
+        await new Promise(
+
+          (
+
+            resolve,
+
+            reject,
+
+          ) => {
+
+            let done =
+
+              false;
+
+            let timeoutId =
+
+              null;
+
+            let unsubscribe =
+
+              () => {};
+
+            const finish =
+
+              (
+
+                value,
+
+                error = null,
+
+              ) => {
+
+                if (
+
+                  done
+
+                ) {
+
+                  return;
+
+                }
+
+                done =
+
+                  true;
+
+                if (
+
+                  timeoutId !==
+
+                    null
+
+                ) {
+
+                  window.clearTimeout(
+
+                    timeoutId,
+
+                  );
+
+                }
+
+                try {
+
+                  unsubscribe();
+
+                } catch {}
+
+                if (
+
+                  error
+
+                ) {
+
+                  reject(
+
+                    error,
+
+                  );
+
+                } else {
+
+                  resolve(
+
+                    value,
+
+                  );
+
+                }
+
+              };
+
+            unsubscribe =
+
+              fns.onRegistered(
+
+                messaging,
+
+                (
+
+                  value,
+
+                ) => {
+
+                  if (
+
+                    typeof value ===
+
+                      'string' &&
+
+                    value.trim()
+
+                  ) {
+
+                    finish(
+
+                      value.trim(),
+
+                    );
+
+                  }
+
+                },
+
+              );
+
+            timeoutId =
+
+              window.setTimeout(
+
+                () => {
+
+                  finish(
+
+                    null,
+
+                    new Error(
+
+                      'FirebaseのFID登録完了を確認できませんでした。',
+
+                    ),
+
+                  );
+
+                },
+
+                20000,
+
+              );
+
+            Promise.resolve(
+
+              fns.register(
+
+                messaging,
+
+                {
+
+                  vapidKey:
+
+                    VAPID_KEY,
+
+                  serviceWorkerRegistration:
+
+                    swRegistration,
+
+                },
+
+              ),
+
+            ).catch(
+
+              (
+
+                error,
+
+              ) => {
+
+                finish(
+
+                  null,
+
+                  error,
+
+                );
+
+              },
+
+            );
+
+          },
+
+        );
+
+      if (
+
+        typeof fid ===
+
+          'string' &&
+
+        fid.trim()
+
+      ) {
+
+        return {
+
+          id:
+
+            fid.trim(),
+
+          method:
+
+            'fid',
+
+        };
+
+      }
+
+    } catch (
+
+      fidError
+
+    ) {
+
+      console.warn(
+
+        '[firebase.js] FID登録に失敗。legacy token方式を試します。',
+
+        fidError,
+
+      );
+
+    }
+
+  }
+
+  /*
+   * 移行期間用フォールバック。
    */
 
   if (
@@ -633,7 +884,7 @@ export async function registerForPush(
 
     throw new Error(
 
-      'FCM token取得APIを利用できません。',
+      'Firebase Messagingの端末登録APIを利用できません。',
 
     );
 
@@ -665,15 +916,13 @@ export async function registerForPush(
 
       'string' ||
 
-    token.trim() ===
-
-      ''
+    !token.trim()
 
   ) {
 
     throw new Error(
 
-      '通知用FCM tokenを取得できませんでした。',
+      '通知用の端末IDを取得できませんでした。',
 
     );
 
@@ -5324,7 +5573,7 @@ export async function savePushRegistration(
 
   registrationId,
 
-  registrationMethod = 'token',
+  registrationMethod = 'fid',
 
 ) {
 
@@ -5394,57 +5643,50 @@ export async function savePushRegistration(
 
   const roomData =
 
-    roomSnap.data();
-
-  const memberProfiles =
-
-    roomData.memberProfiles ??
+    roomSnap.data() ??
 
     {};
 
-  const currentProfile =
+  const memberIds =
 
-    memberProfiles[
+    Array.isArray(
 
-      uid
+      roomData.memberIds,
 
-    ] ??
+    )
 
-    {};
+      ? roomData.memberIds
 
-  const currentRegistrations =
+      : [];
 
-    currentProfile
+  if (
 
-      .pushRegistrations ??
+    !memberIds.includes(
 
-    {};
+      uid,
 
-  const nextRegistrations = {
+    )
 
-    ...currentRegistrations,
+  ) {
 
-    [clientId]: {
+    throw new Error(
 
-      id:
+      '現在のFirebaseユーザーがこのルームのメンバーではありません。',
 
-        registrationId,
+    );
 
-      method:
+  }
 
-        registrationMethod,
+  /*
+   * v88:
+   * pushRegistrationsマップ全体を書き換えず、
+   * clientId配下の各leafを直接updateする。
+   * これにより既存端末を壊さずserverTimestampも確実に保存する。
+   */
 
-      enabled:
+  const basePath =
 
-        true,
-
-      updatedAt:
-
-        firestoreFns.serverTimestamp(),
-
-    },
-
-  };
+    `memberProfiles.${uid}.pushRegistrations.${clientId}`;
 
   await firestoreFns.updateDoc(
 
@@ -5452,9 +5694,28 @@ export async function savePushRegistration(
 
     {
 
-      [`memberProfiles.${uid}.pushRegistrations`]:
+      [`${basePath}.id`]:
 
-        nextRegistrations,
+        String(
+
+          registrationId,
+
+        ),
+
+      [`${basePath}.method`]:
+
+        registrationMethod ===
+          'token'
+          ? 'token'
+          : 'fid',
+
+      [`${basePath}.enabled`]:
+
+        true,
+
+      [`${basePath}.updatedAt`]:
+
+        firestoreFns.serverTimestamp(),
 
     },
 

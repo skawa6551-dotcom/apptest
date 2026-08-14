@@ -72,6 +72,44 @@ let isServiceWorkerMessageListenerRegistered = false;
 
 let registrationPromise = null;
 
+let registrationState = {
+  status: 'idle',
+  message: '',
+  method: null,
+};
+
+function setRegistrationState(
+  status,
+  message = '',
+  method = null,
+) {
+  registrationState = {
+    status,
+    message,
+    method,
+  };
+
+  try {
+    window.dispatchEvent(
+      new CustomEvent(
+        'calculator-notification-registration-state',
+        {
+          detail: {
+            ...registrationState,
+          },
+        },
+      ),
+    );
+  } catch {}
+}
+
+export function getRegistrationState() {
+  return {
+    ...registrationState,
+  };
+}
+
+
 // ------------------------------------------------------------
 
 // PWA / 通知対応判定
@@ -424,6 +462,12 @@ async function ensureNotificationPermission() {
 
 async function registerCurrentDevice() {
 
+  setRegistrationState(
+    'registering',
+    '通知端末を登録しています…',
+  );
+
+
   const roomId =
 
     Firebase.getLocalRoomId();
@@ -443,6 +487,11 @@ async function registerCurrentDevice() {
    */
 
   if (!roomId) {
+
+    setRegistrationState(
+      'waiting-room',
+      'ペアリング完了後に通知端末を登録します。',
+    );
 
     return true;
 
@@ -516,6 +565,14 @@ async function registerCurrentDevice() {
 
     Settings.isNotificationContentEnabled(),
 
+  );
+
+  setRegistrationState(
+    'registered',
+    registrationInfo.method === 'fid'
+      ? 'FID登録済み'
+      : 'FCM token登録済み',
+    registrationInfo.method,
   );
 
   return true;
@@ -595,6 +652,27 @@ export async function requestPermissionAndRegister() {
   try {
 
     return await registrationPromise;
+
+  } catch (
+
+    error
+
+  ) {
+
+    const message =
+
+      error instanceof Error
+
+        ? error.message
+
+        : String(error);
+
+    setRegistrationState(
+      'error',
+      message,
+    );
+
+    throw error;
 
   } finally {
 
@@ -1155,6 +1233,7 @@ const Notifications = {
   getPermissionState,
 
   getStatus,
+  getRegistrationState,
 
   requestPermissionAndRegister,
 
