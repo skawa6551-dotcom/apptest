@@ -506,22 +506,14 @@
      calculator.js / settings.js / storage.js / auth.js / sound.js /
      themes.js はすべてapp.jsからimportされるため、ここには書かない。
      ========================================================== -->
-<script type="module" src="js/app.js?v=93"></script>
+<script type="module" src="js/app.js?v=94"></script>
 <script type="module" src="js/push-self-test.js?v=93"></script>
 <script type="module" src="js/feature-lock-patch.js?v=36"></script>
 
 <div id="featureAuthOverlay" class="feature-auth-overlay" aria-hidden="true">
   <div class="feature-auth-panel" role="dialog" aria-modal="true" aria-labelledby="featureAuthTitle">
     <div class="feature-auth-icon" aria-hidden="true">🔒</div>
-    
-        <div class="settings-row" id="currentRoomDiagnosticRow">
-          <div class="settings-row-text">
-            <span class="settings-row-title">現在のルームID</span>
-            <span class="settings-row-desc" id="currentRoomIdDiagnostic">確認中…</span>
-          </div>
-        </div>
-
-<h3 id="featureAuthTitle" class="feature-auth-title">ロック解除</h3>
+    <h3 id="featureAuthTitle" class="feature-auth-title">ロック解除</h3>
     <p id="featureAuthMessage" class="feature-auth-message">パスコードを入力してください</p>
     <input id="featureAuthInput" class="feature-auth-input" type="tel" inputmode="numeric" autocomplete="off" maxlength="8" aria-label="パスコード">
     <p id="featureAuthError" class="feature-auth-error" hidden>パスコードが違います</p>
@@ -562,6 +554,5 @@
 <script type="module" src="js/message-history-v2.js?v=81"></script>
 
 <script type="module" src="js/screen-backgrounds.js?v=70"></script>
-  <script type="module" src="js/room-id-diagnostic.js?v=1"></script>
 </body>
 </html>
