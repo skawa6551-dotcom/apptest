@@ -445,6 +445,76 @@ export async function deletePhoto(path) {
   return data;
 }
 
+export async function sendMessagePush(
+  payload,
+) {
+  if (
+    !payload ||
+    typeof payload.token !== 'string' ||
+    !payload.token.trim()
+  ) {
+    throw new Error(
+      'Push通知先tokenがありません。',
+    );
+  }
+
+  await ensureSignedIn();
+
+  if (
+    getRoomId()
+  ) {
+    await syncCurrentRoom();
+  }
+
+  const supabase =
+    requireClient();
+
+  const {
+    data,
+    error,
+  } =
+    await supabase.functions.invoke(
+      'send-message-push',
+      {
+        body: {
+          token:
+            payload.token.trim(),
+          title:
+            typeof payload.title === 'string'
+              ? payload.title
+              : 'Calculator',
+          message:
+            typeof payload.message === 'string'
+              ? payload.message
+              : '',
+          data:
+            payload.data &&
+            typeof payload.data === 'object'
+              ? payload.data
+              : {},
+        },
+      },
+    );
+
+  if (
+    error
+  ) {
+    throw error;
+  }
+
+  if (
+    data?.success === false
+  ) {
+    throw new Error(
+      typeof data?.error === 'string'
+        ? data.error
+        : 'Push通知送信に失敗しました。',
+    );
+  }
+
+  return data;
+}
+
 export async function runDiagnostic() {
   try {
     const user = await ensureSignedIn();
@@ -503,6 +573,7 @@ const Supabase = Object.freeze({
   init,
   ensureSignedIn,
   syncCurrentRoom,
+  sendMessagePush,
   runDiagnostic,
   getDiagnosticState,
   getDiagnosticEventName,

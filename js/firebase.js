@@ -612,304 +612,15 @@ export async function registerForPush(
 
     messaging,
 
-    supportsFid,
-
   } =
 
     await loadMessaging();
 
   /*
-
-   * Firebase 12系の推奨方式。
-
-   *
-
-   * register()完了後、
-
-   * onRegistered()からFirebase Installation IDを受け取る。
-
-   */
-
-  if (
-
-    supportsFid
-
-  ) {
-
-    const id =
-
-      await new Promise(
-
-        (
-
-          resolve,
-
-          reject,
-
-        ) => {
-
-          let settled =
-
-            false;
-
-          let timeoutId =
-
-            null;
-
-          let unsubscribe =
-
-            () => {};
-
-          const finishSuccess =
-
-            (
-
-              installationId,
-
-            ) => {
-
-              if (
-
-                settled
-
-              ) {
-
-                return;
-
-              }
-
-              settled =
-
-                true;
-
-              if (
-
-                timeoutId !==
-
-                null
-
-              ) {
-
-                window.clearTimeout(
-
-                  timeoutId,
-
-                );
-
-              }
-
-              try {
-
-                unsubscribe();
-
-              } catch {
-
-                // no-op
-
-              }
-
-              resolve(
-
-                installationId,
-
-              );
-
-            };
-
-          const finishError =
-
-            (
-
-              error,
-
-            ) => {
-
-              if (
-
-                settled
-
-              ) {
-
-                return;
-
-              }
-
-              settled =
-
-                true;
-
-              if (
-
-                timeoutId !==
-
-                null
-
-              ) {
-
-                window.clearTimeout(
-
-                  timeoutId,
-
-                );
-
-              }
-
-              try {
-
-                unsubscribe();
-
-              } catch {
-
-                // no-op
-
-              }
-
-              reject(
-
-                error,
-
-              );
-
-            };
-
-          try {
-
-            unsubscribe =
-
-              fns.onRegistered(
-
-                messaging,
-
-                (
-
-                  installationId,
-
-                ) => {
-
-                  if (
-
-                    typeof installationId !==
-
-                      'string' ||
-
-                    installationId.trim() ===
-
-                      ''
-
-                  ) {
-
-                    return;
-
-                  }
-
-                  finishSuccess(
-
-                    installationId.trim(),
-
-                  );
-
-                },
-
-              );
-
-          } catch (
-
-            error
-
-          ) {
-
-            finishError(
-
-              error,
-
-            );
-
-            return;
-
-          }
-
-          timeoutId =
-
-            window.setTimeout(
-
-              () => {
-
-                finishError(
-
-                  new Error(
-
-                    '通知登録の完了確認がタイムアウトしました。',
-
-                  ),
-
-                );
-
-              },
-
-              15000,
-
-            );
-
-          fns
-
-            .register(
-
-              messaging,
-
-              {
-
-                vapidKey:
-
-                  VAPID_KEY,
-
-                serviceWorkerRegistration:
-
-                  swRegistration,
-
-              },
-
-            )
-
-            .catch(
-
-              (
-
-                error,
-
-              ) => {
-
-                finishError(
-
-                  error,
-
-                );
-
-              },
-
-            );
-
-        },
-
-      );
-
-    return {
-
-      id,
-
-      method:
-
-        'fid',
-
-    };
-
-  }
-
-  /*
-
-   * 古いFirebase Messagingとの互換用。
-
-   * 現在は通常ここには入らない。
-
+   * v86:
+   * Supabaseへデプロイ済みのsend-message-pushは
+   * FCM registration tokenを受け取るため、
+   * この版ではtoken方式に統一する。
    */
 
   if (
@@ -922,7 +633,7 @@ export async function registerForPush(
 
     throw new Error(
 
-      '通知登録APIを利用できません。',
+      'FCM token取得APIを利用できません。',
 
     );
 
@@ -950,13 +661,19 @@ export async function registerForPush(
 
   if (
 
-    !token
+    typeof token !==
+
+      'string' ||
+
+    token.trim() ===
+
+      ''
 
   ) {
 
     throw new Error(
 
-      '通知の登録に失敗しました。',
+      '通知用FCM tokenを取得できませんでした。',
 
     );
 
@@ -966,7 +683,7 @@ export async function registerForPush(
 
     id:
 
-      token,
+      token.trim(),
 
     method:
 
@@ -3878,6 +3595,244 @@ export async function sendMessage(
     },
 
   );
+
+  try {
+
+    const roomSnapshot =
+
+      await firestoreFns.getDoc(
+
+        roomRef,
+
+      );
+
+    if (
+
+      roomSnapshot.exists()
+
+    ) {
+
+      const room =
+
+        roomSnapshot.data() ??
+
+        {};
+
+      const memberIds =
+
+        Array.isArray(
+
+          room.memberIds,
+
+        )
+
+          ? room.memberIds
+
+          : [];
+
+      const profiles =
+
+        room.memberProfiles &&
+
+        typeof room.memberProfiles ===
+
+          'object'
+
+          ? room.memberProfiles
+
+          : {};
+
+      const senderName =
+
+        typeof profiles?.[senderId]?.displayName ===
+
+          'string' &&
+
+        profiles[senderId].displayName.trim()
+
+          ? profiles[senderId].displayName.trim()
+
+          : 'メッセージ';
+
+      const recipients = [];
+
+      for (
+
+        const memberId of memberIds
+
+      ) {
+
+        if (
+
+          !memberId ||
+
+          memberId === senderId
+
+        ) {
+
+          continue;
+
+        }
+
+        const profile =
+
+          profiles[memberId] ??
+
+          {};
+
+        const registrations =
+
+          profile.pushRegistrations &&
+
+          typeof profile.pushRegistrations ===
+
+            'object'
+
+            ? profile.pushRegistrations
+
+            : {};
+
+        for (
+
+          const registration of Object.values(
+
+            registrations,
+
+          )
+
+        ) {
+
+          if (
+
+            !registration ||
+
+            registration.enabled === false ||
+
+            registration.method !== 'token' ||
+
+            typeof registration.id !== 'string' ||
+
+            !registration.id.trim()
+
+          ) {
+
+            continue;
+
+          }
+
+          recipients.push({
+
+            token:
+
+              registration.id.trim(),
+
+            contentEnabled:
+
+              profile.notificationContentEnabled === true,
+
+          });
+
+        }
+
+      }
+
+      if (
+
+        recipients.length > 0
+
+      ) {
+
+        const Supabase =
+
+          (
+
+            await import(
+
+              './supabase.js'
+
+            )
+
+          ).default;
+
+        for (
+
+          const recipient of recipients.slice(
+
+            0,
+
+            4,
+
+          )
+
+        ) {
+
+          await Supabase.sendMessagePush({
+
+            token:
+
+              recipient.token,
+
+            title:
+
+              recipient.contentEnabled
+
+                ? senderName
+
+                : 'Calculator',
+
+            message:
+
+              recipient.contentEnabled
+
+                ? text.slice(
+
+                    0,
+
+                    120,
+
+                  )
+
+                : '新しいメッセージがあります',
+
+            data: {
+
+              type:
+
+                'calculator-0209-message',
+
+              roomId,
+
+              messageId:
+
+                messageRef.id,
+
+              senderId,
+
+            },
+
+          });
+
+        }
+
+      }
+
+    }
+
+  } catch (
+
+    pushError
+
+  ) {
+
+    console.warn(
+
+      '[firebase.js] Push通知送信に失敗しました（メッセージ本体は送信済み）',
+
+      pushError,
+
+    );
+
+  }
 
   return messageRef.id;
 
