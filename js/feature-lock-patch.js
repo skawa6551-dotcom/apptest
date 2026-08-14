@@ -91,15 +91,38 @@ function hideLock() {
   if (error) error.hidden = true;
 }
 
-function openFeature(secret) {
+async function openFeature(secret) {
   switch (secret) {
-    case 'messages':
-      if (Firebase.getLocalRoomId()) {
-        Router.openMessages();
-      } else {
-        Router.openPairing();
+    case 'messages': {
+      /*
+       * Workspaceのパスコード認証後にも必ずFirestore側の
+       * ペアリング完了状態を確認する。
+       * localStorageにroomIdが残っているだけではAI Spaceを開かない。
+       */
+      try {
+        const roomId = await Firebase.resolvePersistentRoomId();
+        const room = roomId ? await Firebase.getRoom(roomId) : null;
+        const memberIds = Array.isArray(room?.memberIds)
+          ? room.memberIds
+          : [];
+
+        if (
+          room?.status === 'active' &&
+          memberIds.length === 2
+        ) {
+          Router.openMessages();
+          break;
+        }
+      } catch (error) {
+        console.warn(
+          '[feature-lock-patch.js] ペアリング完了状態の確認に失敗しました',
+          error,
+        );
       }
+
+      Router.openPairing();
       break;
+    }
 
     case 'calendar':
       Router.openCalendar();
