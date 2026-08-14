@@ -448,13 +448,21 @@ export async function deletePhoto(path) {
 export async function sendMessagePush(
   payload,
 ) {
+  const targetId =
+    typeof payload?.targetId === 'string'
+      ? payload.targetId.trim()
+      : '';
+
+  const targetType =
+    payload?.targetType === 'token'
+      ? 'token'
+      : 'fid';
+
   if (
-    !payload ||
-    typeof payload.token !== 'string' ||
-    !payload.token.trim()
+    !targetId
   ) {
     throw new Error(
-      'Push通知先tokenがありません。',
+      'Push通知先IDがありません。',
     );
   }
 
@@ -477,8 +485,8 @@ export async function sendMessagePush(
       'send-message-push',
       {
         body: {
-          token:
-            payload.token.trim(),
+          targetId,
+          targetType,
           title:
             typeof payload.title === 'string'
               ? payload.title

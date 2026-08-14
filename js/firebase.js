@@ -3957,7 +3957,17 @@ export async function sendMessage(
 
             registration.enabled === false ||
 
-            registration.method !== 'token' ||
+            ![
+
+              'fid',
+
+              'token',
+
+            ].includes(
+
+              registration.method,
+
+            ) ||
 
             typeof registration.id !== 'string' ||
 
@@ -3971,9 +3981,13 @@ export async function sendMessage(
 
           recipients.push({
 
-            token:
+            targetId:
 
               registration.id.trim(),
+
+            targetType:
+
+              registration.method,
 
             contentEnabled:
 
@@ -4017,9 +4031,13 @@ export async function sendMessage(
 
           await Supabase.sendMessagePush({
 
-            token:
+            targetId:
 
-              recipient.token,
+              recipient.targetId,
+
+            targetType:
+
+              recipient.targetType,
 
             title:
 
