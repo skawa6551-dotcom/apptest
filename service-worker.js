@@ -34,7 +34,7 @@
 
 // ============================================================
 
-const CACHE_VERSION = 94;
+const CACHE_VERSION = 95;
 
 const CACHE_PREFIX =
 
