@@ -285,14 +285,18 @@
         </div>
       </div>
 
-      <!-- ---------------- 通知 ----------------
-           【注意】通知を実際に配信する仕組みは未実装のため、
-           ここでは設定値の保存のみを行う。 -->
+      <!-- ---------------- 通知 ---------------- -->
       <div class="settings-group" role="group" aria-label="通知">
         <div class="settings-row">
           <div class="settings-row-text">
             <span class="settings-row-title">通知</span>
-            <span class="settings-row-desc">新着メッセージの通知</span>
+            <span
+              class="settings-row-desc"
+              id="notificationStatusLabel">新着メッセージの通知</span>
+            <span
+              class="settings-row-desc"
+              id="notificationHomeScreenHint"
+              hidden>通知を使うにはホーム画面のCalculatorから起動してください</span>
           </div>
           <label class="toggle">
             <input type="checkbox" id="notificationsToggle" checked>
@@ -482,7 +486,7 @@
      calculator.js / settings.js / storage.js / auth.js / sound.js /
      themes.js はすべてapp.jsからimportされるため、ここには書かない。
      ========================================================== -->
-<script type="module" src="js/app.js?v=88"></script>
+<script type="module" src="js/app.js?v=89"></script>
 <script type="module" src="js/feature-lock-patch.js?v=36"></script>
 
 <div id="featureAuthOverlay" class="feature-auth-overlay" aria-hidden="true">
